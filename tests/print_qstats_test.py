@@ -17,10 +17,10 @@ import pytest
 from keras.layers import Activation, BatchNormalization, Conv2D, DepthwiseConv2D, Input
 from keras.models import Model
 
-from qkeras import QConv2D
-from qkeras.estimate import print_qstats
-from qkeras.quantizers import *
-from qkeras.utils import model_quantize
+from qkerasV3 import QConv2D
+from qkerasV3.estimate import print_qstats
+from qkerasV3.quantizers import *
+from qkerasV3.utils import model_quantize
 
 
 def create_network():

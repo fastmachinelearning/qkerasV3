@@ -84,7 +84,7 @@ def deconv_output_length(
     return length
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QConv1D(layers.Conv1D, PrunableLayer):
     """1D convolution layer (e.g. spatial convolution over images)."""
 
@@ -229,7 +229,7 @@ class QConv1D(layers.Conv1D, PrunableLayer):
         return [self.kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QConv2D(layers.Conv2D, PrunableLayer):
     """2D convolution layer (e.g. spatial convolution over images)."""
 
@@ -426,7 +426,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
         return [self.kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
     """2D convolution layer (e.g. spatial convolution over images)."""
 
@@ -600,7 +600,7 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
         return [self.kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
     """Depthwise separable 1D convolution."""
 
@@ -789,7 +789,7 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
         return [self.depthwise_kernel, self.pointwise_kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
     """Depthwise separable 2D convolution."""
 
@@ -961,7 +961,7 @@ class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
         return [self.depthwise_kernel, self.pointwise_kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
     """Creates quantized depthwise conv2d. Copied from mobilenet."""
 
@@ -1178,7 +1178,7 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
         return [self.depthwise_kernel]
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 def QMobileNetSeparableConv2D(
     filters,  # pylint: disable=invalid-name
     kernel_size,

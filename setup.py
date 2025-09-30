@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Setup script for qkeras."""
+"""Setup script for qkerasV3."""
 
 
 import setuptools
@@ -22,10 +22,10 @@ with open("README.md", encoding="utf8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="QKeras",
-    version="0.9.0",
-    author="QKeras Team",
-    author_email="qkeras-team@google.com",
+    name="qkerasV3",
+    version="1.0.0",
+    author="qkerasV3 Team",
+    author_email="qkerasV3-team@google.com",
     maintainer="Shan Li",
     maintainer_email="lishanok@google.com",
     packages=setuptools.find_packages(),
@@ -35,15 +35,15 @@ setuptools.setup(
     description="Quantization package for Keras",
     long_description=long_description,
     install_requires=[
-        "numpy>=1.16.0",
-        "scipy>=1.4.1",
+        "numpy",
+        "scipy",
         "pyparser",
-        "setuptools>=41.0.0",
-        "tensorflow-model-optimization>=0.2.1",
-        "networkx>=2.1",
-        "keras-tuner>=1.0.1",
-        "scikit-learn>=0.23.1",
-        "tqdm>=4.48.0",
+        "setuptools",
+        "tensorflow-model-optimization",
+        "networkx",
+        "scikit-learn",
+        "tqdm",
+        "keras-tuner"
     ],
     setup_requires=[
         "pytest-runner",

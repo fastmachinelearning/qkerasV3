@@ -18,7 +18,7 @@
 
 import copy
 
-from qkeras.qtools.quantized_operators import accumulator_impl, multiplier_impl
+from qkerasV3.qtools.quantized_operators import accumulator_impl, multiplier_impl
 
 
 class AccumulatorFactory:

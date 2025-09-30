@@ -26,7 +26,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.utils import to_categorical
 
-from qkeras import *
+from qkerasV3 import *
 
 np.random.seed(42)
 

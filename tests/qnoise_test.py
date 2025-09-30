@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
-from qkeras.quantizers import quantized_bits, quantized_relu
+from qkerasV3.quantizers import quantized_bits, quantized_relu
 
 
 def test_qnoise_quantized_bits():

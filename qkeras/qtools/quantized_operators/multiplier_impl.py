@@ -20,7 +20,7 @@ import abc
 
 import numpy as np
 
-from qkeras.qtools.quantized_operators import quantizer_impl
+from qkerasV3.qtools.quantized_operators import quantizer_impl
 
 
 class IMultiplier(abc.ABC):

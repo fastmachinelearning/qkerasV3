@@ -22,7 +22,7 @@ from keras.saving import register_keras_serializable
 from .quantizers import get_quantizer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QAveragePooling2D(layers.AveragePooling2D):
     """Computes the quantized version of AveragePooling2D."""
 
@@ -127,7 +127,7 @@ class QAveragePooling2D(layers.AveragePooling2D):
         return self.quantizers
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QGlobalAveragePooling2D(layers.GlobalAveragePooling2D):
     """Computes the quantized version of GlobalAveragePooling2D."""
 

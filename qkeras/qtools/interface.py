@@ -18,7 +18,7 @@
 
 import collections
 
-from qkeras.qtools import generate_layer_data_type_map, qtools_util
+from qkerasV3.qtools import generate_layer_data_type_map, qtools_util
 
 
 def print_qstats(graph):

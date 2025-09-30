@@ -20,7 +20,7 @@ import copy
 
 from absl import logging
 
-from qkeras.qtools.quantized_operators import multiplier_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import multiplier_impl, quantizer_impl
 
 
 class MultiplierFactory:

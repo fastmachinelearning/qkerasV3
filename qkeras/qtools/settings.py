@@ -110,7 +110,7 @@ class ConfigClass:
             for key in cfg_setting["include_energy"]:
                 self.include_energy[key] = cfg_setting["include_energy"][key]
                 if "Q" == key[0]:
-                    # use the same rule for keras layer and qkeras layer
+                    # use the same rule for keras layer and qkerasV3 layer
                     self.include_energy[key[1:]] = cfg_setting["include_energy"][key]
         except:
             pass

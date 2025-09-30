@@ -697,7 +697,7 @@ def _floor_through(x):
 #
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_linear(base_quantizer.BaseQuantizer):
     """Linear quantization with fixed number of bits.
@@ -1194,7 +1194,7 @@ class quantized_linear(base_quantizer.BaseQuantizer):
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Legacy quantizer: Quantizes the number to a number of bits.
@@ -1584,7 +1584,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes a Bernoulli sample with probability sigmoid(x).
@@ -1700,7 +1700,7 @@ class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes an activation function returning -alpha, 0 or +alpha.
@@ -1861,7 +1861,7 @@ class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class stochastic_ternary(ternary):  # pylint: disable=invalid-name
     """Computes a stochastic activation function returning -alpha, 0 or +alpha.
@@ -2025,7 +2025,7 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes the sign(x) returning a value between -alpha and alpha.
@@ -2237,7 +2237,7 @@ class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class stochastic_binary(binary):  # pylint: disable=invalid-name
     """Computes a stochastic activation function returning -alpha or +alpha.
@@ -2345,7 +2345,7 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes a quantized relu to a number of bits.
@@ -2603,7 +2603,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_ulaw(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes a u-law quantization.
@@ -2682,7 +2682,7 @@ class quantized_ulaw(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_tanh(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes a quantized tanh to a number of bits.
@@ -2759,7 +2759,7 @@ class quantized_tanh(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_sigmoid(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Computes a quantized sigmoid to a number of bits.
@@ -2978,7 +2978,7 @@ def _get_min_max_exponents(
     return min_exp, max_exp
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Quantizes to the closest power of 2.
@@ -3127,7 +3127,7 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
     """Quantizes x to the closest power of 2 when x > 0
@@ -3316,7 +3316,7 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
         return config
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 @quantizer_registry.register_quantizer
 class quantized_hswish(quantized_bits):  # pylint: disable=invalid-name
     """Computes a quantized hard swish to a number of bits.

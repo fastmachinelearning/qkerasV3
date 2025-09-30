@@ -18,10 +18,10 @@
 
 import numpy as np
 
-from qkeras.qtools import qtools_util
-from qkeras.qtools.generate_layer_data_type_map import KERAS_LAYERS, QKERAS_LAYERS
-from qkeras.qtools.quantized_operators.quantizer_impl import IQuantizer
-from qkeras.qtools.settings import cfg
+from qkerasV3.qtools import qtools_util
+from qkerasV3.qtools.generate_layer_data_type_map import KERAS_LAYERS, qkerasV3_LAYERS
+from qkerasV3.qtools.quantized_operators.quantizer_impl import IQuantizer
+from qkerasV3.qtools.settings import cfg
 
 # Model based on：
 #   Mark Horowitz, Computing’s Energy Problem (and what we can
@@ -147,7 +147,7 @@ def parameter_read_energy(
                     is_tensor=False,
                 )
 
-    elif node_type in QKERAS_LAYERS or node_type in KERAS_LAYERS:
+    elif node_type in qkerasV3_LAYERS or node_type in KERAS_LAYERS:
         weight_quantizer = qtools_util.get_val(layer_item, "weight_quantizer")
         w_shapes = qtools_util.get_val(layer_item, "w_shapes")
         bias_quantizer = qtools_util.get_val(layer_item, "bias_quantizer")

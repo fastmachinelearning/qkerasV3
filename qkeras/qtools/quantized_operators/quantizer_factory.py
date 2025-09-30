@@ -18,16 +18,16 @@
 
 import copy
 
-from qkeras import quantizers
+from qkerasV3 import quantizers
 
-# from qkeras.google_internals import experimental_quantizers
-# from qkeras.google_internals import experimental_quantizer_impl
-from qkeras.qtools.quantized_operators import quantizer_impl
-from qkeras.qtools.settings import cfg
+# from qkerasV3.google_internals import experimental_quantizers
+# from qkerasV3.google_internals import experimental_quantizer_impl
+from qkerasV3.qtools.quantized_operators import quantizer_impl
+from qkerasV3.qtools.settings import cfg
 
 
 class QuantizerFactory:
-    """Convert qkeras quantizer to qtools quantizer type."""
+    """Convert qkerasV3 quantizer to qtools quantizer type."""
 
     def __init__(self):
         self.quantizer_lookup = {
@@ -78,13 +78,13 @@ class QuantizerFactory:
                 return self.clone_quantizer(quantizer)
             else:
                 q = quantizer_class()
-                q.convert_qkeras_quantizer(quantizer)
+                q.convert_qkerasV3_quantizer(quantizer)
                 return q
 
         return None
 
     def make_quantizer(self, quantizer) -> quantizer_impl.IQuantizer:
-        """create quantizer according to input qkeras quantizer."""
+        """create quantizer according to input qkerasV3 quantizer."""
 
         q = None
         if quantizer is not None:
@@ -103,29 +103,29 @@ class QuantizerFactory:
         return isinstance(quantizer, tuple(self.quantizer_lookup.keys()))
 
     def make_default_quantizer(self, mode) -> quantizer_impl.IQuantizer:
-        """make quantizer given qkeras quantizer type."""
+        """make quantizer given qkerasV3 quantizer type."""
         if mode == "fp32":
             return quantizer_impl.FloatingPoint(bits=32)
         elif mode == "fp16":
             return quantizer_impl.FloatingPoint(bits=16)
         elif mode == "int8":
             qbits = quantizer_impl.QuantizedBits()
-            qbits.convert_qkeras_quantizer(quantizers.quantized_bits(8, 0, 1))
+            qbits.convert_qkerasV3_quantizer(quantizers.quantized_bits(8, 0, 1))
             return qbits
         elif mode == "int16":
             qbits = quantizer_impl.QuantizedBits()
-            qbits.convert_qkeras_quantizer(quantizers.quantized_bits(16, 7, 1))
+            qbits.convert_qkerasV3_quantizer(quantizers.quantized_bits(16, 7, 1))
             return qbits
         elif mode == "int32":
             qbits = quantizer_impl.QuantizedBits()
-            qbits.convert_qkeras_quantizer(quantizers.quantized_bits(32, 10, 1))
+            qbits.convert_qkerasV3_quantizer(quantizers.quantized_bits(32, 10, 1))
             return qbits
         else:
             try:
                 # string to quantizer object
                 q_name = "quantizers." + mode
-                qkeras_object = eval(q_name)  # pylint: disable=eval-used
-                return self._make_quantizer_util(qkeras_object)
+                qkerasV3_object = eval(q_name)  # pylint: disable=eval-used
+                return self._make_quantizer_util(qkerasV3_object)
             except:  # pylint: disable=bare-except
                 raise ValueError(f"unaccepted quantizer {mode}!")
 

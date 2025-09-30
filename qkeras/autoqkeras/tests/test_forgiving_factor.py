@@ -19,11 +19,11 @@ import pytest
 from tensorflow.keras.layers import *  # pylint: disable=wildcard-import
 from tensorflow.keras.models import Model
 
-from qkeras import *  # pylint: disable=wildcard-import
-from qkeras.autoqkeras.forgiving_metrics import (
+from qkerasV3 import *  # pylint: disable=wildcard-import
+from qkerasV3.autoqkerasV3.forgiving_metrics import (
     ForgivingFactorBits,  # pylint: disable=line-too-long
 )
-from qkeras.utils import model_quantize
+from qkerasV3.utils import model_quantize
 
 
 def get_model():

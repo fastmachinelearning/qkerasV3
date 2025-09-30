@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Exports qkeras modules to quantizer package."""
+"""Exports qkerasV3 modules to quantizer package."""
 
 # We use wildcard import for convenience at this moment, which will be later
 # refactored and removed.
@@ -39,6 +39,6 @@ from .quantizers import *  # pylint: disable=wildcard-import
 from .registry import *  # pylint: disable=wildcard-import
 from .safe_eval import *  # pylint: disable=wildcard-import
 
-assert tf.executing_eagerly(), "QKeras requires TF with eager execution mode on"
+assert tf.executing_eagerly(), "qkerasV3 requires TF with eager execution mode on"
 
 __version__ = "1.0.0"

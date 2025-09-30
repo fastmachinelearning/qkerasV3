@@ -26,7 +26,7 @@ from keras.layers import AveragePooling2D, GlobalAveragePooling2D, Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal, assert_raises
 
-from qkeras import (
+from qkerasV3 import (
     QAveragePooling2D,
     QGlobalAveragePooling2D,
     binary,
@@ -34,8 +34,8 @@ from qkeras import (
     quantized_bits,
     ternary,
 )
-from qkeras.qtools import generate_layer_data_type_map, interface, qgraph
-from qkeras.utils import (
+from qkerasV3.qtools import generate_layer_data_type_map, interface, qgraph
+from qkerasV3.utils import (
     load_qmodel,
     model_quantize,
     model_save_quantized_weights,

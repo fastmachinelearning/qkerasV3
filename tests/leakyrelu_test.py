@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 from keras import backend as K
 from numpy.testing import assert_allclose
 
-from qkeras import quantized_relu, quantized_relu_po2
+from qkerasV3 import quantized_relu, quantized_relu_po2
 
 
 @pytest.mark.parametrize(

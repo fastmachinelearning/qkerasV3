@@ -29,7 +29,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 
-from qkeras.autoqkeras import AutoQKerasScheduler
+from qkerasV3.autoqkerasV3 import AutoQKerasV3Scheduler
 
 
 def dense_model():
@@ -52,8 +52,8 @@ def dense_model():
     return model
 
 
-def test_autoqkeras():
-    """Tests AutoQKeras scheduler."""
+def test_autoqkerasV3():
+    """Tests AutoqkerasV3 scheduler."""
     np.random.seed(42)
     tf.random.set_seed(42)
 
@@ -118,7 +118,7 @@ def test_autoqkeras():
         "schedule_block": "cost",
     }
 
-    autoqk = AutoQKerasScheduler(model, metrics=["acc"], **run_config)
+    autoqk = AutoQKerasV3Scheduler(model, metrics=["acc"], **run_config)
     autoqk.fit(x_train, y_train, validation_split=0.1, batch_size=150, epochs=4)
 
     qmodel = autoqk.get_best_model()

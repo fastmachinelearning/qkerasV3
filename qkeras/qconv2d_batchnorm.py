@@ -31,7 +31,7 @@ tf.compat.v2.enable_v2_behavior()
 
 
 # TODO(lishanok): Create an abstract folding parent class
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QConv2DBatchnorm(QConv2D):
     """Fold batchnormalization with a previous qconv2d layer."""
 
@@ -84,7 +84,7 @@ class QConv2DBatchnorm(QConv2D):
         """Initialize a composite layer that folds conv2d and batch normalization.
 
         The first group of parameters correponds to the initialization parameters
-          of a qconv2d layer. check qkeras.qconvolutional.qconv2d for details.
+          of a qconv2d layer. check qkerasV3.qconvolutional.qconv2d for details.
 
         The 2nd group of parameters corresponds to the initialization parameters
           of a BatchNormalization layer. Check keras.layers.normalization.BatchNorma

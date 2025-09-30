@@ -21,7 +21,7 @@ import copy
 
 from absl import logging
 
-from qkeras.qtools.quantized_operators import divider_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import divider_impl, quantizer_impl
 
 
 class UnacceptedQuantizerError(ValueError):

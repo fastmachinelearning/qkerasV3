@@ -23,8 +23,8 @@ from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal
 
-from qkeras import *
-from qkeras.callbacks import QNoiseScheduler
+from qkerasV3 import *
+from qkerasV3.callbacks import QNoiseScheduler
 
 
 def qconv_model():

@@ -13,5 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Imports for QKeras quantizers."""
+"""Imports for qkerasV3 quantizers."""
 

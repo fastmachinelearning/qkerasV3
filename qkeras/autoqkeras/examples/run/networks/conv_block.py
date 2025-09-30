@@ -32,7 +32,7 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import *  # pylint: disable=wildcard-import
 
-from qkeras import *  # pylint: disable=wildcard-import
+from qkerasV3 import *  # pylint: disable=wildcard-import
 
 
 class ConvBlockNetwork:

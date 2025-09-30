@@ -23,7 +23,7 @@ import numpy as np
 import tensorflow as tf
 from keras import backend as K
 
-from qkeras.qtools import quantized_operators
+from qkerasV3.qtools import quantized_operators
 
 
 def get_val(feature, key, default_val=None):
@@ -82,7 +82,7 @@ def get_input_quantizers(graph, node_id, quantizer_factory, debug=False):
 def get_input_quantizers_advanced(
     graph, node_id, is_input_layer, quantizer_factory, cfg, debug=False
 ):
-    """get input quantizer, deal with keras layer or lack of input quantizer in qkeras layer."""
+    """get input quantizer, deal with keras layer or lack of input quantizer in qkerasV3 layer."""
 
     # in merge layers, therea are more than 1 input
     default_source_quantizer = cfg.default_source_quantizer
@@ -118,7 +118,7 @@ def get_input_quantizers_advanced(
 
 
 def get_operation_count(layer, input_shape):
-    """Determines number of multiplier operations in a qkeras layer."""
+    """Determines number of multiplier operations in a qkerasV3 layer."""
 
     # Check if the inputs are a list of Dimensions
     if isinstance(input_shape, list):
@@ -240,7 +240,7 @@ def get_weights(layer, model_weights_already_quantized=True):
     """Get layer weights.
 
     Args:
-      layer: given qkeras/keras layer
+      layer: given qkerasV3/keras layer
       model_weights_already_quantized: bool. whether the given layer's weights
         are already quantized. This is necessary because with certain quantizers,
         eg., quantized_bits(alpha="auto_po2"), we cannot quantize the same
@@ -269,7 +269,7 @@ def get_scale_from_quantized_bits_with_auto_po2(quantizer):
         return None
 
 
-def adjust_multiplier_for_auto_po2(multiplier, qkeras_weight_quantizer):
+def adjust_multiplier_for_auto_po2(multiplier, qkerasV3_weight_quantizer):
     """Adjust multiplier when weight quantizer is auto_po2 type.
 
     Multiplier_bits = bits_x + bits_w
@@ -284,13 +284,13 @@ def adjust_multiplier_for_auto_po2(multiplier, qkeras_weight_quantizer):
     print("adjust multiplier for auto_po2 ...")
     output_quantizer = multiplier.output
     if (
-        hasattr(qkeras_weight_quantizer, "__str__")
-        and "quantized_bits" in qkeras_weight_quantizer.__str__()
-        and qkeras_weight_quantizer.alpha == "auto_po2"
+        hasattr(qkerasV3_weight_quantizer, "__str__")
+        and "quantized_bits" in qkerasV3_weight_quantizer.__str__()
+        and qkerasV3_weight_quantizer.alpha == "auto_po2"
     ):
         bits = output_quantizer.bits
         int_bits = output_quantizer.int_bits
-        scale = get_scale_from_quantized_bits_with_auto_po2(qkeras_weight_quantizer)
+        scale = get_scale_from_quantized_bits_with_auto_po2(qkerasV3_weight_quantizer)
         if scale is not None:
             if isinstance(scale, np.ndarray):
                 scale = np.squeeze(scale)
@@ -324,24 +324,24 @@ def adjust_multiplier_for_auto_po2(multiplier, qkeras_weight_quantizer):
                 "scale",
                 file=sys.stderr,
             )
-    elif hasattr(qkeras_weight_quantizer, "alpha") and (
-        qkeras_weight_quantizer.alpha == "auto_po2"
+    elif hasattr(qkerasV3_weight_quantizer, "alpha") and (
+        qkerasV3_weight_quantizer.alpha == "auto_po2"
     ):
         print(
             "[WARNING] auto_po2 is detected on a non-quantized_bits quantizer."
             "Currently in QTools we do not yet support the auto_po2 with the "
-            f" given quantizer type: {type(qkeras_weight_quantizer)}."
+            f" given quantizer type: {type(qkerasV3_weight_quantizer)}."
             "Therefore we do not adjust the multiplier and accumulator bit width"
         )
 
 
 def adjust_accumulator_for_auto_po2(
-    layer, multiplier, qkeras_weight_quantizer, bias_quantizer
+    layer, multiplier, qkerasV3_weight_quantizer, bias_quantizer
 ):
     """Adjust accumulator when weight quantizer is auto_po2 type."""
 
     fused_multiplier = copy.deepcopy(multiplier)
-    adjust_multiplier_for_auto_po2(fused_multiplier, qkeras_weight_quantizer)
+    adjust_multiplier_for_auto_po2(fused_multiplier, qkerasV3_weight_quantizer)
     weights = layer.get_weights()
     kernel = weights[0]
 

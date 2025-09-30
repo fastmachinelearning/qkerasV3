@@ -18,13 +18,13 @@
 
 from tensorflow import keras
 
-from qkeras import QActivation, QDense, quantizers
-from qkeras.qtools import run_qtools
-from qkeras.qtools import settings as qtools_settings
+from qkerasV3 import QActivation, QDense, quantizers
+from qkerasV3.qtools import run_qtools
+from qkerasV3.qtools import settings as qtools_settings
 
 
 def hybrid_model():
-    """hybrid model that mixes qkeras and keras layers."""
+    """hybrid model that mixes qkerasV3 and keras layers."""
 
     x = x_in = keras.layers.Input((784,), name="input")
     x = keras.layers.Dense(300, name="d0")(x)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     # By setting for_reference=True, we create QTools object which uses
     # keras_quantizer to quantize weights/bias and
     # keras_accumulator to quantize MAC variables for all layers. Obviously, this
-    # overwrites any quantizers that user specified in the qkeras layers. The
+    # overwrites any quantizers that user specified in the qkerasV3 layers. The
     # purpose of doing so is to enable user to calculate a baseline energy number
     # for a given model architecture and compare it against quantized models.
     q = run_qtools.QTools(
@@ -116,8 +116,8 @@ if __name__ == "__main__":
     print("Total baseline energy:", total_reference_energy)
 
     # By setting for_reference=False, we quantize the model using quantizers
-    # specified by users in qkeras layers. For hybrid models where there are
-    # mixture of unquantized keras layers and quantized qkeras layers, we use
+    # specified by users in qkerasV3 layers. For hybrid models where there are
+    # mixture of unquantized keras layers and quantized qkerasV3 layers, we use
     # keras_quantizer to quantize weights/bias and keras_accumulator to quantize
     # MAC variables for all keras layers.
     q = run_qtools.QTools(

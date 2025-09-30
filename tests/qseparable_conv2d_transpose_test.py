@@ -24,7 +24,7 @@ import pytest
 import tensorflow as tf
 from numpy.testing import assert_equal
 
-from qkeras import QSeparableConv2DTranspose, quantized_bits
+from qkerasV3 import QSeparableConv2DTranspose, quantized_bits
 
 
 def create_model():

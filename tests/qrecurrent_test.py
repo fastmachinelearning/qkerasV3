@@ -28,7 +28,7 @@ from keras.layers import GRU, LSTM, Activation, Bidirectional, Input, SimpleRNN
 from keras.models import Model, Sequential
 from numpy.testing import assert_allclose
 
-from qkeras import (
+from qkerasV3 import (
     QGRU,
     QLSTM,
     QBidirectional,
@@ -37,7 +37,7 @@ from qkeras import (
     quantized_bits,
     quantized_tanh,
 )
-from qkeras.utils import (
+from qkerasV3.utils import (
     load_qmodel,
     model_quantize,
     model_save_quantized_weights,

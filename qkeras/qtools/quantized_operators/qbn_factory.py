@@ -21,7 +21,7 @@ import math
 
 import numpy as np
 
-from qkeras.qtools.quantized_operators import (
+from qkerasV3.qtools.quantized_operators import (
     adder_factory,
     divider_factory,
     multiplier_factory,

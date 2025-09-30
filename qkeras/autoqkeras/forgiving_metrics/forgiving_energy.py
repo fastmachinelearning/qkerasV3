@@ -20,11 +20,11 @@ import json
 
 import numpy as np
 
-from qkeras.autoqkeras.forgiving_metrics.forgiving_factor import (
+from qkerasV3.autoqkerasV3.forgiving_metrics.forgiving_factor import (
     ForgivingFactor,  # pylint: disable=line-too-long
 )
-from qkeras.qtools import run_qtools
-from qkeras.qtools import settings as qtools_settings
+from qkerasV3.qtools import run_qtools
+from qkerasV3.qtools import settings as qtools_settings
 
 
 class ForgivingFactorPower(ForgivingFactor):

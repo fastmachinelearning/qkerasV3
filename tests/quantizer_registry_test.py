@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Unit tests for QKeras quantizer registry."""
+"""Unit tests for qkerasV3 quantizer registry."""
 
 import numpy as np
 import pytest
 
-from qkeras import quantizer_registry
+from qkerasV3 import quantizer_registry
 
 
 @pytest.mark.parametrize(

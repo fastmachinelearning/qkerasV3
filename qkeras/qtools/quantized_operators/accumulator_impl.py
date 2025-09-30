@@ -21,7 +21,7 @@ import abc
 import numpy as np
 from absl import logging
 
-from qkeras.qtools.quantized_operators import multiplier_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import multiplier_impl, quantizer_impl
 
 
 def po2_to_qbits(quantizer: quantizer_impl.IQuantizer):

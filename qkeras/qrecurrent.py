@@ -32,7 +32,7 @@ from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QSimpleRNNCell(layers.SimpleRNNCell):
     """
     Cell class for the QSimpleRNNCell layer.
@@ -198,7 +198,7 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QSimpleRNN(layers.RNN, PrunableLayer):
     """
     Class for the QSimpleRNN layer.
@@ -463,7 +463,7 @@ class QSimpleRNN(layers.RNN, PrunableLayer):
         return cls(**config)
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QLSTMCell(layers.LSTMCell):
     """
     Cell class for the QLSTMCell layer.
@@ -705,7 +705,7 @@ class QLSTMCell(layers.LSTMCell):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QLSTM(layers.RNN, PrunableLayer):
     """
     Class for the QLSTM layer.
@@ -1001,7 +1001,7 @@ class QLSTM(layers.RNN, PrunableLayer):
         return cls(**config)
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QGRUCell(layers.GRUCell):
     """
     Cell class for the QGRUCell layer.
@@ -1262,7 +1262,7 @@ class QGRUCell(layers.GRUCell):
         return dict(list(base_config.items()) + list(config.items()))
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QGRU(layers.RNN, PrunableLayer):
     """
     Class for the QGRU layer.
@@ -1559,7 +1559,7 @@ class QGRU(layers.RNN, PrunableLayer):
         return cls(**config)
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QBidirectional(layers.Bidirectional):
     """
     Class for the QBidirecitonal wrapper.

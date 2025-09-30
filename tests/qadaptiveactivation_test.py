@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 import tensorflow.compat.v2 as tf
 
-from qkeras.qlayers import QAdaptiveActivation
-from qkeras.quantizers import _get_integer_bits
+from qkerasV3.qlayers import QAdaptiveActivation
+from qkerasV3.quantizers import _get_integer_bits
 
 
 def run_qadaptiveactivation_test(input_val, kwargs):

@@ -23,8 +23,8 @@ import tensorflow.compat.v2 as tf
 from keras import backend as K
 from numpy.testing import assert_allclose, assert_equal
 
-from qkeras import binary, get_weight_scale, ternary
-from qkeras.quantizers import _get_integer_bits
+from qkerasV3 import binary, get_weight_scale, ternary
+from qkerasV3.quantizers import _get_integer_bits
 
 # expected value if input is uniform distribution is:
 #   - alpha = m/2.0 for binary

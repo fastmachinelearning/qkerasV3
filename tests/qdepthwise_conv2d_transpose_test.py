@@ -24,7 +24,7 @@ import pytest
 import tensorflow as tf
 from numpy.testing import assert_equal
 
-from qkeras import QDepthwiseConv2DTranspose, quantized_bits
+from qkerasV3 import QDepthwiseConv2DTranspose, quantized_bits
 
 # Predicted output from float model.
 _FLOAT_PREDICTED_OUTPUT = np.array(

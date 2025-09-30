@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Example the usage of activation functions in qkeras."""
+"""Example the usage of activation functions in qkerasV3."""
 
 import numpy as np
 import tensorflow as tf
 
-from qkeras import (
+from qkerasV3 import (
     bernoulli,
     binary,
     hard_sigmoid,

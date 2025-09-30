@@ -24,8 +24,8 @@ import pytest
 from keras import layers
 from keras.models import *
 
-from qkeras import *
-from qkeras.utils import (
+from qkerasV3 import *
+from qkerasV3.utils import (
     add_bn_fusing_weights,
     clone_model_and_freeze_auto_po2_scale,
     convert_to_folded_model,

@@ -26,8 +26,8 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
-from qkeras import *
-from qkeras.utils import model_save_quantized_weights
+from qkerasV3 import *
+from qkerasV3.utils import model_save_quantized_weights
 
 np.random.seed(42)
 

@@ -25,7 +25,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
-from qkeras import QActivation, QDense, print_qstats, quantized_bits, ternary
+from qkerasV3 import QActivation, QDense, print_qstats, quantized_bits, ternary
 
 np.random.seed(42)
 OPTIMIZER = Adam()

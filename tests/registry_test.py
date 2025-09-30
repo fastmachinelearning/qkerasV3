@@ -18,7 +18,7 @@
 import pytest
 from numpy.testing import assert_equal, assert_raises
 
-from qkeras import registry
+from qkerasV3 import registry
 
 
 def sample_function(arg):

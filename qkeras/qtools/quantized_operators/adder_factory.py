@@ -21,7 +21,7 @@ import copy
 
 from absl import logging
 
-from qkeras.qtools.quantized_operators import adder_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import adder_impl, quantizer_impl
 
 
 class IAdder(abc.ABC):

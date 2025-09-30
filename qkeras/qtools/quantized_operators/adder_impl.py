@@ -18,7 +18,7 @@
 
 import abc
 
-from qkeras.qtools.quantized_operators import accumulator_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import accumulator_impl, quantizer_impl
 
 
 def po2_qbits_converter(po2_quantizer: quantizer_impl.IQuantizer):

@@ -21,7 +21,7 @@ import math
 
 import numpy as np
 
-from qkeras import quantizers
+from qkerasV3 import quantizers
 
 FLOATINGPOINT_BITS = 32
 
@@ -96,13 +96,13 @@ class QuantizedBits(IQuantizer):
         self.is_signed = 1
         self.name = "quantized_bits"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.quantized_bits):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.quantized_bits):
         self.mode = 0
         self.bits = quantizer.bits
         self.int_bits = get_np_value(quantizer.integer)
         self.is_signed = quantizer.keep_negative
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         symmetric=1,
         alpha=None,
@@ -113,7 +113,7 @@ class QuantizedBits(IQuantizer):
         min_po2_exponent=None,
         max_po2_exponent=None,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.quantized_bits(
             bits=self.bits,
@@ -137,15 +137,15 @@ class QuantizedTanh(QuantizedBits):
         super().__init__()
         self.name = "quantized_tanh"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.quantized_tanh):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.quantized_tanh):
         self.mode = 0
         self.bits = quantizer.bits
         self.is_signed = 1
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self, symmetric=False, use_stochastic_rounding=False
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.quantized_tanh(
             bits=self.bits,
@@ -162,14 +162,14 @@ class QuantizedUlaw(QuantizedBits):
         super().__init__()
         self.name = "quantized_ulaw"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.quantized_ulaw):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.quantized_ulaw):
         self.mode = 0
         self.bits = quantizer.bits
         self.int_bits = get_np_value(quantizer.integer)
         self.is_signed = 1
 
-    def convert_to_qkeras_quantizer(self, symmetric=0, u=255.0):
-        """convert qtools quantizer to qkeras quantizer."""
+    def convert_to_qkerasV3_quantizer(self, symmetric=0, u=255.0):
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.quantized_ulaw(
             bits=self.bits, integer=self.int_bits, symmetric=symmetric, u=u
@@ -193,7 +193,7 @@ class Binary(IQuantizer):
         self.use_01 = use_01
         self.name = "binary"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.binary):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.binary):
         if quantizer.use_01:
             self.mode = 4
             self.is_signed = 0
@@ -203,8 +203,8 @@ class Binary(IQuantizer):
 
         self.use_01 = quantizer.use_01
 
-    def convert_to_qkeras_quantizer(self, alpha=None, use_stochastic_rounding=False):
-        """convert qtools quantizer to qkeras quantizer."""
+    def convert_to_qkerasV3_quantizer(self, alpha=None, use_stochastic_rounding=False):
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.binary(
             use_01=self.use_01,
@@ -221,15 +221,15 @@ class StochasticBinary(Binary):
         super().__init__(use_01=False)
         self.name = "stochastic_binary"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.stochastic_binary):
-        """convert qkeras quantizer to qtools quantizer."""
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.stochastic_binary):
+        """convert qkerasV3 quantizer to qtools quantizer."""
 
         pass
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self, alpha=None, temperature=6.0, use_real_sigmoid=True
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.stochastic_binary(
             alpha=alpha, temperature=temperature, use_real_sigmoid=use_real_sigmoid
@@ -243,13 +243,13 @@ class Bernoulli(Binary):
         super().__init__(use_01=True)
         self.name = "bernoulli"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.bernoulli):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.bernoulli):
         pass
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self, alpha=None, temperature=6.0, use_real_sigmoid=True
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.bernoulli(
             alpha=alpha, temperature=temperature, use_real_sigmoid=use_real_sigmoid
@@ -264,8 +264,8 @@ class QuantizedRelu(IQuantizer):
         self.is_signed = 0
         self.name = "quantized_relu"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.quantized_relu):
-        """convert from qkeras quantizer."""
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.quantized_relu):
+        """convert from qkerasV3 quantizer."""
 
         bits = quantizer.bits
         int_bits = get_np_value(quantizer.integer)
@@ -281,7 +281,7 @@ class QuantizedRelu(IQuantizer):
         if hasattr(quantizer, "negative_slope") and quantizer.negative_slope != 0:
             self.is_signed = 1
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         use_sigmoid=0,
         negative_slope=0.0,
@@ -290,7 +290,7 @@ class QuantizedRelu(IQuantizer):
         is_quantized_clip=True,
         qnoise_factor=1.0,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.quantized_relu(
             bits=self.bits,
@@ -315,17 +315,17 @@ class Ternary(IQuantizer):
         self.is_signed = 1
         self.name = "ternary"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.ternary):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.ternary):
         pass
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         alpha=None,
         threshold=None,
         use_stochastic_rounding=False,
         number_of_unrolls=5,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.ternary(
             alpha=alpha,
@@ -343,10 +343,10 @@ class StochasticTernary(Ternary):
         self.name = "stochastic_ternary"
 
     # same as ternary
-    def convert_qkeras_quantizer(self, quantizer: quantizers.stochastic_ternary):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.stochastic_ternary):
         pass
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         alpha=None,
         threshold=None,
@@ -354,7 +354,7 @@ class StochasticTernary(Ternary):
         use_real_sigmoid=True,
         number_of_unrolls=5,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         return quantizers.stochastic_ternary(
             alpha=alpha,
@@ -377,10 +377,10 @@ class FloatingPoint(IQuantizer):
         self.is_floating_point = True
         self.name = "floating_point"
 
-    def convert_qkeras_quantizer(self, bits):
+    def convert_qkerasV3_quantizer(self, bits):
         pass
 
-    def convert_to_qkeras_quantizer(self, bits):
+    def convert_to_qkerasV3_quantizer(self, bits):
         pass
 
 
@@ -399,8 +399,8 @@ class PowerOfTwo(IQuantizer):
         else:
             self.name = "quantized_relu_po2"
 
-    def convert_qkeras_quantizer(self, quantizer):
-        """convert qkeras quantizer to qtools quantizer."""
+    def convert_qkerasV3_quantizer(self, quantizer):
+        """convert qkerasV3 quantizer to qtools quantizer."""
 
         assert "po2" in quantizer.__class__.__name__
 
@@ -422,13 +422,13 @@ class PowerOfTwo(IQuantizer):
         self.bits = bits
         self.int_bits = bits
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         negative_slope=0,
         use_stochastic_rounding=False,
         quadratic_approximation=False,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         if self.is_signed:
             # quantized_po2
@@ -464,7 +464,7 @@ class PowerOfTwo(IQuantizer):
         val = abs(val)
 
         if val == 0:
-            # val of 0 is special case; qkeras uses mininmum
+            # val of 0 is special case; qkerasV3 uses mininmum
             # number to represent 0
             non_sign_bits = self.bits - sign_bit
         else:
@@ -539,7 +539,7 @@ class ReluPowerOfTwo(PowerOfTwo):
         self.is_signed = 0
         self.name = "quantized_relu_po2"
 
-    def convert_qkeras_quantizer(self, quantizer: quantizers.quantized_relu_po2):
+    def convert_qkerasV3_quantizer(self, quantizer: quantizers.quantized_relu_po2):
         self.bits = quantizer.bits
         self.int_bits = quantizer.bits
         if not quantizer.max_value:
@@ -547,13 +547,13 @@ class ReluPowerOfTwo(PowerOfTwo):
         else:
             self.max_val_po2 = quantizer.max_value
 
-    def convert_to_qkeras_quantizer(
+    def convert_to_qkerasV3_quantizer(
         self,
         negative_slope=0,
         use_stochastic_rounding=False,
         quadratic_approximation=False,
     ):
-        """convert qtools quantizer to qkeras quantizer."""
+        """convert qtools quantizer to qkerasV3 quantizer."""
 
         # quantized_relu_po2
         return quantizers.quantized_relu_po2(

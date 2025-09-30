@@ -23,11 +23,11 @@ from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer imp
 from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
 
-# QKeras needs to support more layers for matrix multiplication and shift
+# qkerasV3 needs to support more layers for matrix multiplication and shift
 # operations such as in Tranformer. Such layers should be all placed here.
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QScaleShift(tf.keras.layers.Layer, PrunableLayer):
     """Quantized scale and shift layer.
 

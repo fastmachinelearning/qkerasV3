@@ -15,13 +15,13 @@
 # limitations under the License.
 # ==============================================================================
 
-from qkeras.autoqkeras.examples.run.networks import (
+from qkerasV3.autoqkerasV3.examples.run.networks import (
     ConvBlockNetwork,  # pylint: disable=line-too-long
 )
 
 
 def get_model(dataset):
-    """Returns a model for the demo of AutoQKeras."""
+    """Returns a model for the demo of AutoqkerasV3."""
     if dataset == "mnist":
         model = ConvBlockNetwork(
             shape=(28, 28, 1),

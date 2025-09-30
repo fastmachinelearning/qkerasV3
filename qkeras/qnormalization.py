@@ -32,7 +32,7 @@ from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer imp
 from .qlayers import get_auto_range_constraint_initializer, get_quantizer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
     """Quantized Batch Normalization layer.
     For training, mean and variance are not quantized.
@@ -122,27 +122,27 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
 
         if kwargs.get("fused", None):
             warnings.warn(
-                "batch normalization fused is disabled " "in qkeras qnormalization.py."
+                "batch normalization fused is disabled " "in qkerasV3 qnormalization.py."
             )
             del kwargs["fused"]
 
         if kwargs.get("renorm", None):
             warnings.warn(
-                "batch normalization renorm is disabled " "in qkeras qnormalization.py."
+                "batch normalization renorm is disabled " "in qkerasV3 qnormalization.py."
             )
             del kwargs["renorm"]
 
         if kwargs.get("virtual_batch_size", None):
             warnings.warn(
                 "batch normalization virtual_batch_size is disabled "
-                "in qkeras qnormalization.py."
+                "in qkerasV3 qnormalization.py."
             )
             del kwargs["virtual_batch_size"]
 
         if kwargs.get("adjustment", None):
             warnings.warn(
                 "batch normalization adjustment is disabled "
-                "in qkeras qnormalization.py."
+                "in qkerasV3 qnormalization.py."
             )
             del kwargs["adjustment"]
 

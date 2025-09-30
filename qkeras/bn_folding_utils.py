@@ -28,7 +28,7 @@ def convert_folded_layer_to_unfolded(layer):
     """Replace a source batchnorm folded layer with a non-folded layer.
 
     Args:
-      layer: keras/qkeras layer type. Source layer to be replaced with
+      layer: keras/qkerasV3 layer type. Source layer to be replaced with
 
     Returns:
       new layer instance
@@ -84,7 +84,7 @@ def unfold_model(model):
 
     Returns:
       A model that replaces folded layers (e.g., QConv2DBatchnorm) with normal
-        qkeras layers (e.g., QConv2D). This model can be passed on to hardware
+        qkerasV3 layers (e.g., QConv2D). This model can be passed on to hardware
         generator so that hardware doesn't see batch normalization
         parameters.
     """
@@ -159,12 +159,12 @@ def populate_bias_quantizer_from_accumulator(model, source_quantizers):
     Such step is skipped if user provided a specific bias quantizer type.
 
     Args:
-      model: keras/qkeras model object. If the model doesn't contain any batchnorm
+      model: keras/qkerasV3 model object. If the model doesn't contain any batchnorm
         folded layer or if the bias quanizer type in the folded layer is already
         given, no operation needed. Else we generate the bias quantizer type and
         set it in model.
 
-      source_quantizers: list of qkeras quantizers. A list of quantizer types
+      source_quantizers: list of qkerasV3 quantizers. A list of quantizer types
         for model inputs.
 
     Returns:
@@ -213,7 +213,7 @@ def populate_bias_quantizer_from_accumulator(model, source_quantizers):
                     )
 
                 layer.bias_quantizer = (
-                    qtools_bias_quantizer.convert_to_qkeras_quantizer()
+                    qtools_bias_quantizer.convert_to_qkerasV3_quantizer()
                 )
 
                 layer.bias_quantizer_internal = layer.bias_quantizer

@@ -27,7 +27,7 @@ from .quantizers import *
 tf.compat.v2.enable_v2_behavior()
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
     """Fold batchnormalization with a previous QDepthwiseConv2d layer."""
 
@@ -82,7 +82,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         """A composite layer that folds depthwiseconv2d and batch normalization.
 
         The first group of parameters correponds to the initialization parameters
-          of a QDepthwiseConv2d layer. check qkeras.qconvolutional.QDepthwiseConv2D
+          of a QDepthwiseConv2d layer. check qkerasV3.qconvolutional.QDepthwiseConv2D
           for details.
 
         The 2nd group of parameters corresponds to the initialization parameters

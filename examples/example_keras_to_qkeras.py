@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Tests automatic conversion of keras model to qkeras."""
+"""Tests automatic conversion of keras model to qkerasV3."""
 
 
 
@@ -21,8 +21,8 @@ from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
-from qkeras.estimate import print_qstats
-from qkeras.utils import model_quantize, quantized_model_dump
+from qkerasV3.estimate import print_qstats
+from qkerasV3.utils import model_quantize, quantized_model_dump
 
 x0 = x_in0 = Input((28, 28, 1), name="input0")
 x1 = x_in1 = Input((28, 28, 1), name="input1")

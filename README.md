@@ -1,6 +1,6 @@
 # QKeras
 
-[github.com/google/qkeras](https://github.com/google/qkeras)
+[https://github.com/makoeppel/qkeras](https://github.com/makoeppel/qkeras)
 
 ## Introduction
 
@@ -144,7 +144,7 @@ functions. They draw a random number with uniform distribution from
 _hard_sigmoid of the input x, and result is based on the expected
 value of the activation function. Please refer to the papers if you
 want to understand the underlying theory, or the documentation in
-qkeras/qlayers.py.
+qkerasV3/qlayers.py.
 
 The parameters "bits" specify the number of bits for the quantization,
 and "integer" specifies how many bits of "bits" are to the left of the
@@ -188,7 +188,7 @@ You can easily quantize this network as follows:
 
 ```python
 from keras.layers import *
-from qkeras import *
+from qkerasV3 import *
 
 x = x_in = Input(shape)
 x = QConv2D(18, (3, 3),
@@ -258,9 +258,9 @@ performance. QTools energy consumption on a 45nm process is based on the
 data published in this work.
 
 - Examples:
-Example of how to generate data type map can be found in qkeras/qtools/
+Example of how to generate data type map can be found in qkerasV3/qtools/
 examples/example_generate_json.py. Example of how to generate energy consumption
-estimation can be found in qkeras/qtools/examples/example_get_energy.py
+estimation can be found in qkerasV3/qtools/examples/example_get_energy.py
 
 
 ## AutoQKeras

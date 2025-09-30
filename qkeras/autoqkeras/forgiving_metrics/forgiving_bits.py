@@ -19,8 +19,8 @@
 import numpy as np
 import six
 
-from qkeras import get_quantizer
-from qkeras.autoqkeras.forgiving_metrics.forgiving_factor import (
+from qkerasV3 import get_quantizer
+from qkerasV3.autoqkerasV3.forgiving_metrics.forgiving_factor import (
     ForgivingFactor,  # pylint: disable=line-too-long
 )
 

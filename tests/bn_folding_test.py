@@ -25,7 +25,7 @@ from keras.models import Model
 from keras.utils import to_categorical
 from numpy.testing import assert_allclose, assert_equal, assert_raises
 
-from qkeras import (
+from qkerasV3 import (
     QActivation,
     QConv2D,
     QConv2DBatchnorm,
@@ -34,7 +34,7 @@ from qkeras import (
     QDepthwiseConv2DBatchnorm,
     bn_folding_utils,
 )
-from qkeras import utils as qkeras_utils
+from qkerasV3 import utils as qkerasV3_utils
 
 
 def get_sgd_optimizer(learning_rate):
@@ -404,7 +404,7 @@ def test_loading():
     x_shape = (2, 2, 1)
 
     custom_objects = {}
-    qkeras_utils._add_supported_quantized_objects(custom_objects)
+    qkerasV3_utils._add_supported_quantized_objects(custom_objects)
 
     train_ds = generate_dataset(
         train_size=1, batch_size=1, input_shape=x_shape, num_class=2
@@ -423,14 +423,14 @@ def test_loading():
     model_fold.use_legacy_config = True  # Ensures old Keras serialization
     json_string = model_fold.to_json()
     clear_session()
-    model_from_json = qkeras_utils.quantized_model_from_json(json_string)
+    model_from_json = qkerasV3_utils.quantized_model_from_json(json_string)
     model_from_json.use_legacy_config = True
     assert json_string == model_from_json.to_json()
 
     # test reload model from hdf5 files to ensure saving/loading works
     _, fname = tempfile.mkstemp(".h5")
     model_fold.save(fname)
-    model_loaded = qkeras_utils.load_qmodel(fname)
+    model_loaded = qkerasV3_utils.load_qmodel(fname)
     weight1 = model_fold.layers[1].get_folded_weights()
     weight2 = model_loaded.layers[1].get_folded_weights()
     assert_equal(np.array(weight1[0]), np.array(weight2[0]))
@@ -702,7 +702,7 @@ def test_same_training_and_prediction():
 def test_populate_bias_quantizer_from_accumulator():
     """Test populate_bias_quantizer_from_accumulator function.
 
-    Define a qkeras model with a QConv2DBatchnorm layer. Set bias quantizer in the
+    Define a qkerasV3 model with a QConv2DBatchnorm layer. Set bias quantizer in the
     layer as None. Call populate_bias_quantizer_from_accumulator function
     to automatically generate bias quantizer type from the MAC accumulator type.
     Set the bias quantizer accordingly in the model.
@@ -714,7 +714,7 @@ def test_populate_bias_quantizer_from_accumulator():
 
     x_shape = (2, 2, 1)
 
-    # get a qkeras model with QConv2DBatchnorm layer. Set bias quantizer in the
+    # get a qkerasV3 model with QConv2DBatchnorm layer. Set bias quantizer in the
     # layer as None.
     x = x_in = layers.Input(x_shape, name="input")
     x1 = QConv2D(

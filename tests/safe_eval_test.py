@@ -20,7 +20,7 @@ import operator
 
 import pytest
 
-from qkeras.safe_eval import GetParams, safe_eval
+from qkerasV3.safe_eval import GetParams, safe_eval
 
 add = operator.add
 

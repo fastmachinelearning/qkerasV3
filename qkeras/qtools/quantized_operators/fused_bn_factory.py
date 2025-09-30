@@ -18,9 +18,9 @@
 
 
 
-from qkeras import base_quantizer
-from qkeras.qtools import qtools_util
-from qkeras.qtools.quantized_operators import (
+from qkerasV3 import base_quantizer
+from qkerasV3.qtools import qtools_util
+from qkerasV3.qtools.quantized_operators import (
     adder_factory,
     multiplier_factory,
     quantizer_impl,
@@ -52,7 +52,7 @@ class FusedBNFactory:
         prev_bias_quantizer: quantizer_impl.IQuantizer,
         use_beta: bool,
         use_bias: bool,
-        qkeras_inverse_quantizer: base_quantizer.BaseQuantizer,
+        qkerasV3_inverse_quantizer: base_quantizer.BaseQuantizer,
     ):
         """Makes a fused_bn quantizer.
 
@@ -64,8 +64,8 @@ class FusedBNFactory:
           prev_bias_quantizer: IQuantizer type. conv layer bias quantizer
           use_beta: Bool. whether enabling beta in batch_normalization layer
           use_bias: Bool. Whether bias is used in conv layer.
-          qkeras_inverse_quantizer: QKeras quantizer type. bn layer inverse
-            quantizer with QKeras quantizer type
+          qkerasV3_inverse_quantizer: qkerasV3 quantizer type. bn layer inverse
+            quantizer with qkerasV3 quantizer type
         Returns:
           None
         """
@@ -82,7 +82,7 @@ class FusedBNFactory:
         )
 
         qtools_util.adjust_multiplier_for_auto_po2(
-            multiplier_x, qkeras_inverse_quantizer
+            multiplier_x, qkerasV3_inverse_quantizer
         )
 
         # fused_bias = bn_inv * bias + beta - bn_inv*mean
@@ -92,7 +92,7 @@ class FusedBNFactory:
         )
 
         qtools_util.adjust_multiplier_for_auto_po2(
-            multiplier_mean, qkeras_inverse_quantizer
+            multiplier_mean, qkerasV3_inverse_quantizer
         )
 
         adder_instance = adder_factory.IAdder()
@@ -103,7 +103,7 @@ class FusedBNFactory:
             )
 
             qtools_util.adjust_multiplier_for_auto_po2(
-                multiplier_bias, qkeras_inverse_quantizer
+                multiplier_bias, qkerasV3_inverse_quantizer
             )
 
             # Derives datatype of bn_inv*bias - bn_inv*mean

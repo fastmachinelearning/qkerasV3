@@ -29,8 +29,8 @@ from tensorflow_model_optimization.python.core.sparsity.keras import (
     pruning_schedule,
 )
 
-from qkeras import QActivation, QConv2D, QDense, quantized_bits
-from qkeras.utils import load_qmodel, print_model_sparsity
+from qkerasV3 import QActivation, QConv2D, QDense, quantized_bits
+from qkerasV3.utils import load_qmodel, print_model_sparsity
 
 batch_size = 128
 num_classes = 10

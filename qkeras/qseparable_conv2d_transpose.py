@@ -26,7 +26,7 @@ from .qconvolutional import deconv_output_length
 from .quantizers import get_quantizer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QSeparableConv2DTranspose(layers.Conv2DTranspose):
     """Quantized Separable Conv2DTranspose layer."""
 

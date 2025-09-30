@@ -18,7 +18,7 @@
 
 import pytest
 
-from qkeras import *
+from qkerasV3 import *
 
 
 def test_binary():

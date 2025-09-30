@@ -17,7 +17,7 @@
 
 import numpy as np
 
-from qkeras import BinaryToThermometer
+from qkerasV3 import BinaryToThermometer
 
 if __name__ == "__main__":
     np.random.seed(42)

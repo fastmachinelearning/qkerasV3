@@ -20,10 +20,10 @@ import json
 
 import numpy as np
 
-from qkeras.qtools import generate_layer_data_type_map, interface, qgraph, qtools_util
-from qkeras.qtools.config_public import config_settings
-from qkeras.qtools.qenergy import qenergy
-from qkeras.qtools.settings import cfg
+from qkerasV3.qtools import generate_layer_data_type_map, interface, qgraph, qtools_util
+from qkerasV3.qtools.config_public import config_settings
+from qkerasV3.qtools.qenergy import qenergy
+from qkerasV3.qtools.settings import cfg
 
 
 class QTools:

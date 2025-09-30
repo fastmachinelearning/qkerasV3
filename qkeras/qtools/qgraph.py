@@ -22,10 +22,10 @@ import networkx as nx
 from keras import backend as K
 from keras import layers
 
-from qkeras.qtools.quantized_operators import (
+from qkerasV3.qtools.quantized_operators import (
     quantizer_factory as quantizer_factory_module,
 )
-from qkeras.qtools.settings import cfg
+from qkerasV3.qtools.settings import cfg
 
 SOURCE = -1
 SINK = -2

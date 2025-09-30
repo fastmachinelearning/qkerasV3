@@ -32,9 +32,9 @@ from typing import Any, List, Union
 import numpy as np
 import tensorflow as tf
 
-from qkeras import base_quantizer, quantizers
-from qkeras.qtools import generate_layer_data_type_map, qgraph, qtools_util
-from qkeras.qtools.DnC import dnc_layer_cost_ace
+from qkerasV3 import base_quantizer, quantizers
+from qkerasV3.qtools import generate_layer_data_type_map, qgraph, qtools_util
+from qkerasV3.qtools.DnC import dnc_layer_cost_ace
 
 
 class CostMode(enum.Enum):
@@ -938,7 +938,7 @@ def estimate_model_cost(
     """Main function to divide and conquer cost modeling.
 
     Args:
-      model: QKeras model.
+      model: qkerasV3 model.
       input_quantizer_bits: Model's input quantizer bits.
       target_OutElementPerClk: Target number of elements per clock
         cycle that the hardware needs to output.

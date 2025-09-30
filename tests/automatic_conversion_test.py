@@ -17,8 +17,8 @@ import pytest
 from keras.layers import *
 from keras.models import *
 
-from qkeras import *
-from qkeras.utils import model_quantize
+from qkerasV3 import *
+from qkerasV3.utils import model_quantize
 
 
 def create_network():

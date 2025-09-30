@@ -21,7 +21,7 @@ import tensorflow.compat.v2 as tf
 from keras import backend as K
 from numpy.testing import assert_allclose
 
-from qkeras import (
+from qkerasV3 import (
     binary,
     hard_sigmoid,
     quantized_bits,
@@ -37,7 +37,7 @@ from qkeras import (
     stochastic_ternary,
     ternary,
 )
-from qkeras.quantizers import _default_sigmoid_type
+from qkerasV3.quantizers import _default_sigmoid_type
 
 
 @pytest.mark.parametrize(

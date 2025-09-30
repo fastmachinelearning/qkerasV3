@@ -148,7 +148,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
         layer weights.
 
     Args:
-      prev_layer: QKeras layer, could be QConv2D/QDepthwiseConv2D/QDense.
+      prev_layer: qkerasV3 layer, could be QConv2D/QDepthwiseConv2D/QDense.
       bn_layer: The following QBatchNormalization layer that needs to be
         fused with the previous layer.
       saved_weights: Dict. The centralized weights dictionary that exports
@@ -1115,7 +1115,7 @@ def _add_supported_quantized_objects(custom_objects):
 
 
 def clone_model(model, custom_objects=None):
-    """Clone a QKeras model safely, even with folded batchnorm layers."""
+    """Clone a qkerasV3 model safely, even with folded batchnorm layers."""
     if not custom_objects:
         custom_objects = {}
 
@@ -1260,7 +1260,7 @@ def get_model_sparsity(model, per_layer=False, allow_list=None):
 
     Arguments:
         model: The model to use to calculate sparsity. Assumes that this is a
-            QKeras model with trained weights.
+            qkerasV3 model with trained weights.
         per_layer: If to return a per-layer breakdown of sparsity
         allow_list: A list of layer class names that sparsity will be calculated
           for. If set to None, a default list will be used.
@@ -1340,7 +1340,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
     """Debugs and plots model weights and activations.
 
     Args:
-      model: The QKeras model to debug
+      model: The qkerasV3 model to debug
       X_test: The sample data to use to give to model.predict
       plot: Bool. If to plot the results.
       plt_instance: A matplotlib.pyplot instance used to plot in an IPython
@@ -1454,7 +1454,7 @@ def quantized_model_dump(model, x_test, output_dir=None, layers_to_dump=[]):
     """Dumps tensors of target layers to binary files.
 
     Arguments:
-      model: QKeras model object.
+      model: qkerasV3 model object.
       x_test: numpy type, test tensors to generate output tensors.
       output_dir: a string for the directory to hold binary data.
       layers_to_dump: a list of string, specified layers by layer

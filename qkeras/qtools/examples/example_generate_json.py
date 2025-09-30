@@ -18,12 +18,12 @@
 
 from tensorflow import keras
 
-from qkeras import QActivation, QDense, quantizers
-from qkeras.qtools import run_qtools
+from qkerasV3 import QActivation, QDense, quantizers
+from qkerasV3.qtools import run_qtools
 
 
 def hybrid_model():
-    """hybrid model that mixes qkeras and keras layers."""
+    """hybrid model that mixes qkerasV3 and keras layers."""
 
     x = x_in = keras.layers.Input((784,), name="input")
     x = keras.layers.Dense(300, name="d0")(x)
@@ -50,7 +50,7 @@ def generate_json(in_model):
     """example to generate data type map for a given model.
 
     Args:
-      in_model: qkeras model object
+      in_model: qkerasV3 model object
 
     Usage:
       input_quantizer_list:
@@ -68,7 +68,7 @@ def generate_json(in_model):
           setting up a baseline energy for a given model architecture.
         2. False: get "real" energy for a given model use user-specified
           quantizers. For layers that are not quantized (keras layer) or have no
-          user-specified quantizers (qkeras layers without quantizers specified),
+          user-specified quantizers (qkerasV3 layers without quantizers specified),
           keras_quantizer and keras_accumulator(or default_interm_quantizer in
           config_xxx.py if keras_quantizer/keras_accumulator not given)
           will be used as their quantizers.
@@ -85,7 +85,7 @@ def generate_json(in_model):
             if user do not specify any input quantizers,
          2. "default_interm_quantizer": is used as default quantizer for any
             intermediate variables such as multiplier, accumulator, weight/bias
-            in a qkeras layer if user do not secifiy the corresponding variable
+            in a qkerasV3 layer if user do not secifiy the corresponding variable
          3. process_name: energy calculation parameters for different processes.
             "horowitz" is the process we use by default.
          4. "include_energy": what energy to include at each layer

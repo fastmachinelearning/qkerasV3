@@ -26,7 +26,7 @@ from .qconvolutional import deconv_output_length
 from .quantizers import get_quantizer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 # TODO(akshayap): Commonized functionality with QSeparableConv2DTranspose.
 class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
     """Quantized Depthwise Conv2DTranspose layer."""

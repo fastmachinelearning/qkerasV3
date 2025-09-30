@@ -87,7 +87,7 @@ def get_auto_range_constraint_initializer(quantizer, constraint, initializer):
     return constraint, initializer
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QInitializer(initializers.Initializer):
     """Wraps around Keras initializer to provide a fanin scaling factor."""
 
@@ -151,7 +151,7 @@ class QInitializer(initializers.Initializer):
 #
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QActivation(layers.Layer, PrunableLayer):
     """Implements quantized activation layers."""
 
@@ -214,7 +214,7 @@ class QActivation(layers.Layer, PrunableLayer):
         return []
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QAdaptiveActivation(layers.Layer, PrunableLayer):
     """[EXPERIMENTAL] Implements an adaptive quantized activation layer using EMA.
 
@@ -551,7 +551,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
 #    1. quantization approximation is symmetric (b = 0).
 #    2. max(x) and min(x) are 1 and -1 respectively.
 #
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class Clip(constraints.Constraint):
     """Clips weight constraint."""
 
@@ -603,7 +603,7 @@ class Clip(constraints.Constraint):
 #
 
 
-@register_keras_serializable(package="qkeras")
+@register_keras_serializable(package="qkerasV3")
 class QDense(layers.Dense, PrunableLayer):
     """Implements a quantized Dense layer."""
 

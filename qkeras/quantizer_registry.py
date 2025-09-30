@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Registry for QKeras quantizers."""
+"""Registry for qkerasV3 quantizers."""
 
 from . import registry
 
-# Global registry for all QKeras quantizers.
+# Global registry for all qkerasV3 quantizers.
 _QUANTIZERS_REGISTRY = registry.Registry()
 
 

@@ -26,8 +26,8 @@ from keras.layers import Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal
 
-from qkeras import QScaleShift
-from qkeras.utils import load_qmodel
+from qkerasV3 import QScaleShift
+from qkerasV3.utils import load_qmodel
 
 
 def create_qmac_model(layer_cls, kwargs=None, input_data=None, weight_data=None):
