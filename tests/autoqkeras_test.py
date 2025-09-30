@@ -16,18 +16,15 @@
 # ==============================================================================
 
 import tempfile
+
 import numpy as np
 import pytest
+import tensorflow.compat.v2 as tf
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import MinMaxScaler
-import tensorflow.compat.v2 as tf
+
 tf.enable_v2_behavior()
-import keras
-from keras.layers import Activation
-from keras.layers import BatchNormalization
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.layers import Input
+from keras.layers import Activation, BatchNormalization, Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
@@ -36,120 +33,106 @@ from qkeras.autoqkeras import AutoQKerasScheduler
 
 
 def dense_model():
-  """Creates test dense model."""
+    """Creates test dense model."""
 
-  x = x_in = Input((4,), name="input")
-  x = Dense(20, name="dense_0")(x)
-  x = BatchNormalization(name="bn0")(x)
-  x = Activation("relu", name="relu_0")(x)
-  x = Dense(40, name="dense_1")(x)
-  x = BatchNormalization(name="bn1")(x)
-  x = Activation("relu", name="relu_1")(x)
-  x = Dense(20, name="dense_2")(x)
-  x = BatchNormalization(name="bn2")(x)
-  x = Activation("relu", name="relu_2")(x)
-  x = Dense(3, name="dense")(x)
-  x = Activation("softmax", name="softmax")(x)
+    x = x_in = Input((4,), name="input")
+    x = Dense(20, name="dense_0")(x)
+    x = BatchNormalization(name="bn0")(x)
+    x = Activation("relu", name="relu_0")(x)
+    x = Dense(40, name="dense_1")(x)
+    x = BatchNormalization(name="bn1")(x)
+    x = Activation("relu", name="relu_1")(x)
+    x = Dense(20, name="dense_2")(x)
+    x = BatchNormalization(name="bn2")(x)
+    x = Activation("relu", name="relu_2")(x)
+    x = Dense(3, name="dense")(x)
+    x = Activation("softmax", name="softmax")(x)
 
-  model = Model(inputs=x_in, outputs=x)
-  return model
+    model = Model(inputs=x_in, outputs=x)
+    return model
 
 
 def test_autoqkeras():
-  """Tests AutoQKeras scheduler."""
-  np.random.seed(42)
-  tf.random.set_seed(42)
+    """Tests AutoQKeras scheduler."""
+    np.random.seed(42)
+    tf.random.set_seed(42)
 
-  x_train, y_train = load_iris(return_X_y=True)
+    x_train, y_train = load_iris(return_X_y=True)
 
-  scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
-  scaler.fit(x_train)
-  x_train = scaler.transform(x_train)
+    scaler = MinMaxScaler(feature_range=(-0.5, 0.5))
+    scaler.fit(x_train)
+    x_train = scaler.transform(x_train)
 
-  nb_classes = np.max(y_train) + 1
-  y_train = to_categorical(y_train, nb_classes)
+    nb_classes = np.max(y_train) + 1
+    y_train = to_categorical(y_train, nb_classes)
 
-  quantization_config = {
-      "kernel": {
-          "stochastic_ternary": 2,
-          "quantized_bits(8,0,1,alpha=1.0)": 8
-      },
-      "bias": {
-          "quantized_bits(4,0,1)": 4
-      },
-      "activation": {
-          "quantized_relu(4,1)": 4
-      },
-      "linear": {
-          "binary": 1
-      }
-  }
+    quantization_config = {
+        "kernel": {"stochastic_ternary": 2, "quantized_bits(8,0,1,alpha=1.0)": 8},
+        "bias": {"quantized_bits(4,0,1)": 4},
+        "activation": {"quantized_relu(4,1)": 4},
+        "linear": {"binary": 1},
+    }
 
-  goal = {
-      "type": "energy",
-      "params": {
-          "delta_p": 8.0,
-          "delta_n": 8.0,
-          "rate": 2.0,
-          "stress": 1.0,
-          "process": "horowitz",
-          "parameters_on_memory": ["sram", "sram"],
-          "activations_on_memory": ["sram", "sram"],
-          "rd_wr_on_io": [False, False],
-          "min_sram_size": [0, 0],
-          "reference_internal": "int8",
-          "reference_accumulator": "int32"
-      }
-  }
+    goal = {
+        "type": "energy",
+        "params": {
+            "delta_p": 8.0,
+            "delta_n": 8.0,
+            "rate": 2.0,
+            "stress": 1.0,
+            "process": "horowitz",
+            "parameters_on_memory": ["sram", "sram"],
+            "activations_on_memory": ["sram", "sram"],
+            "rd_wr_on_io": [False, False],
+            "min_sram_size": [0, 0],
+            "reference_internal": "int8",
+            "reference_accumulator": "int32",
+        },
+    }
 
-  model = dense_model()
-  model.summary()
-  optimizer = Adam(learning_rate=0.01)
-  model.compile(optimizer=optimizer, loss="categorical_crossentropy",
-                metrics=["acc"])
+    model = dense_model()
+    model.summary()
+    optimizer = Adam(learning_rate=0.01)
+    model.compile(optimizer=optimizer, loss="categorical_crossentropy", metrics=["acc"])
 
-  limit = {
-      "dense_0": [["stochastic_ternary"], 8, 4],
-      "dense": [["quantized_bits(8,0,1,alpha=1.0)"], 8, 4],
-      "BatchNormalization": [],
-      "Activation": [4]
-  }
+    limit = {
+        "dense_0": [["stochastic_ternary"], 8, 4],
+        "dense": [["quantized_bits(8,0,1,alpha=1.0)"], 8, 4],
+        "BatchNormalization": [],
+        "Activation": [4],
+    }
 
-  run_config = {
-      "output_dir": tempfile.mkdtemp(),
-      "goal": goal,
-      "quantization_config": quantization_config,
-      "learning_rate_optimizer": False,
-      "transfer_weights": False,
-      "mode": "random",
-      "seed": 42,
-      "limit": limit,
-      "tune_filters": "layer",
-      "tune_filters_exceptions": "^dense$",
-      "max_trials": 1,
+    run_config = {
+        "output_dir": tempfile.mkdtemp(),
+        "goal": goal,
+        "quantization_config": quantization_config,
+        "learning_rate_optimizer": False,
+        "transfer_weights": False,
+        "mode": "random",
+        "seed": 42,
+        "limit": limit,
+        "tune_filters": "layer",
+        "tune_filters_exceptions": "^dense$",
+        "max_trials": 1,
+        "blocks": ["^.*0$", "^dense$"],
+        "schedule_block": "cost",
+    }
 
-      "blocks": [
-          "^.*0$",
-          "^dense$"
-      ],
-      "schedule_block": "cost"
-  }
+    autoqk = AutoQKerasScheduler(model, metrics=["acc"], **run_config)
+    autoqk.fit(x_train, y_train, validation_split=0.1, batch_size=150, epochs=4)
 
-  autoqk = AutoQKerasScheduler(model, metrics=["acc"], **run_config)
-  autoqk.fit(x_train, y_train, validation_split=0.1, batch_size=150, epochs=4)
+    qmodel = autoqk.get_best_model()
 
-  qmodel = autoqk.get_best_model()
+    optimizer = Adam(learning_rate=0.01)
+    qmodel.compile(
+        optimizer=optimizer, loss="categorical_crossentropy", metrics=["acc"]
+    )
+    history = qmodel.fit(
+        x_train, y_train, epochs=5, batch_size=150, validation_split=0.1
+    )
 
-  optimizer = Adam(learning_rate=0.01)
-  qmodel.compile(optimizer=optimizer, loss="categorical_crossentropy",
-                 metrics=["acc"])
-  history = qmodel.fit(x_train, y_train, epochs=5, batch_size=150,
-                       validation_split=0.1)
-
-  quantized_acc = history.history["acc"][-1]
-
+    quantized_acc = history.history["acc"][-1]
 
 
 if __name__ == "__main__":
-  pytest.main([__file__])
-
+    pytest.main([__file__])

@@ -42,32 +42,32 @@ Sample usage:
 """
 
 
-class Registry(object):
-  """A registry class to record class representations or function objects."""
+class Registry:
+    """A registry class to record class representations or function objects."""
 
-  def __init__(self):
-    """Initializes the registry."""
-    self._container = {}
+    def __init__(self):
+        """Initializes the registry."""
+        self._container = {}
 
-  def register(self, item, name=None):
-    """Register an item.
+    def register(self, item, name=None):
+        """Register an item.
 
-    Args:
-     item: Python item to be recorded.
-     name: Optional name to be used for recording item. If not provided,
-       item.__name__ is used.
-    """
-    if not name:
-      name = item.__name__
-    self._container[name] = item
+        Args:
+         item: Python item to be recorded.
+         name: Optional name to be used for recording item. If not provided,
+           item.__name__ is used.
+        """
+        if not name:
+            name = item.__name__
+        self._container[name] = item
 
-  def lookup(self, name):
-    """Retrieves an item from the registry.
+    def lookup(self, name):
+        """Retrieves an item from the registry.
 
-    Args:
-      name: Name of the item to lookup.
+        Args:
+          name: Name of the item to lookup.
 
-    Returns:
-      Registered item from the registry.
-    """
-    return self._container[name]
+        Returns:
+          Registered item from the registry.
+        """
+        return self._container[name]

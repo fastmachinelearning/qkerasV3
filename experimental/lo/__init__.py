@@ -14,14 +14,13 @@
 # limitations under the License.
 # ==============================================================================
 """Exports logic optimization module."""
-from .utils import *  # pylint: disable=wildcard-import
-from .receptive import model_to_receptive_field
+
+from .compress import Compressor
 from .conv2d import optimize_conv2d_logic
 from .dense import optimize_dense_logic
-from .optimizer import run_rf_optimizer
-from .optimizer import run_abc_optimizer
-from .optimizer import mp_rf_optimizer_func
-from .table import load
-from .compress import Compressor
 from .generate_rf_code import *
+from .optimizer import mp_rf_optimizer_func, run_abc_optimizer, run_rf_optimizer
+from .receptive import model_to_receptive_field
+from .table import load
+from .utils import *  # pylint: disable=wildcard-import
 # __version__ = "0.5.0"

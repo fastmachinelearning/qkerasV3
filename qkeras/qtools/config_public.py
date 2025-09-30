@@ -18,7 +18,6 @@
 config_settings = {
     "default_source_quantizer": "quantized_bits(8, 0, 1)",
     "default_interm_quantizer": "quantized_bits(8, 0, 1)",
-
     "horowitz": {
         "fpm_add": [0.003125, 0],
         "fpm_mul": [0.002994791667, 0.001041666667, 0],
@@ -27,9 +26,8 @@ config_settings = {
         "fp32_add": [0.9],
         "fp32_mul": [3.7],
         "sram_rd": [9.02427321e-04, -2.68847858e-02, 2.08900804e-01, 0.0],
-        "dram_rd": [20.3125, 0]
+        "dram_rd": [20.3125, 0],
     },
-
     "include_energy": {
         "QActivation": ["outputs"],
         "QAdaptiveActivation": ["outputs"],
@@ -39,6 +37,6 @@ config_settings = {
         "Add": ["op_cost"],
         "Subtract": ["op_cost"],
         "MaxPooling2D": ["op_cost"],
-        "default": ["inputs", "parameters", "op_cost"]
-    }
+        "default": ["inputs", "parameters", "op_cost"],
+    },
 }

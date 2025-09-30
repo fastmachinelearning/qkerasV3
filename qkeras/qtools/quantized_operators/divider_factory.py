@@ -13,123 +13,158 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-""""create divider quantizer."""
+""" "create divider quantizer."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
 import copy
 
 from absl import logging
-from qkeras.qtools.quantized_operators import divider_impl
-from qkeras.qtools.quantized_operators import quantizer_impl
+
+from qkeras.qtools.quantized_operators import divider_impl, quantizer_impl
 
 
 class UnacceptedQuantizerError(ValueError):
-  pass
+    pass
 
 
 class IDivider(abc.ABC):
-  """abstract class for divider."""
+    """abstract class for divider."""
 
-  def __init__(self):
-    # also attached the output datatype in the table
-    self.divider_impl_table = [
-        [
-            # when qbits is denominator, use default bits for float result
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=quantizer_impl.FLOATINGPOINT_BITS)),
-            (divider_impl.Shifter, quantizer_impl.QuantizedBits()),
-            (None, None),
-            (None, None),
-            (None, None),
-            # when bits sets to None, will decide f16/f32 according
-            # to input quantizer
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
-        ],
-        [
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=quantizer_impl.FLOATINGPOINT_BITS)),
-            (divider_impl.Subtractor, quantizer_impl.PowerOfTwo()),
-            (None, None),
-            (None, None),
-            (None, None),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
-        ],
-        [
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=quantizer_impl.FLOATINGPOINT_BITS)),
-            (divider_impl.Shifter, quantizer_impl.QuantizedBits()),
-            (None, None),
-            (None, None),
-            (None, None),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
-        ],
-        [
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=quantizer_impl.FLOATINGPOINT_BITS)),
-            (divider_impl.Shifter, quantizer_impl.PowerOfTwo()),
-            (None, None),
-            (None, None),
-            (None, None),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
-        ],
-        [
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=quantizer_impl.FLOATINGPOINT_BITS)),
-            (divider_impl.Shifter, quantizer_impl.PowerOfTwo()),
-            (None, None),
-            (None, None),
-            (None, None),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
-        ],
-        [
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None)),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None)),
-            (None, None),
-            (None, None),
-            (None, None),
-            (divider_impl.FloatingPointDivider, quantizer_impl.FloatingPoint(
-                bits=None))
+    def __init__(self):
+        # also attached the output datatype in the table
+        self.divider_impl_table = [
+            [
+                # when qbits is denominator, use default bits for float result
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(
+                        bits=quantizer_impl.FLOATINGPOINT_BITS
+                    ),
+                ),
+                (divider_impl.Shifter, quantizer_impl.QuantizedBits()),
+                (None, None),
+                (None, None),
+                (None, None),
+                # when bits sets to None, will decide f16/f32 according
+                # to input quantizer
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
+            [
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(
+                        bits=quantizer_impl.FLOATINGPOINT_BITS
+                    ),
+                ),
+                (divider_impl.Subtractor, quantizer_impl.PowerOfTwo()),
+                (None, None),
+                (None, None),
+                (None, None),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
+            [
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(
+                        bits=quantizer_impl.FLOATINGPOINT_BITS
+                    ),
+                ),
+                (divider_impl.Shifter, quantizer_impl.QuantizedBits()),
+                (None, None),
+                (None, None),
+                (None, None),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
+            [
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(
+                        bits=quantizer_impl.FLOATINGPOINT_BITS
+                    ),
+                ),
+                (divider_impl.Shifter, quantizer_impl.PowerOfTwo()),
+                (None, None),
+                (None, None),
+                (None, None),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
+            [
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(
+                        bits=quantizer_impl.FLOATINGPOINT_BITS
+                    ),
+                ),
+                (divider_impl.Shifter, quantizer_impl.PowerOfTwo()),
+                (None, None),
+                (None, None),
+                (None, None),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
+            [
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+                (None, None),
+                (None, None),
+                (None, None),
+                (
+                    divider_impl.FloatingPointDivider,
+                    quantizer_impl.FloatingPoint(bits=None),
+                ),
+            ],
         ]
-    ]
 
-  def make_quantizer(self, numerator_quantizer: quantizer_impl.IQuantizer,
-                     denominator_quantizer: quantizer_impl.IQuantizer):
-    """make the quantizer."""
+    def make_quantizer(
+        self,
+        numerator_quantizer: quantizer_impl.IQuantizer,
+        denominator_quantizer: quantizer_impl.IQuantizer,
+    ):
+        """make the quantizer."""
 
-    # Create a local copy so that the changes made here won't change the input
-    local_numerator_quantizer = copy.deepcopy(numerator_quantizer)
-    local_denominator_quantizer = copy.deepcopy(denominator_quantizer)
+        # Create a local copy so that the changes made here won't change the input
+        local_numerator_quantizer = copy.deepcopy(numerator_quantizer)
+        local_denominator_quantizer = copy.deepcopy(denominator_quantizer)
 
-    mode1 = local_numerator_quantizer.mode
-    mode2 = local_denominator_quantizer.mode
+        mode1 = local_numerator_quantizer.mode
+        mode2 = local_denominator_quantizer.mode
 
-    (divider_impl_class, output_quantizer) = self.divider_impl_table[
-        mode1][mode2]
+        (divider_impl_class, output_quantizer) = self.divider_impl_table[mode1][mode2]
 
-    local_output_quantizer = copy.deepcopy(output_quantizer)
+        local_output_quantizer = copy.deepcopy(output_quantizer)
 
-    if divider_impl_class is None:
-      raise UnacceptedQuantizerError(
-          "denominator quantizer {} not accepted!".format(
-              denominator_quantizer.name))
+        if divider_impl_class is None:
+            raise UnacceptedQuantizerError(
+                f"denominator quantizer {denominator_quantizer.name} not accepted!"
+            )
 
-    logging.debug(
-        "qbn adder implemented as class %s",
-        divider_impl_class.implemented_as())
+        logging.debug(
+            "qbn adder implemented as class %s", divider_impl_class.implemented_as()
+        )
 
-    return divider_impl_class(
-        local_numerator_quantizer,
-        local_denominator_quantizer,
-        local_output_quantizer
-    )
+        return divider_impl_class(
+            local_numerator_quantizer,
+            local_denominator_quantizer,
+            local_output_quantizer,
+        )

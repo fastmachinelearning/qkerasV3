@@ -22,13 +22,13 @@ _QUANTIZERS_REGISTRY = registry.Registry()
 
 
 def register_quantizer(quantizer):
-  """Decorator for registering a quantizer."""
-  _QUANTIZERS_REGISTRY.register(quantizer)
-  # Return the quantizer after registering. This ensures any registered
-  # quantizer class is properly defined.
-  return quantizer
+    """Decorator for registering a quantizer."""
+    _QUANTIZERS_REGISTRY.register(quantizer)
+    # Return the quantizer after registering. This ensures any registered
+    # quantizer class is properly defined.
+    return quantizer
 
 
 def lookup_quantizer(name):
-  """Retrieves a quantizer from the quantizers registry."""
-  return _QUANTIZERS_REGISTRY.lookup(name)
+    """Retrieves a quantizer from the quantizers registry."""
+    return _QUANTIZERS_REGISTRY.lookup(name)

@@ -19,7 +19,4 @@ from .forgiving_bits import ForgivingFactorBits
 from .forgiving_energy import ForgivingFactorPower
 from .forgiving_factor import ForgivingFactor
 
-forgiving_factor = {
-    "bits": ForgivingFactorBits,
-    "energy": ForgivingFactorPower
-}
+forgiving_factor = {"bits": ForgivingFactorBits, "energy": ForgivingFactorPower}

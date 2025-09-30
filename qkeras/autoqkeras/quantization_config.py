@@ -25,12 +25,12 @@ default_quantization_config = {
         "quantized_bits(2,1,1,alpha=1.0)": 2,
         "quantized_bits(4,0,1)": 4,
         "quantized_bits(8,0,1)": 8,
-        "quantized_po2(4,1)": 4
+        "quantized_po2(4,1)": 4,
     },
     "bias": {
         "quantized_bits(4,0,1)": 4,
         "quantized_bits(8,3,1)": 8,
-        "quantized_po2(4,8)": 4
+        "quantized_po2(4,8)": 4,
     },
     "activation": {
         "binary": 1,
@@ -41,7 +41,7 @@ default_quantization_config = {
         "quantized_relu(8,2)": 8,
         "quantized_relu(8,4)": 8,
         "quantized_relu(16,8)": 16,
-        "quantized_relu_po2(4,4)": 4
+        "quantized_relu_po2(4,4)": 4,
     },
     "linear": {
         "binary": 1,
@@ -49,6 +49,6 @@ default_quantization_config = {
         "quantized_bits(4,1)": 4,
         "quantized_bits(8,2)": 8,
         "quantized_bits(16,10)": 16,
-        "quantized_po2(6,4)": 6
-    }
+        "quantized_po2(6,4)": 6,
+    },
 }

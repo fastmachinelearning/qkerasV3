@@ -15,330 +15,336 @@
 #
 # ==============================================================================
 """Definition of normalization quantization package."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-import numpy as np
-import six
+
 import warnings
 
 import tensorflow.compat.v2 as tf
-from keras.utils import serialize_keras_object
+from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
-from keras import constraints
-from keras import initializers
-from keras import regularizers
-from keras import layers
+from keras.utils import serialize_keras_object
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import smart_cond as tf_utils
-from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
-from tensorflow.python.ops import nn
-from .qlayers import Clip
-from .qlayers import get_auto_range_constraint_initializer
-from .qlayers import get_quantizer
-from .quantizers import quantized_relu_po2
-from .quantizers import quantized_po2
-from .safe_eval import safe_eval
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import PrunableLayer
+from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
+    PrunableLayer,
+)
+
+from .qlayers import get_auto_range_constraint_initializer, get_quantizer
+
 
 @register_keras_serializable(package="qkeras")
 class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
-  """Quantized Batch Normalization layer.
-  For training, mean and variance are not quantized.
-  For inference, the quantized moving mean and moving variance are used.
+    """Quantized Batch Normalization layer.
+    For training, mean and variance are not quantized.
+    For inference, the quantized moving mean and moving variance are used.
 
-  output = (x - mean) / sqrt(var + epsilon) * quantized_gamma + quantized_beta
+    output = (x - mean) / sqrt(var + epsilon) * quantized_gamma + quantized_beta
 
-  """
+    """
 
-  def __init__(
-      self,
-      axis=-1,
-      momentum=0.99,
-      epsilon=1e-3,
-      center=True,
-      scale=True,
-      activation=None,
-      beta_initializer='zeros',
-      gamma_initializer='ones',
-      moving_mean_initializer='zeros',
-      moving_variance_initializer='ones',
-      beta_regularizer=None,
-      gamma_regularizer=None,
-      beta_quantizer='quantized_po2(5)',
-      gamma_quantizer='quantized_relu_po2(6, 2048)',
-      mean_quantizer='quantized_po2(5)',
-      variance_quantizer='quantized_relu_po2(6, quadratic_approximation=True)',
-      inverse_quantizer=None,
-      gamma_constraint=None,
-      beta_constraint=None,
-      # use quantized_po2 and enforce quadratic approximation
-      # to get an even exponent for sqrt
-      beta_range=None,
-      gamma_range=None,
-      **kwargs):
-    
+    def __init__(
+        self,
+        axis=-1,
+        momentum=0.99,
+        epsilon=1e-3,
+        center=True,
+        scale=True,
+        activation=None,
+        beta_initializer="zeros",
+        gamma_initializer="ones",
+        moving_mean_initializer="zeros",
+        moving_variance_initializer="ones",
+        beta_regularizer=None,
+        gamma_regularizer=None,
+        beta_quantizer="quantized_po2(5)",
+        gamma_quantizer="quantized_relu_po2(6, 2048)",
+        mean_quantizer="quantized_po2(5)",
+        variance_quantizer="quantized_relu_po2(6, quadratic_approximation=True)",
+        inverse_quantizer=None,
+        gamma_constraint=None,
+        beta_constraint=None,
+        # use quantized_po2 and enforce quadratic approximation
+        # to get an even exponent for sqrt
+        beta_range=None,
+        gamma_range=None,
+        **kwargs,
+    ):
+        if gamma_range is not None:
+            warnings.warn("gamma_range is deprecated in QBatchNormalization layer.")
 
-    if gamma_range is not None:
-      warnings.warn('gamma_range is deprecated in QBatchNormalization layer.')
+        if beta_range is not None:
+            warnings.warn("beta_range is deprecated in QBatchNormalization layer.")
 
-    if beta_range is not None:
-      warnings.warn('beta_range is deprecated in QBatchNormalization layer.')
+        self.gamma_range = gamma_range
+        self.beta_range = beta_range
+        self.activation = activation
 
-    self.gamma_range = gamma_range
-    self.beta_range = beta_range
-    self.activation = activation
+        self.beta_quantizer = beta_quantizer
+        self.gamma_quantizer = gamma_quantizer
+        self.mean_quantizer = mean_quantizer
+        self.variance_quantizer = variance_quantizer
+        self.inverse_quantizer = inverse_quantizer
 
-    self.beta_quantizer = beta_quantizer
-    self.gamma_quantizer = gamma_quantizer
-    self.mean_quantizer = mean_quantizer
-    self.variance_quantizer = variance_quantizer
-    self.inverse_quantizer = inverse_quantizer
+        if self.inverse_quantizer is not None:
+            assert self.variance_quantizer is None and self.gamma_quantizer is None, (
+                "If using the inverse quantizer, the gamma and variance quantizers "
+                "should not be used in order to avoid quantizing a value twice."
+            )
 
-    if self.inverse_quantizer is not None:
-      assert self.variance_quantizer is None and self.gamma_quantizer is None, (
-          'If using the inverse quantizer, the gamma and variance quantizers '
-          'should not be used in order to avoid quantizing a value twice.')
+        self.beta_quantizer_internal = get_quantizer(self.beta_quantizer)
+        self.gamma_quantizer_internal = get_quantizer(self.gamma_quantizer)
+        self.mean_quantizer_internal = get_quantizer(self.mean_quantizer)
+        self.variance_quantizer_internal = get_quantizer(self.variance_quantizer)
+        self.inverse_quantizer_internal = get_quantizer(self.inverse_quantizer)
 
-    self.beta_quantizer_internal = get_quantizer(self.beta_quantizer)
-    self.gamma_quantizer_internal = get_quantizer(self.gamma_quantizer)
-    self.mean_quantizer_internal = get_quantizer(self.mean_quantizer)
-    self.variance_quantizer_internal = get_quantizer(self.variance_quantizer)
-    self.inverse_quantizer_internal = get_quantizer(self.inverse_quantizer)
+        if hasattr(self.gamma_quantizer_internal, "_set_trainable_parameter"):
+            self.gamma_quantizer_internal._set_trainable_parameter()
+        if hasattr(self.variance_quantizer_internal, "_set_trainable_parameter"):
+            self.variance_quantizer_internal._set_trainable_parameter()
 
-    if hasattr(self.gamma_quantizer_internal, '_set_trainable_parameter'):
-      self.gamma_quantizer_internal._set_trainable_parameter()
-    if hasattr(self.variance_quantizer_internal, '_set_trainable_parameter'):
-      self.variance_quantizer_internal._set_trainable_parameter()
+        self.quantizers = [
+            self.gamma_quantizer_internal,
+            self.beta_quantizer_internal,
+            self.mean_quantizer_internal,
+            self.variance_quantizer_internal,
+            self.inverse_quantizer_internal,
+        ]
 
-    self.quantizers = [
-        self.gamma_quantizer_internal,
-        self.beta_quantizer_internal,
-        self.mean_quantizer_internal,
-        self.variance_quantizer_internal,
-        self.inverse_quantizer_internal
-    ]
+        if scale and self.gamma_quantizer:
+            gamma_constraint, gamma_initializer = get_auto_range_constraint_initializer(
+                self.gamma_quantizer_internal, gamma_constraint, gamma_initializer
+            )
 
-    if scale and self.gamma_quantizer:
-      gamma_constraint, gamma_initializer = (
-          get_auto_range_constraint_initializer(
-              self.gamma_quantizer_internal,
-              gamma_constraint,
-              gamma_initializer)
-      )
+        if center and self.beta_quantizer:
+            beta_constraint, beta_initializer = get_auto_range_constraint_initializer(
+                self.beta_quantizer_internal, beta_constraint, beta_initializer
+            )
 
-    if center and self.beta_quantizer:
-      beta_constraint, beta_initializer = (
-          get_auto_range_constraint_initializer(
-              self.beta_quantizer_internal,
-              beta_constraint,
-              beta_initializer)
-      )
+        if kwargs.get("fused", None):
+            warnings.warn(
+                "batch normalization fused is disabled " "in qkeras qnormalization.py."
+            )
+            del kwargs["fused"]
 
-    if kwargs.get('fused', None):
-      warnings.warn('batch normalization fused is disabled '
-                    'in qkeras qnormalization.py.')
-      del kwargs['fused']
+        if kwargs.get("renorm", None):
+            warnings.warn(
+                "batch normalization renorm is disabled " "in qkeras qnormalization.py."
+            )
+            del kwargs["renorm"]
 
-    if kwargs.get('renorm', None):
-      warnings.warn('batch normalization renorm is disabled '
-                    'in qkeras qnormalization.py.')
-      del kwargs['renorm']
+        if kwargs.get("virtual_batch_size", None):
+            warnings.warn(
+                "batch normalization virtual_batch_size is disabled "
+                "in qkeras qnormalization.py."
+            )
+            del kwargs["virtual_batch_size"]
 
-    if kwargs.get('virtual_batch_size', None):
-      warnings.warn('batch normalization virtual_batch_size is disabled '
-                    'in qkeras qnormalization.py.')
-      del kwargs['virtual_batch_size']
+        if kwargs.get("adjustment", None):
+            warnings.warn(
+                "batch normalization adjustment is disabled "
+                "in qkeras qnormalization.py."
+            )
+            del kwargs["adjustment"]
 
-    if kwargs.get('adjustment', None):
-      warnings.warn('batch normalization adjustment is disabled '
-                    'in qkeras qnormalization.py.')
-      del kwargs['adjustment']
+        super().__init__(
+            axis=axis,
+            momentum=momentum,
+            epsilon=epsilon,
+            center=center,
+            scale=scale,
+            beta_initializer=beta_initializer,
+            gamma_initializer=gamma_initializer,
+            moving_mean_initializer=moving_mean_initializer,
+            moving_variance_initializer=moving_variance_initializer,
+            beta_regularizer=beta_regularizer,
+            gamma_regularizer=gamma_regularizer,
+            beta_constraint=beta_constraint,
+            gamma_constraint=gamma_constraint,
+            **kwargs,
+        )
 
-    super().__init__(
-    axis=axis,
-    momentum=momentum,
-    epsilon=epsilon,
-    center=center,
-    scale=scale,
-    beta_initializer=beta_initializer,
-    gamma_initializer=gamma_initializer,
-    moving_mean_initializer=moving_mean_initializer,
-    moving_variance_initializer=moving_variance_initializer,
-    beta_regularizer=beta_regularizer,
-    gamma_regularizer=gamma_regularizer,
-    beta_constraint=beta_constraint,
-    gamma_constraint=gamma_constraint,
-    **kwargs
-)
+    def call(self, inputs, training=False):
+        if self.scale and self.gamma_quantizer:
+            quantized_gamma = self.gamma_quantizer_internal(self.gamma)
+        else:
+            quantized_gamma = self.gamma
 
+        if self.center and self.beta_quantizer:
+            quantized_beta = self.beta_quantizer_internal(self.beta)
+        else:
+            quantized_beta = self.beta
 
-  def call(self, inputs, training=False):
-    if self.scale and self.gamma_quantizer:
-      quantized_gamma = self.gamma_quantizer_internal(self.gamma)
-    else:
-      quantized_gamma = self.gamma
+        if self.mean_quantizer:
+            quantized_moving_mean = self.mean_quantizer_internal(self.moving_mean)
+        else:
+            quantized_moving_mean = self.moving_mean
 
-    if self.center and self.beta_quantizer:
-      quantized_beta = self.beta_quantizer_internal(self.beta)
-    else:
-      quantized_beta = self.beta
+        if self.variance_quantizer:
+            quantized_moving_variance = self.variance_quantizer_internal(
+                self.moving_variance
+            )
+        else:
+            quantized_moving_variance = self.moving_variance
 
-    if self.mean_quantizer:
-      quantized_moving_mean = self.mean_quantizer_internal(self.moving_mean)
-    else:
-      quantized_moving_mean = self.moving_mean
+        # Compute the axes along which to reduce the mean / variance
+        input_shape = inputs.shape
+        ndims = len(input_shape)
+        axis = self.axis if isinstance(self.axis, (list, tuple)) else [self.axis]
+        reduction_axes = [i for i in range(ndims) if i not in axis]
 
-    if self.variance_quantizer:
-      quantized_moving_variance = self.variance_quantizer_internal(
-          self.moving_variance)
-    else:
-      quantized_moving_variance = self.moving_variance
+        # Broadcasting only necessary for single-axis batch norm where the axis is
+        # not the last dimension
+        broadcast_shape = [1] * ndims
+        broadcast_shape[axis[0]] = input_shape.dims[axis[0]].value
 
-    
+        def _broadcast(v):
+            if (
+                v is not None
+                and len(v.shape) != ndims
+                and reduction_axes != list(range(ndims - 1))
+            ):
+                return tf.broadcast_to(v, broadcast_shape)
+            return v
 
-    # Compute the axes along which to reduce the mean / variance
-    input_shape = inputs.shape
-    ndims = len(input_shape)
-    axis = self.axis if isinstance(self.axis, (list, tuple)) else [self.axis]
-    reduction_axes = [i for i in range(ndims) if i not in axis]
+        scale, offset = _broadcast(quantized_gamma), _broadcast(quantized_beta)
 
-    # Broadcasting only necessary for single-axis batch norm where the axis is
-    # not the last dimension
-    broadcast_shape = [1] * ndims
-    broadcast_shape[axis[0]] = input_shape.dims[axis[0]].value
-    def _broadcast(v):
-      if (v is not None and len(v.shape) != ndims and
-          reduction_axes != list(range(ndims - 1))):
-        return tf.broadcast_to(v, broadcast_shape)
-      return v
+        # Determine a boolean value for `training`: could be True, False, or None.
+        training_value = tf_utils.smart_constant_value(training)
+        if training_value == False:  # pylint: disable=singleton-comparison,g-explicit-bool-comparison
+            quantized_mean, quantized_variance = (
+                quantized_moving_mean,
+                quantized_moving_variance,
+            )
+        else:
+            # Some of the computations here are not necessary when training==False
+            # but not a constant. However, this makes the code simpler.
+            keep_dims = len(axis) > 1
+            mean, variance = tf.nn.moments(
+                math_ops.cast(inputs, self.compute_dtype),
+                axes=reduction_axes,
+                keepdims=keep_dims,
+            )
 
-    scale, offset = _broadcast(quantized_gamma), _broadcast(quantized_beta)
+            moving_mean = self.moving_mean
+            moving_variance = self.moving_variance
 
-    # Determine a boolean value for `training`: could be True, False, or None.
-    training_value = tf_utils.smart_constant_value(training)
-    if training_value == False:  # pylint: disable=singleton-comparison,g-explicit-bool-comparison
-      quantized_mean, quantized_variance = (quantized_moving_mean,
-                                            quantized_moving_variance)
-    else:
-      # Some of the computations here are not necessary when training==False
-      # but not a constant. However, this makes the code simpler.
-      keep_dims = len(axis) > 1
-      mean, variance = tf.nn.moments(
-        math_ops.cast(inputs, self.compute_dtype),
-        axes=reduction_axes,
-        keepdims=keep_dims)
+            mean = tf_utils.smart_cond(
+                training, lambda: mean, lambda: ops.convert_to_tensor(moving_mean)
+            )
+            variance = tf_utils.smart_cond(
+                training,
+                lambda: variance,
+                lambda: ops.convert_to_tensor(moving_variance),
+            )
 
-      moving_mean = self.moving_mean
-      moving_variance = self.moving_variance
+            new_mean, new_variance = mean, variance
 
-      mean = tf_utils.smart_cond(
-          training, lambda: mean, lambda: ops.convert_to_tensor(moving_mean))
-      variance = tf_utils.smart_cond(
-          training,
-          lambda: variance,
-          lambda: ops.convert_to_tensor(moving_variance))
+            if self.mean_quantizer:
+                quantized_mean = self.mean_quantizer_internal(mean)
+            else:
+                quantized_mean = mean
 
-      new_mean, new_variance = mean, variance
+            if self.variance_quantizer:
+                quantized_variance = self.variance_quantizer_internal(variance)
+            else:
+                quantized_variance = variance
 
-      if self.mean_quantizer:
-        quantized_mean = self.mean_quantizer_internal(mean)
-      else:
-        quantized_mean = mean
+            inputs_size = tf.cond(
+                tf.equal(tf.shape(inputs)[0], 0),
+                lambda: tf.size(inputs),
+                lambda: tf.constant(-1),
+            )
 
-      if self.variance_quantizer:
-        quantized_variance = self.variance_quantizer_internal(variance)
-      else:
-        quantized_variance = variance
+            def _do_update(var, value):
+                """Compute the updates for mean and variance."""
+                return self._assign_moving_average(
+                    var, value, self.momentum, inputs_size
+                )
 
-      inputs_size = tf.cond(
-        tf.equal(tf.shape(inputs)[0], 0),
-        lambda: tf.size(inputs),
-        lambda: tf.constant(-1)
-      )
+            def mean_update():
+                true_branch = lambda: _do_update(self.moving_mean, new_mean)
+                false_branch = lambda: self.moving_mean
+                return tf_utils.smart_cond(training, true_branch, false_branch)
 
-      def _do_update(var, value):
-        """Compute the updates for mean and variance."""
-        return self._assign_moving_average(var, value, self.momentum,
-                                           inputs_size)
+            def variance_update():
+                """Update the moving variance."""
+                true_branch = lambda: _do_update(self.moving_variance, new_variance)
+                false_branch = lambda: self.moving_variance
+                return tf_utils.smart_cond(training, true_branch, false_branch)
 
-      def mean_update():
-        true_branch = lambda: _do_update(self.moving_mean, new_mean)
-        false_branch = lambda: self.moving_mean
-        return tf_utils.smart_cond(training, true_branch, false_branch)
+            moving_mean_assign = self.moving_mean.assign(
+                self.moving_mean * self.momentum + mean * (1.0 - self.momentum)
+            )
+            moving_variance_assign = self.moving_variance.assign(
+                self.moving_variance * self.momentum + variance * (1.0 - self.momentum)
+            )
 
-      def variance_update():
-        """Update the moving variance."""
-        true_branch = lambda: _do_update(self.moving_variance, new_variance)
-        false_branch = lambda: self.moving_variance
-        return tf_utils.smart_cond(training, true_branch, false_branch)
+        quantized_mean = _broadcast(math_ops.cast(quantized_mean, inputs.dtype))
+        quantized_variance = _broadcast(math_ops.cast(quantized_variance, inputs.dtype))
+        if offset is not None:
+            offset = math_ops.cast(offset, inputs.dtype)
+        if scale is not None:
+            scale = math_ops.cast(scale, inputs.dtype)
 
-      moving_mean_assign = self.moving_mean.assign(
-        self.moving_mean * self.momentum + mean * (1.0 - self.momentum)
-      )
-      moving_variance_assign = self.moving_variance.assign(
-        self.moving_variance * self.momentum + variance * (1.0 - self.momentum)
-      )
+        # Calculate and quantize the inverse
+        inv = math_ops.rsqrt(quantized_variance + self.epsilon)
+        if scale is not None:
+            inv *= scale
+        if self.inverse_quantizer_internal is not None:
+            inv = self.inverse_quantizer_internal(inv)
 
+        # Calculate the forward pass of the BN
+        outputs = inputs * math_ops.cast(inv, inputs.dtype) + math_ops.cast(
+            offset - quantized_mean * inv
+            if offset is not None
+            else -quantized_mean * inv,
+            inputs.dtype,
+        )
 
-    quantized_mean = _broadcast(math_ops.cast(quantized_mean, inputs.dtype))
-    quantized_variance = _broadcast(
-        math_ops.cast(quantized_variance, inputs.dtype))
-    if offset is not None:
-      offset = math_ops.cast(offset, inputs.dtype)
-    if scale is not None:
-      scale = math_ops.cast(scale, inputs.dtype)
+        # If some components of the shape got lost due to adjustments, fix that.
+        outputs.set_shape(input_shape)
 
-    # Calculate and quantize the inverse
-    inv = math_ops.rsqrt(quantized_variance + self.epsilon)
-    if scale is not None:
-      inv *= scale
-    if self.inverse_quantizer_internal is not None:
-      inv = self.inverse_quantizer_internal(inv)
+        return outputs
 
-    # Calculate the forward pass of the BN
-    outputs = inputs * math_ops.cast(inv, inputs.dtype) + math_ops.cast(
-        offset - quantized_mean * inv
-        if offset is not None else -quantized_mean * inv, inputs.dtype)
+    def get_config(self):
+        config = {
+            "axis": self.axis,
+            "momentum": self.momentum,
+            "epsilon": self.epsilon,
+            "center": self.center,
+            "scale": self.scale,
+            "beta_quantizer": serialize_keras_object(self.beta_quantizer_internal),
+            "gamma_quantizer": serialize_keras_object(self.gamma_quantizer_internal),
+            "mean_quantizer": serialize_keras_object(self.mean_quantizer_internal),
+            "variance_quantizer": serialize_keras_object(
+                self.variance_quantizer_internal
+            ),
+            "beta_initializer": initializers.serialize(self.beta_initializer),
+            "gamma_initializer": initializers.serialize(self.gamma_initializer),
+            "moving_mean_initializer": initializers.serialize(
+                self.moving_mean_initializer
+            ),
+            "moving_variance_initializer": initializers.serialize(
+                self.moving_variance_initializer
+            ),
+            "inverse_quantizer": serialize_keras_object(
+                self.inverse_quantizer_internal
+            ),
+            "beta_regularizer": regularizers.serialize(self.beta_regularizer),
+            "gamma_regularizer": regularizers.serialize(self.gamma_regularizer),
+            "beta_constraint": constraints.serialize(self.beta_constraint),
+            "gamma_constraint": constraints.serialize(self.gamma_constraint),
+            "beta_range": self.beta_range,
+            "gamma_range": self.gamma_range,
+        }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))
 
-    # If some components of the shape got lost due to adjustments, fix that.
-    outputs.set_shape(input_shape)
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
-    return outputs
+    def get_quantizers(self):
+        return self.quantizers
 
-  def get_config(self):
-    config = {
-        'axis': self.axis,
-        'momentum': self.momentum,
-        'epsilon': self.epsilon,
-        'center': self.center,
-        'scale': self.scale,
-        'beta_quantizer': serialize_keras_object(self.beta_quantizer_internal),
-        'gamma_quantizer': serialize_keras_object(self.gamma_quantizer_internal),
-        'mean_quantizer': serialize_keras_object(self.mean_quantizer_internal),
-        'variance_quantizer': serialize_keras_object(self.variance_quantizer_internal),
-        'beta_initializer': initializers.serialize(self.beta_initializer),
-        'gamma_initializer': initializers.serialize(self.gamma_initializer),
-        'moving_mean_initializer': initializers.serialize(self.moving_mean_initializer),
-        'moving_variance_initializer': initializers.serialize(self.moving_variance_initializer),
-        'inverse_quantizer': serialize_keras_object(self.inverse_quantizer_internal),
-        'beta_regularizer': regularizers.serialize(self.beta_regularizer),
-        'gamma_regularizer': regularizers.serialize(self.gamma_regularizer),
-        'beta_constraint': constraints.serialize(self.beta_constraint),
-        'gamma_constraint': constraints.serialize(self.gamma_constraint),
-        'beta_range': self.beta_range,
-        'gamma_range': self.gamma_range,
-    }
-    base_config = super().get_config()
-    return dict(list(base_config.items()) + list(config.items()))
-
-
-  def compute_output_shape(self, input_shape):
-    return input_shape
-
-  def get_quantizers(self):
-    return self.quantizers
-
-  def get_prunable_weights(self):
-    return []
+    def get_prunable_weights(self):
+        return []

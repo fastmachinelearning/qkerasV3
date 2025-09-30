@@ -20,28 +20,28 @@ import numpy as np
 
 
 class ForgivingFactor:
-  """Base class. Should never be invoked."""
+    """Base class. Should never be invoked."""
 
-  def __init__(self, delta_p, delta_n, rate):
-    self.delta_p = np.float32(delta_p) / 100.0
-    self.delta_n = np.float32(delta_n) / 100.0
-    self.rate = np.float32(rate)
+    def __init__(self, delta_p, delta_n, rate):
+        self.delta_p = np.float32(delta_p) / 100.0
+        self.delta_n = np.float32(delta_n) / 100.0
+        self.rate = np.float32(rate)
 
-  def get_reference(self, model):
-    """Computes reference size of model."""
+    def get_reference(self, model):
+        """Computes reference size of model."""
 
-    raise Exception("class not implemented.")
+        raise Exception("class not implemented.")
 
-  def get_trial(self, model, schema):
-    """Computes size of quantization trial."""
+    def get_trial(self, model, schema):
+        """Computes size of quantization trial."""
 
-    raise Exception("class not implemented.")
+        raise Exception("class not implemented.")
 
-  def delta(self):
-    return np.where(
-        self.trial_size < self.reference_size,
-        self.delta_p * (np.log(self.reference_size/self.trial_size) /
-                        np.log(self.rate)),
-        self.delta_n * (np.log(self.reference_size/self.trial_size) /
-                        np.log(self.rate)))
-
+    def delta(self):
+        return np.where(
+            self.trial_size < self.reference_size,
+            self.delta_p
+            * (np.log(self.reference_size / self.trial_size) / np.log(self.rate)),
+            self.delta_n
+            * (np.log(self.reference_size / self.trial_size) / np.log(self.rate)),
+        )

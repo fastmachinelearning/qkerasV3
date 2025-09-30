@@ -19,7 +19,6 @@ import numpy as np
 import pytest
 
 from qkeras import quantizer_registry
-from qkeras import quantizers
 
 
 @pytest.mark.parametrize(
@@ -42,10 +41,10 @@ from qkeras import quantizers
     ],
 )
 def test_lookup(quantizer_name):
-  quantizer = quantizer_registry.lookup_quantizer(quantizer_name)
-  is_class_instance = isinstance(quantizer, type)
-  np.testing.assert_equal(is_class_instance, True)
+    quantizer = quantizer_registry.lookup_quantizer(quantizer_name)
+    is_class_instance = isinstance(quantizer, type)
+    np.testing.assert_equal(is_class_instance, True)
 
 
 if __name__ == "__main__":
-  pytest.main([__file__])
+    pytest.main([__file__])

@@ -15,19 +15,14 @@
 # ==============================================================================
 """Tests automatic conversion of keras model to qkeras."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
-from collections import defaultdict
 
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
 from qkeras.estimate import print_qstats
-from qkeras.utils import model_quantize
-from qkeras.utils import quantized_model_dump
+from qkeras.utils import model_quantize, quantized_model_dump
 
 x0 = x_in0 = Input((28, 28, 1), name="input0")
 x1 = x_in1 = Input((28, 28, 1), name="input1")
@@ -51,24 +46,22 @@ model.summary()
 q_dict = {
     "conv2d_0_m": {
         "kernel_quantizer": "binary()",
-        "bias_quantizer": "quantized_bits(4,0,1)"
+        "bias_quantizer": "quantized_bits(4,0,1)",
     },
     "conv2d_1_m": {
         "kernel_quantizer": "ternary()",
-        "bias_quantizer": "quantized_bits(4,0,1)"
+        "bias_quantizer": "quantized_bits(4,0,1)",
     },
     "act2_m": "quantized_relu(6,2)",
-    "QActivation": {
-        "relu": "quantized_relu(4,0)"
-    },
+    "QActivation": {"relu": "quantized_relu(4,0)"},
     "QConv2D": {
         "kernel_quantizer": "quantized_bits(4,0,1)",
-        "bias_quantizer": "quantized_bits(4,0,1)"
+        "bias_quantizer": "quantized_bits(4,0,1)",
     },
     "QDense": {
         "kernel_quantizer": "quantized_bits(3,0,1)",
-        "bias_quantizer": "quantized_bits(3,0,1)"
-    }
+        "bias_quantizer": "quantized_bits(3,0,1)",
+    },
 }
 
 qmodel = model_quantize(model, q_dict, 4)
@@ -79,9 +72,10 @@ print_qstats(qmodel)
 
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-x_test_arr = [x_test[0:10,:], x_test[0:10,:]]
+x_test_arr = [x_test[0:10, :], x_test[0:10, :]]
 
 quantized_model_dump(
-    qmodel, x_test_arr,
-    layers_to_dump=["input0", "input1", "act2_m", "act1_m", "act0_m"])
-
+    qmodel,
+    x_test_arr,
+    layers_to_dump=["input0", "input1", "act2_m", "act1_m", "act0_m"],
+)

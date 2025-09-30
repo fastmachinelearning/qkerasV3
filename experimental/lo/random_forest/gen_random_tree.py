@@ -15,40 +15,43 @@
 # ==============================================================================
 """Generates expressions for random trees."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import numpy as np
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.tree import DecisionTreeRegressor
+
 
 def gen_random_tree_cc(tree):
-  n_nodes = tree.node_count
-  children_left = tree.children_left
-  children_right = tree.children_right
-  feature = tree.feature
-  threshold = tree.threshold
+    n_nodes = tree.node_count
+    children_left = tree.children_left
+    children_right = tree.children_right
+    feature = tree.feature
+    threshold = tree.threshold
 
-  node_depth = np.zeros(shape=n_nodes, dtype=np.int64)
-  is_leaves = np.zeros(shape=n_nodes, dtype=bool)
+    node_depth = np.zeros(shape=n_nodes, dtype=np.int64)
+    is_leaves = np.zeros(shape=n_nodes, dtype=bool)
 
-  stack = [(0, -1)]
+    stack = [(0, -1)]
 
-  while (len(stack) > 0):
-    node_id, parent_depth = stack.pop()
-    node_depth[node_id] = parent_depth + 1
+    while len(stack) > 0:
+        node_id, parent_depth = stack.pop()
+        node_depth[node_id] = parent_depth + 1
 
-    if children_left[node_id] != children_right[node_id]:
-      stack.append((chidren_left[node_id], parent_depth+1))
-      stack.append((children_right[node_id], parent_depth+1))
-    else:
-      is_leaves[node_id] = True
+        if children_left[node_id] != children_right[node_id]:
+            stack.append((chidren_left[node_id], parent_depth + 1))
+            stack.append((children_right[node_id], parent_depth + 1))
+        else:
+            is_leaves[node_id] = True
 
-  for i in range(n_nodes):
-    if is_leaves[i]:
-      print("{}n_{} leaf node.".format("  "*node_depth[i], i))
-    else:
-      print("{}n_{} (i_{} <= {}) ? n_{} : n_{}".format(
-          "  "*node_depth[i], i, feature[i], threshold[i],
-          children_left[i], children_right[i]))
+    for i in range(n_nodes):
+        if is_leaves[i]:
+            print("{}n_{} leaf node.".format("  " * node_depth[i], i))
+        else:
+            print(
+                "{}n_{} (i_{} <= {}) ? n_{} : n_{}".format(
+                    "  " * node_depth[i],
+                    i,
+                    feature[i],
+                    threshold[i],
+                    children_left[i],
+                    children_right[i],
+                )
+            )

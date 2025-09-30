@@ -18,5 +18,7 @@
 # We use wildcard import for convenience at this moment, which will be later
 # refactored and removed.
 from .autoqkeras_internal import *  # pylint: disable=wildcard-import
-from .quantization_config import default_quantization_config  # pylint: disable=line-too-long
+from .quantization_config import (
+    default_quantization_config,  # pylint: disable=line-too-long
+)
 from .utils import *  # pylint: disable=wildcard-import

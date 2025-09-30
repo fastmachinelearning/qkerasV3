@@ -13,6 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .utils import load
-from .utils import load_csv
-from .utils import load_pla
+from .utils import load, load_csv, load_pla

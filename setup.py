@@ -15,15 +15,11 @@
 # ==============================================================================
 """Setup script for qkeras."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
-import io
 import setuptools
 
-with io.open("README.md", "r", encoding="utf8") as fh:
-  long_description = fh.read()
+with open("README.md", encoding="utf8") as fh:
+    long_description = fh.read()
 
 setuptools.setup(
     name="QKeras",
@@ -47,7 +43,7 @@ setuptools.setup(
         "networkx>=2.1",
         "keras-tuner>=1.0.1",
         "scikit-learn>=0.23.1",
-        "tqdm>=4.48.0"
+        "tqdm>=4.48.0",
     ],
     setup_requires=[
         "pytest-runner",

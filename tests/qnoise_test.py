@@ -14,195 +14,195 @@
 # limitations under the License.
 # ==============================================================================
 """Test gradual quantization noise injection with quantizers of quantizers.py."""
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+
 import numpy as np
-import logging
-from numpy.testing import assert_allclose
-from numpy.testing import assert_equal
 import pytest
-from keras import backend as K
-from qkeras.quantizers import quantized_bits
-from qkeras.quantizers import quantized_relu
+from numpy.testing import assert_equal
+
+from qkeras.quantizers import quantized_bits, quantized_relu
 
 
 def test_qnoise_quantized_bits():
-  # 1 sign bit, 1 integer bit, and 2 fractional bits.
-  bits = 4
-  integer = 1
-  symmetric = True
-  keep_negative = True
-  alpha = 1
-  use_stochastic_rounding = False
+    # 1 sign bit, 1 integer bit, and 2 fractional bits.
+    bits = 4
+    integer = 1
+    symmetric = True
+    keep_negative = True
+    alpha = 1
+    use_stochastic_rounding = False
 
-  qb = quantized_bits(
-      bits=bits,
-      integer=integer,
-      symmetric=symmetric,
-      keep_negative=keep_negative,
-      alpha=alpha,
-      use_stochastic_rounding=use_stochastic_rounding,
-      use_variables=True)
+    qb = quantized_bits(
+        bits=bits,
+        integer=integer,
+        symmetric=symmetric,
+        keep_negative=keep_negative,
+        alpha=alpha,
+        use_stochastic_rounding=use_stochastic_rounding,
+        use_variables=True,
+    )
 
-  inputs = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
-  x = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
-  xq = np.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype=np.float32)
-  x_xq = 0.5 * (x + xq)
+    inputs = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
+    x = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
+    xq = np.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype=np.float32)
+    x_xq = 0.5 * (x + xq)
 
-  # no quantization
-  qb.update_qnoise_factor(qnoise_factor=0.0)
-  x_q_0 = qb(inputs)
-  assert_equal(x_q_0, x)
+    # no quantization
+    qb.update_qnoise_factor(qnoise_factor=0.0)
+    x_q_0 = qb(inputs)
+    assert_equal(x_q_0, x)
 
-  # full quantization
-  qb.update_qnoise_factor(qnoise_factor=1.0)
-  x_q_1 = qb(inputs)
-  assert_equal(x_q_1, xq)
+    # full quantization
+    qb.update_qnoise_factor(qnoise_factor=1.0)
+    x_q_1 = qb(inputs)
+    assert_equal(x_q_1, xq)
 
-  # mixing half and half of x and xq
-  qb.update_qnoise_factor(qnoise_factor=0.5)
-  x_q_05 = qb(inputs)
-  assert_equal(x_q_05, x_xq)
+    # mixing half and half of x and xq
+    qb.update_qnoise_factor(qnoise_factor=0.5)
+    x_q_05 = qb(inputs)
+    assert_equal(x_q_05, x_xq)
 
 
 def test_qnoise_quantized_relu():
-  # 0 sign bit, 1 integer bit, and 3 fractional bits.
-  bits = 4
-  integer = 1
-  use_sigmoid = False
-  negative_slope = 0
-  use_stochastic_rounding = False
+    # 0 sign bit, 1 integer bit, and 3 fractional bits.
+    bits = 4
+    integer = 1
+    use_sigmoid = False
+    negative_slope = 0
+    use_stochastic_rounding = False
 
-  # input to quantized relu
-  inputs = np.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype=np.float32)
-  # float relu
-  x = np.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype=np.float32)
-  # float relu with upper bound 1.5
-  x_ub = np.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype=np.float32)
-  # float relu with quantized clipping
-  x_clipped = np.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype=np.float32)
-  # quantized relu
-  xq = np.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype=np.float32)
+    # input to quantized relu
+    inputs = np.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype=np.float32)
+    # float relu
+    x = np.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype=np.float32)
+    # float relu with upper bound 1.5
+    x_ub = np.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype=np.float32)
+    # float relu with quantized clipping
+    x_clipped = np.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype=np.float32)
+    # quantized relu
+    xq = np.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype=np.float32)
 
-  # mixing half and half
-  x_xq = 0.5 * (x + xq)
-  x_clipped_xq = 0.5 * (x_clipped + xq)
-  x_ub_xq = 0.5 * (x_ub + xq)
+    # mixing half and half
+    x_xq = 0.5 * (x + xq)
+    x_clipped_xq = 0.5 * (x_clipped + xq)
+    x_ub_xq = 0.5 * (x_ub + xq)
 
-  #########################################
-  # No relu upper bound
-  # No quantized clip for float relu
-  #########################################
-  qr_qc_false = quantized_relu(
-      bits=bits,
-      integer=integer,
-      use_sigmoid=use_sigmoid,
-      negative_slope=negative_slope,
-      use_stochastic_rounding=use_stochastic_rounding,
-      relu_upper_bound=None,
-      is_quantized_clip=False,
-      use_variables=True)
-  # no quantization
-  qr_qc_false.update_qnoise_factor(qnoise_factor=0.0)
-  x_q_0 = qr_qc_false(inputs)
-  assert_equal(x_q_0, x)
+    #########################################
+    # No relu upper bound
+    # No quantized clip for float relu
+    #########################################
+    qr_qc_false = quantized_relu(
+        bits=bits,
+        integer=integer,
+        use_sigmoid=use_sigmoid,
+        negative_slope=negative_slope,
+        use_stochastic_rounding=use_stochastic_rounding,
+        relu_upper_bound=None,
+        is_quantized_clip=False,
+        use_variables=True,
+    )
+    # no quantization
+    qr_qc_false.update_qnoise_factor(qnoise_factor=0.0)
+    x_q_0 = qr_qc_false(inputs)
+    assert_equal(x_q_0, x)
 
-  # full quantization
-  qr_qc_false.update_qnoise_factor(qnoise_factor=1.0)
-  x_q_1 = qr_qc_false(inputs)
-  assert_equal(x_q_1, xq)
+    # full quantization
+    qr_qc_false.update_qnoise_factor(qnoise_factor=1.0)
+    x_q_1 = qr_qc_false(inputs)
+    assert_equal(x_q_1, xq)
 
-  # mixing half and half
-  qr_qc_false.update_qnoise_factor(qnoise_factor=0.5)
-  x_q_05 = qr_qc_false(inputs)
-  assert_equal(x_q_05, x_xq)
+    # mixing half and half
+    qr_qc_false.update_qnoise_factor(qnoise_factor=0.5)
+    x_q_05 = qr_qc_false(inputs)
+    assert_equal(x_q_05, x_xq)
 
-  #########################################
-  # No relu upper bound
-  # Quantized clip for float relu
-  #########################################
-  qr_qc_true = quantized_relu(
-      bits=bits,
-      integer=integer,
-      use_sigmoid=use_sigmoid,
-      negative_slope=negative_slope,
-      use_stochastic_rounding=use_stochastic_rounding,
-      relu_upper_bound=None,
-      is_quantized_clip=True,
-      use_variables=True)
-  # no quantization
-  qr_qc_true.update_qnoise_factor(qnoise_factor=0.0)
-  x_q_0 = qr_qc_true(inputs)
-  assert_equal(x_q_0, x_clipped)
+    #########################################
+    # No relu upper bound
+    # Quantized clip for float relu
+    #########################################
+    qr_qc_true = quantized_relu(
+        bits=bits,
+        integer=integer,
+        use_sigmoid=use_sigmoid,
+        negative_slope=negative_slope,
+        use_stochastic_rounding=use_stochastic_rounding,
+        relu_upper_bound=None,
+        is_quantized_clip=True,
+        use_variables=True,
+    )
+    # no quantization
+    qr_qc_true.update_qnoise_factor(qnoise_factor=0.0)
+    x_q_0 = qr_qc_true(inputs)
+    assert_equal(x_q_0, x_clipped)
 
-  # full quantization
-  qr_qc_true.update_qnoise_factor(qnoise_factor=1.0)
-  x_q_1 = qr_qc_true(inputs)
-  assert_equal(x_q_1, xq)
+    # full quantization
+    qr_qc_true.update_qnoise_factor(qnoise_factor=1.0)
+    x_q_1 = qr_qc_true(inputs)
+    assert_equal(x_q_1, xq)
 
-  # mixing half and half
-  qr_qc_true.update_qnoise_factor(qnoise_factor=0.5)
-  x_q_05 = qr_qc_true(inputs)
-  assert_equal(x_q_05, x_clipped_xq)
+    # mixing half and half
+    qr_qc_true.update_qnoise_factor(qnoise_factor=0.5)
+    x_q_05 = qr_qc_true(inputs)
+    assert_equal(x_q_05, x_clipped_xq)
 
-  #########################################
-  # Relu upper bound
-  # No quantized clip for float relu
-  #########################################
-  qr_ub_qc_false = quantized_relu(
-      bits=bits,
-      integer=integer,
-      use_sigmoid=use_sigmoid,
-      negative_slope=negative_slope,
-      use_stochastic_rounding=use_stochastic_rounding,
-      relu_upper_bound=1.5,
-      is_quantized_clip=False,
-      use_variables=True)
-  # no quantization
-  qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.0)
-  x_q_0 = qr_ub_qc_false(inputs)
-  assert_equal(x_q_0, np.clip(x_ub, a_min=None, a_max=1.5))
+    #########################################
+    # Relu upper bound
+    # No quantized clip for float relu
+    #########################################
+    qr_ub_qc_false = quantized_relu(
+        bits=bits,
+        integer=integer,
+        use_sigmoid=use_sigmoid,
+        negative_slope=negative_slope,
+        use_stochastic_rounding=use_stochastic_rounding,
+        relu_upper_bound=1.5,
+        is_quantized_clip=False,
+        use_variables=True,
+    )
+    # no quantization
+    qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.0)
+    x_q_0 = qr_ub_qc_false(inputs)
+    assert_equal(x_q_0, np.clip(x_ub, a_min=None, a_max=1.5))
 
-  # full quantization
-  qr_ub_qc_false.update_qnoise_factor(qnoise_factor=1.0)
-  x_q_1 = qr_ub_qc_false(inputs)
-  assert_equal(x_q_1, np.clip(xq, a_min=None, a_max=1.5))
+    # full quantization
+    qr_ub_qc_false.update_qnoise_factor(qnoise_factor=1.0)
+    x_q_1 = qr_ub_qc_false(inputs)
+    assert_equal(x_q_1, np.clip(xq, a_min=None, a_max=1.5))
 
-  # mixing half and half
-  qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.5)
-  x_q_05 = qr_ub_qc_false(inputs)
-  assert_equal(x_q_05, np.clip(x_ub_xq, a_min=None, a_max=1.5))
+    # mixing half and half
+    qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.5)
+    x_q_05 = qr_ub_qc_false(inputs)
+    assert_equal(x_q_05, np.clip(x_ub_xq, a_min=None, a_max=1.5))
 
-  #########################################
-  # Relu upper bound
-  # Quantized clip for float relu
-  # (The quantized clip has precedence over the relu upper bound.)
-  #########################################
-  qr_ub_qc_true = quantized_relu(
-      bits=bits,
-      integer=integer,
-      use_sigmoid=use_sigmoid,
-      negative_slope=negative_slope,
-      use_stochastic_rounding=use_stochastic_rounding,
-      relu_upper_bound=1.5,
-      is_quantized_clip=True,
-      use_variables=True)
-  # no quantization
-  qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.0)
-  x_q_0 = qr_ub_qc_true(inputs)
-  assert_equal(x_q_0, x_clipped)
+    #########################################
+    # Relu upper bound
+    # Quantized clip for float relu
+    # (The quantized clip has precedence over the relu upper bound.)
+    #########################################
+    qr_ub_qc_true = quantized_relu(
+        bits=bits,
+        integer=integer,
+        use_sigmoid=use_sigmoid,
+        negative_slope=negative_slope,
+        use_stochastic_rounding=use_stochastic_rounding,
+        relu_upper_bound=1.5,
+        is_quantized_clip=True,
+        use_variables=True,
+    )
+    # no quantization
+    qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.0)
+    x_q_0 = qr_ub_qc_true(inputs)
+    assert_equal(x_q_0, x_clipped)
 
-  # full quantization
-  qr_ub_qc_true.update_qnoise_factor(qnoise_factor=1.0)
-  x_q_1 = qr_ub_qc_true(inputs)
-  assert_equal(x_q_1, xq)
+    # full quantization
+    qr_ub_qc_true.update_qnoise_factor(qnoise_factor=1.0)
+    x_q_1 = qr_ub_qc_true(inputs)
+    assert_equal(x_q_1, xq)
 
-  # mixing half and half
-  qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.5)
-  x_q_05 = qr_ub_qc_true(inputs)
-  assert_equal(x_q_05, x_clipped_xq)
+    # mixing half and half
+    qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.5)
+    x_q_05 = qr_ub_qc_true(inputs)
+    assert_equal(x_q_05, x_clipped_xq)
 
 
 if __name__ == "__main__":
-  pytest.main([__file__])
+    pytest.main([__file__])

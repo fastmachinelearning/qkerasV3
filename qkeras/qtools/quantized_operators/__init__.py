@@ -15,18 +15,37 @@
 # ==============================================================================
 """Export quantizer package."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from .accumulator_factory import AccumulatorFactory
-from .multiplier_factory import MultiplierFactory
-from .multiplier_impl import IMultiplier, FloatingPointMultiplier, FixedPointMultiplier, Mux, AndGate, Adder, XorGate, Shifter
-from .accumulator_impl import IAccumulator, FloatingPointAccumulator, FixedPointAccumulator
-from .quantizer_impl import IQuantizer, QuantizedBits, Binary, QuantizedRelu, Ternary, FloatingPoint, PowerOfTwo, ReluPowerOfTwo
-from .quantizer_factory import QuantizerFactory
-from .qbn_factory import QBNFactory
+from .accumulator_impl import (
+    FixedPointAccumulator,
+    FloatingPointAccumulator,
+    IAccumulator,
+)
+from .divider_factory import IDivider
 from .fused_bn_factory import FusedBNFactory
 from .merge_factory import MergeFactory
-from .divider_factory import IDivider
+from .multiplier_factory import MultiplierFactory
+from .multiplier_impl import (
+    Adder,
+    AndGate,
+    FixedPointMultiplier,
+    FloatingPointMultiplier,
+    IMultiplier,
+    Mux,
+    Shifter,
+    XorGate,
+)
+from .qbn_factory import QBNFactory
+from .quantizer_factory import QuantizerFactory
+from .quantizer_impl import (
+    Binary,
+    FloatingPoint,
+    IQuantizer,
+    PowerOfTwo,
+    QuantizedBits,
+    QuantizedRelu,
+    ReluPowerOfTwo,
+    Ternary,
+)
 from .subtractor_factory import ISubtractor

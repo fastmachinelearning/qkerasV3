@@ -15,17 +15,3 @@
 # ==============================================================================
 """Imports for QKeras quantizers."""
 
-from .quantizers import bernoulli
-from .quantizers import binary
-from .quantizers import quantized_bits
-from .quantizers import quantized_hswish
-from .quantizers import quantized_linear
-from .quantizers import quantized_po2
-from .quantizers import quantized_relu
-from .quantizers import quantized_relu_po2
-from .quantizers import quantized_sigmoid
-from .quantizers import quantized_tanh
-from .quantizers import quantized_ulaw
-from .quantizers import stochastic_binary
-from .quantizers import stochastic_ternary
-from .quantizers import ternary

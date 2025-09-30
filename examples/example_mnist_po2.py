@@ -15,21 +15,16 @@
 # ==============================================================================
 """Tests qlayers model with po2."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
+import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Activation, Flatten, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
-import numpy as np
 
-from qkeras import *   # pylint: disable=wildcard-import
+from qkeras import *  # pylint: disable=wildcard-import
 
 np.random.seed(42)
 
@@ -72,80 +67,94 @@ y_test = to_categorical(y_test, NB_CLASSES)
 x = x_in = Input(x_train.shape[1:-1] + (1,), name="input")
 x = QActivation("quantized_relu_po2(4)", name="acti")(x)
 x = QConv2D(
-    32, (2, 2),
+    32,
+    (2, 2),
     strides=(2, 2),
     kernel_quantizer=quantized_po2(4, 1),
     bias_quantizer=quantized_po2(4, 1),
-    name="conv2d_0_m")(
-        x)
+    name="conv2d_0_m",
+)(x)
 x = QActivation("quantized_relu_po2(4,4)", name="act0_m")(x)
 x = QConv2D(
-    64, (3, 3),
+    64,
+    (3, 3),
     strides=(2, 2),
     kernel_quantizer=quantized_po2(4, 1),
     bias_quantizer=quantized_po2(4, 1),
-    name="conv2d_1_m")(
-        x)
-x = QActivation("quantized_relu_po2(4,4,use_stochastic_rounding=True)",
-                name="act1_m")(x)
+    name="conv2d_1_m",
+)(x)
+x = QActivation("quantized_relu_po2(4,4,use_stochastic_rounding=True)", name="act1_m")(
+    x
+)
 x = QConv2D(
-    64, (2, 2),
+    64,
+    (2, 2),
     strides=(2, 2),
     kernel_quantizer=quantized_po2(4, 1, use_stochastic_rounding=True),
     bias_quantizer=quantized_po2(4, 1),
-    name="conv2d_2_m")(
-        x)
+    name="conv2d_2_m",
+)(x)
 x = QActivation("quantized_relu(4,1)", name="act2_m")(x)
 x = Flatten()(x)
 x = QDense(
     NB_CLASSES,
     kernel_quantizer=quantized_bits(4, 0, 1),
     bias_quantizer=quantized_bits(4, 0, 1),
-    name="dense")(
-        x)
+    name="dense",
+)(x)
 x = Activation("softmax", name="softmax")(x)
 
 model = Model(inputs=[x_in], outputs=[x])
 model.summary()
 
 model.compile(
-    loss="categorical_crossentropy", optimizer=OPTIMIZER, metrics=["accuracy"])
+    loss="categorical_crossentropy", optimizer=OPTIMIZER, metrics=["accuracy"]
+)
 
 if train:
-  history = model.fit(
-      x_train, y_train, batch_size=BATCH_SIZE,
-      epochs=NB_EPOCH, initial_epoch=1, verbose=VERBOSE,
-      validation_split=VALIDATION_SPLIT)
+    history = model.fit(
+        x_train,
+        y_train,
+        batch_size=BATCH_SIZE,
+        epochs=NB_EPOCH,
+        initial_epoch=1,
+        verbose=VERBOSE,
+        validation_split=VALIDATION_SPLIT,
+    )
 
-  outputs = []
-  output_names = []
+    outputs = []
+    output_names = []
 
-  for layer in model.layers:
-    if layer.__class__.__name__ in [
-        "QActivation", "Activation", "QDense", "QConv2D", "QDepthwiseConv2D"
-    ]:
-      output_names.append(layer.name)
-      outputs.append(layer.output)
+    for layer in model.layers:
+        if layer.__class__.__name__ in [
+            "QActivation",
+            "Activation",
+            "QDense",
+            "QConv2D",
+            "QDepthwiseConv2D",
+        ]:
+            output_names.append(layer.name)
+            outputs.append(layer.output)
 
-  model_debug = Model(inputs=[x_in], outputs=outputs)
+    model_debug = Model(inputs=[x_in], outputs=outputs)
 
-  outputs = model_debug.predict(x_train)
+    outputs = model_debug.predict(x_train)
 
-  print("{:30} {: 8.4f} {: 8.4f}".format(
-      "input", np.min(x_train), np.max(x_train)))
+    print("{:30} {: 8.4f} {: 8.4f}".format("input", np.min(x_train), np.max(x_train)))
 
-  for n, p in zip(output_names, outputs):
-    print("{:30} {: 8.4f} {: 8.4f}".format(n, np.min(p), np.max(p)), end="")
-    layer = model.get_layer(n)
-    for i, weights in enumerate(layer.get_weights()):
-      weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
-      print(" ({: 8.4f} {: 8.4f})".format(np.min(weights), np.max(weights)),
-            end="")
-      print("")
+    for n, p in zip(output_names, outputs):
+        print(f"{n:30} {np.min(p): 8.4f} {np.max(p): 8.4f}", end="")
+        layer = model.get_layer(n)
+        for i, weights in enumerate(layer.get_weights()):
+            weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
+            print(
+                f" ({np.min(weights): 8.4f} {np.max(weights): 8.4f})", end=""
+            )
+            print("")
 
-  score = model.evaluate(x_test, y_test, verbose=VERBOSE)
-  print("Test score:", score[0])
-  print("Test accuracy:", score[1])
+    score = model.evaluate(x_test, y_test, verbose=VERBOSE)
+    print("Test score:", score[0])
+    print("Test accuracy:", score[1])
 
 model.summary()
 
