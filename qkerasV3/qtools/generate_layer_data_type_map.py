@@ -21,6 +21,7 @@ import sys
 
 import networkx as nx
 import numpy as np
+
 from qkerasV3.qtools import qgraph, qtools_util, quantized_operators
 from qkerasV3.qtools.quantized_operators import adder_factory
 from qkerasV3.qtools.quantized_operators import (

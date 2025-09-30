@@ -18,6 +18,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
+
 from qkerasV3.quantizers import quantized_bits, quantized_relu
 
 

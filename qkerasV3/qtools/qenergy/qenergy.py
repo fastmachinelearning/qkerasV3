@@ -17,6 +17,7 @@
 
 
 import numpy as np
+
 from qkerasV3.qtools import qtools_util
 from qkerasV3.qtools.generate_layer_data_type_map import KERAS_LAYERS, qkerasV3_LAYERS
 from qkerasV3.qtools.quantized_operators.quantizer_impl import IQuantizer

@@ -18,6 +18,7 @@
 
 import numpy as np
 import pytest
+
 from qkerasV3 import quantizers
 from qkerasV3.qtools import qtools_util, quantized_operators
 from qkerasV3.qtools.quantized_operators import (

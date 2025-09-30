@@ -22,6 +22,7 @@ import pytest
 import tensorflow as tf
 from keras import backend as K
 from numpy.testing import assert_allclose, assert_equal
+
 from qkerasV3 import binary, get_weight_scale, ternary
 from qkerasV3.quantizers import _get_integer_bits
 

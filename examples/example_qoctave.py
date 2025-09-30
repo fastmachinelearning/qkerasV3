@@ -16,10 +16,11 @@
 """QOctave example."""
 
 from keras import ops as Kops
-from qkerasV3 import *  # pylint: disable=wildcard-import
 from tensorflow.keras import initializers
 from tensorflow.keras.layers import Activation, Input, UpSampling2D
 from tensorflow.keras.models import Model
+
+from qkerasV3 import *  # pylint: disable=wildcard-import
 
 
 def create_model():

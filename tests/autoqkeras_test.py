@@ -20,13 +20,13 @@ import tempfile
 import numpy as np
 import pytest
 import tensorflow as tf
-from sklearn.datasets import load_iris
-from sklearn.preprocessing import MinMaxScaler
-
 from keras.layers import Activation, BatchNormalization, Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import MinMaxScaler
+
 from qkerasV3.autoqkeras import AutoQKerasScheduler
 
 

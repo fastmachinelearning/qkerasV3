@@ -16,6 +16,7 @@
 """Implements total/partial Binary to Thermometer decoder."""
 
 import numpy as np
+
 from qkerasV3 import BinaryToThermometer
 
 if __name__ == "__main__":

@@ -18,12 +18,13 @@
 
 import numpy as np
 import tensorflow.keras.backend as K
-from qkerasV3 import *  # pylint: disable=wildcard-import
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Activation, Flatten, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
+
+from qkerasV3 import *  # pylint: disable=wildcard-import
 
 np.random.seed(42)
 

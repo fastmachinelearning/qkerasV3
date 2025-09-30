@@ -19,12 +19,13 @@
 import argparse
 
 import numpy as np
-from qkerasV3 import QActivation, QDense, print_qstats, quantized_bits, ternary
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Activation, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
+
+from qkerasV3 import QActivation, QDense, print_qstats, quantized_bits, ternary
 
 np.random.seed(42)
 OPTIMIZER = Adam()

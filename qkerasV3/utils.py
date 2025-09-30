@@ -24,7 +24,7 @@ import networkx as nx
 import numpy as np
 import six
 import tensorflow as tf
-from keras import KerasTensor, Model, layers, models
+from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
 from tensorflow.python.ops import math_ops
 from tensorflow_model_optimization.python.core.sparsity.keras import (
@@ -1652,3 +1652,8 @@ def clone_model_and_freeze_auto_po2_scale(
         _check_hw_weights_equal(orig_hw_weights, new_hw_weights)
 
     return new_model, new_hw_weights
+
+
+def clone_optimizer(opt):
+    # robust across Keras 2.x and 3.x
+    return optimizers.deserialize(optimizers.serialize(opt))

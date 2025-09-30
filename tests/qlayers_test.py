@@ -26,6 +26,7 @@ from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal
+
 from qkerasV3 import QActivation, QDense
 from qkerasV3.utils import load_qmodel
 

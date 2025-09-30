@@ -20,6 +20,7 @@ import abc
 import copy
 
 from absl import logging
+
 from qkerasV3.qtools.quantized_operators import divider_impl, quantizer_impl
 
 

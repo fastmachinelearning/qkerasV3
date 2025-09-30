@@ -19,6 +19,7 @@
 import json
 
 import numpy as np
+
 from qkerasV3.qtools import generate_layer_data_type_map, interface, qgraph, qtools_util
 from qkerasV3.qtools.config_public import config_settings
 from qkerasV3.qtools.qenergy import qenergy

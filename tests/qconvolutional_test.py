@@ -25,6 +25,7 @@ from keras.backend import clear_session
 from keras.layers import Activation, Flatten, Input
 from keras.models import Model
 from numpy.testing import assert_allclose
+
 from qkerasV3 import (
     QActivation,
     QConv1D,

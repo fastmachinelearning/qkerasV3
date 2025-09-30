@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 import tensorflow as tf
 from numpy.testing import assert_equal
+
 from qkerasV3 import QDepthwiseConv2DTranspose, quantized_bits
 
 # Predicted output from float model.

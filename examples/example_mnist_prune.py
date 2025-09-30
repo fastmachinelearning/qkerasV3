@@ -19,8 +19,6 @@ Adapted from TF model optimization example."""
 import tempfile
 
 import tensorflow.keras.backend as K
-from qkerasV3 import QActivation, QConv2D, QDense, quantized_bits
-from qkerasV3.utils import load_qmodel, print_model_sparsity
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import Activation, Flatten, Input
 from tensorflow.keras.models import Model, Sequential, save_model
@@ -30,6 +28,9 @@ from tensorflow_model_optimization.python.core.sparsity.keras import (
     pruning_callbacks,
     pruning_schedule,
 )
+
+from qkerasV3 import QActivation, QConv2D, QDense, quantized_bits
+from qkerasV3.utils import load_qmodel, print_model_sparsity
 
 batch_size = 128
 num_classes = 10

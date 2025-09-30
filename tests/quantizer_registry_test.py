@@ -17,6 +17,7 @@
 
 import numpy as np
 import pytest
+
 from qkerasV3 import quantizer_registry
 
 

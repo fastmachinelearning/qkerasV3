@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 from keras import layers
 from keras.models import *
+
 from qkerasV3 import *
 from qkerasV3.utils import (
     add_bn_fusing_weights,

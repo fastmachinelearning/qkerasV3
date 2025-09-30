@@ -27,10 +27,11 @@ and ML complexity evaluation such as AV2/ROOF_ML.
 
 import enum
 import logging
-from typing import Any, List, Union
+from typing import Any
 
 import numpy as np
 import tensorflow as tf
+
 from qkerasV3 import base_quantizer, quantizers
 from qkerasV3.qtools import generate_layer_data_type_map, qgraph, qtools_util
 from qkerasV3.qtools.DnC import dnc_layer_cost_ace
@@ -88,7 +89,7 @@ class DivideConquerGraph:
         # Get the source node of the graph.
         return qgraph.SOURCE
 
-    def is_first_node(self, node: Union[int, tf.keras.layers.Layer]):
+    def is_first_node(self, node: int | tf.keras.layers.Layer):
         # Find whether a given node is the first node of the graph.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
@@ -98,25 +99,25 @@ class DivideConquerGraph:
         # Find the last node of the graph.
         return qgraph.SINK
 
-    def is_last_node(self, node: Union[int, tf.keras.layers.Layer]):
+    def is_last_node(self, node: int | tf.keras.layers.Layer):
         # Find whether a given node is the last node of the graph.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return idx == qgraph.SINK
 
-    def get_prev_nodes(self, node: Union[int, tf.keras.layers.Layer]):
+    def get_prev_nodes(self, node: int | tf.keras.layers.Layer):
         # Find the predecessor nodes in the graph of the given node.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return list(self._graph.predecessors(idx))
 
-    def get_next_nodes(self, node: Union[int, tf.keras.layers.Layer]):
+    def get_next_nodes(self, node: int | tf.keras.layers.Layer):
         # Find the successor nodes in the graph of the given node.
         # node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return list(self._graph.successors(idx))
 
-    def get_layer_quantizer_bitwidth(self, node: Union[int, tf.keras.layers.Layer]):
+    def get_layer_quantizer_bitwidth(self, node: int | tf.keras.layers.Layer):
         """Find various quantizer bitwidth of the current layer."""
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
@@ -162,7 +163,7 @@ class DivideConquerGraph:
                 "output_bits": 0,
             }
 
-    def get_layer_mac_count(self, node: Union[int, tf.keras.layers.Layer]):
+    def get_layer_mac_count(self, node: int | tf.keras.layers.Layer):
         """Find the number of multiplier ops in the current layer."""
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
@@ -172,7 +173,7 @@ class DivideConquerGraph:
             else 0
         )
 
-    def get_layer_shapes(self, node: Union[int, tf.keras.layers.Layer]):
+    def get_layer_shapes(self, node: int | tf.keras.layers.Layer):
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
         # Multiple inputs with merge layers.
@@ -514,7 +515,7 @@ def backtrack(graph, paths):
 
 
 def update_cur_best_choices(
-    cur_best_choices: List[Any],
+    cur_best_choices: list[Any],
     OutElementPerClk: int,
     prev_OutElementPerClk: int,
     cur_layer_cost: float,

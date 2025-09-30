@@ -20,6 +20,7 @@ import abc
 
 import numpy as np
 from absl import logging
+
 from qkerasV3.qtools.quantized_operators import multiplier_impl, quantizer_impl
 
 

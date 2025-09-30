@@ -20,12 +20,13 @@ import os
 
 import numpy as np
 import tensorflow.keras.backend as K
-from qkerasV3 import *
 from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.utils import to_categorical
+
+from qkerasV3 import *
 
 np.random.seed(42)
 

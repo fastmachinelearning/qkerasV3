@@ -19,6 +19,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
+
 from qkerasV3 import quantized_bits
 from qkerasV3.codebook import weight_compression
 

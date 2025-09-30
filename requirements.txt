@@ -15,4 +15,5 @@ networkx
 scikit-learn
 tqdm
 keras-tuner
+ruff
 tf_keras # TODO: remove this when full keras3 support is implemented

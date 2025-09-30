@@ -16,13 +16,14 @@
 # ==============================================================================
 
 import pytest
+from tensorflow.keras.layers import *  # pylint: disable=wildcard-import
+from tensorflow.keras.models import Model
+
 from qkerasV3 import *  # pylint: disable=wildcard-import
 from qkerasV3.autoqkeras.forgiving_metrics import (
     ForgivingFactorBits,  # pylint: disable=line-too-long
 )
 from qkerasV3.utils import model_quantize
-from tensorflow.keras.layers import *  # pylint: disable=wildcard-import
-from tensorflow.keras.models import Model
 
 
 def get_model():

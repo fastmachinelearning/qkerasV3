@@ -22,6 +22,7 @@ import tensorflow as tf
 from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal
+
 from qkerasV3 import *
 from qkerasV3.callbacks import QNoiseScheduler
 

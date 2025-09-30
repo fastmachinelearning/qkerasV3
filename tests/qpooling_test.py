@@ -25,6 +25,7 @@ from keras.backend import clear_session
 from keras.layers import AveragePooling2D, GlobalAveragePooling2D, Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal, assert_raises
+
 from qkerasV3 import (
     QAveragePooling2D,
     QGlobalAveragePooling2D,

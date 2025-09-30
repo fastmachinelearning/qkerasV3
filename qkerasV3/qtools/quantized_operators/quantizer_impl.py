@@ -20,6 +20,7 @@ import abc
 import math
 
 import numpy as np
+
 from qkerasV3 import quantizers
 
 FLOATINGPOINT_BITS = 32

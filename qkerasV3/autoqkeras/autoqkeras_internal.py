@@ -31,6 +31,7 @@ from keras import metrics
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras_tuner import BayesianOptimization, Hyperband, HyperModel, RandomSearch
+
 from qkerasV3.autoqkeras.forgiving_metrics import (
     ForgivingFactor,  # pylint: disable=line-too-long
     forgiving_factor,  # pylint: disable=line-too-long
@@ -39,7 +40,7 @@ from qkerasV3.autoqkeras.quantization_config import (
     default_quantization_config,  # pylint: disable=line-too-long
 )
 from qkerasV3.autoqkeras.utils import print_qmodel_summary
-from qkerasV3.utils import clone_model, model_quantize
+from qkerasV3.utils import clone_model, clone_optimizer, model_quantize
 
 # AutoQKHyperModel is implemented on top of keras_tuner
 # It basically creates a quantized model based on some rules
@@ -643,7 +644,6 @@ class AutoQKHyperModel(HyperModel):
         # we are not using the fanin right now.
 
         q_model, _ = self.quantize_model(hp)
-        self.model = q_model
 
         # transfer weights from previous run as we know we will not
         if self.learning_rate_optimizer:
@@ -754,7 +754,8 @@ class AutoQKHyperModel(HyperModel):
                 ext_metrics += [TrialMetric(trial_size=self.trial_size), self.score]
             metrics = ext_metrics
 
-        q_model.compile(optimizer=optimizer, loss=self.model.loss, metrics=metrics)
+        # TODO: fix run_eagerly=True
+        q_model.compile(optimizer=optimizer, loss=self.model.loss, metrics=metrics, run_eagerly=True)
         self.q_model = q_model
 
         # this just prints a summary of the quantization for debugging
@@ -1386,7 +1387,8 @@ class AutoQKerasScheduler:
 
             # restore learning rate
             # this is just a placeholder for the optimizer.
-            model.compile(model.optimizer, loss=self.model.loss, metrics=["accuracy"])
+            # TODO: fix run_eagerly=True
+            model.compile(clone_optimizer(self.model.optimizer), loss=self.model.loss, metrics=["accuracy"], run_eagerly=True)
 
             frozen_layers = frozen_layers + new_frozen_layers
             filename = os.path.join(self.output_dir, f"model_block_{i}.keras")

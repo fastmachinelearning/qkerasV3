@@ -16,6 +16,7 @@
 import pytest
 from keras.layers import Activation, BatchNormalization, Conv2D, DepthwiseConv2D, Input
 from keras.models import Model
+
 from qkerasV3 import QConv2D
 from qkerasV3.estimate import print_qstats
 from qkerasV3.quantizers import *

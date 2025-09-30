@@ -15,7 +15,7 @@
 # ==============================================================================
 
 import re
-from typing import Any, List, Tuple
+from typing import Any
 
 import numpy as np
 import six
@@ -121,7 +121,7 @@ def _get_integer_bits(
     return integer_bits
 
 
-def _get_scaling_axis(scale_axis: Any, len_axis: int) -> List[int]:
+def _get_scaling_axis(scale_axis: Any, len_axis: int) -> list[int]:
     """Get the axis/axes to perform auto scaling at.
 
     Args:
@@ -150,8 +150,8 @@ def _get_scaling_axis(scale_axis: Any, len_axis: int) -> List[int]:
 
 
 def _get_unrolled_shape(
-    input_shape: List[int], unroll_factor: Any, unroll_axis: Any
-) -> Tuple[List[int], Any]:
+    input_shape: list[int], unroll_factor: Any, unroll_axis: Any
+) -> tuple[list[int], Any]:
     """Gets the shape of the unrolled tensor given unroll_factor and unroll_axis.
 
     Both unroll_factor and unroll_axis can either be ints or List[int]. If they
@@ -214,7 +214,7 @@ def _get_unrolled_shape(
     return unrolled_shape, unrolled_scale_axis
 
 
-def _get_rolled_back_shape(input_shape: List[int], roll_axis: Any) -> List[int]:
+def _get_rolled_back_shape(input_shape: list[int], roll_axis: Any) -> list[int]:
     """Gets the shape of the rolled back tensor given roll_axis.
 
     If roll_axis is an int, the input shape will be rolled back once along the
@@ -259,8 +259,8 @@ def _get_rolled_back_shape(input_shape: List[int], roll_axis: Any) -> List[int]:
 
 
 def _validate_axis_and_eps(
-    x_shape: List[int], scale_axis: Any, elements_per_scale: Any
-) -> Tuple[Any, Any]:
+    x_shape: list[int], scale_axis: Any, elements_per_scale: Any
+) -> tuple[Any, Any]:
     """Validates scale_axis and elements_per_scale.
 
     This function verifies that the values for scale_axis and elements_per_scale

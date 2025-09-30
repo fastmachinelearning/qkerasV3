@@ -16,6 +16,7 @@
 import pytest
 from keras.layers import *
 from keras.models import *
+
 from qkerasV3 import *
 from qkerasV3.utils import model_quantize
 
