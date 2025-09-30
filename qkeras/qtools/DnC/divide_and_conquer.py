@@ -167,7 +167,7 @@ class DivideConquerGraph:
     layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
     # Multiple inputs with merge layers.
-    input_shape_list = layer.input_shape if layer else 0
+    input_shape_list = layer.input.shape if layer else 0
     if not isinstance(input_shape_list, list):
       input_shape_list = [input_shape_list]
 
@@ -505,8 +505,8 @@ def get_target_throughputs(layer, target_out_throughput):
     return np.nanprod([x if x is not None else np.nan for x in my_tuple])
 
   if layer:
-    input_size = multiply_elements_except_none(layer.input_shape[:-1])
-    output_size = multiply_elements_except_none(layer.output_shape[:-1])
+    input_size = multiply_elements_except_none(layer.input.shape[:-1])
+    output_size = multiply_elements_except_none(layer.output.shape[:-1])
     target_in_throughput = target_out_throughput * input_size / output_size
   else:
     target_in_throughput = target_out_throughput

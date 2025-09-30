@@ -42,11 +42,11 @@ import tensorflow.compat.v1 as tf
 
 np.random.seed(42)
 
-NB_EPOCH = 100
+NB_EPOCH = 10
 BATCH_SIZE = 64
 VERBOSE = 1
 NB_CLASSES = 10
-OPTIMIZER = Adam(lr=0.0001, decay=0.000025)
+OPTIMIZER = Adam(learning_rate=0.0001, decay=0.000025)
 VALIDATION_SPLIT = 0.1
 
 train = 1
@@ -135,7 +135,7 @@ if train:
     print("{:30} {: 8.4f} {: 8.4f}".format(n, np.min(p), np.max(p)), end="")
     layer = model.get_layer(n)
     for i, weights in enumerate(layer.get_weights()):
-      weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
+      weights = tf.eval(layer.get_quantizers()[i](tf.constant(weights)))
       print(" ({: 8.4f} {: 8.4f})".format(np.min(weights), np.max(weights)),
             end="")
       print("")

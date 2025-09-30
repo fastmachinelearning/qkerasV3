@@ -34,9 +34,8 @@ import numpy as np
 import tensorflow.compat.v1 as tf
 from absl import logging
 
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import InputLayer
-from tensorflow.keras.models import Model
+from keras import layers
+from keras import Model
 
 from .qlayers import QActivation
 from .qlayers import QAdaptiveActivation
@@ -204,7 +203,7 @@ def analyze_accumulator_from_sample(
   # artifacts.
 
   outputs = [
-      Activation("linear")(layer.input) for layer in model.layers
+      layers.Activation("linear")(layer.input) for layer in model.layers
       if (isinstance(layer, QDepthwiseConv2D) or isinstance(layer, QConv2D) or
           isinstance(layer, QConv1D) or isinstance(layer, QDense))
   ]
@@ -312,9 +311,9 @@ def get_operation_type(layer, output_cache):
 
     # for the input, get tensor input and search the cache that associates
     # the quantizer with a tensor
-    if output_cache.get(layer.input.experimental_ref(), None) is not None:
+    if output_cache.get(layer.input, None) is not None:
       x_mode, x_bits, x_sign = get_quant_mode(
-          output_cache.get(layer.input.experimental_ref()))
+          output_cache.get(layer.input))
       if x_mode == "float":
         logging.warning("%s input is unquantized!", layer.name)
     else:
@@ -336,34 +335,34 @@ def create_activation_cache(model):
 
   # If using a Sequential model, the input layer is hidden. Therefore, add the
   # input quantization to the cache if the first layer is not an input layer
-  if not isinstance(model.layers[0], InputLayer):
-    output_cache[model.layers[0].input.experimental_ref()] = input_quantizer
+  if not isinstance(model.layers[0], layers.InputLayer):
+    output_cache[model.layers[0].input] = input_quantizer
 
   # cache graph tensors' activations
 
   for l in model.layers:
-    output_cache[l.output.experimental_ref()] = l
+    output_cache[l.output] = l
     if isinstance(l, QActivation) or isinstance(l, QAdaptiveActivation) :
-      output_cache[l.output.experimental_ref()] = l.quantizer
-    elif isinstance(l, InputLayer):
+      output_cache[l.output] = l.quantizer
+    elif isinstance(l, layers.InputLayer):
       # assume the input is 8-bit positive value
-      output_cache[l.output.experimental_ref()] = input_quantizer
+      output_cache[l.output] = input_quantizer
     elif l.__class__.__name__ in [
         "QDense", "QConv2D", "QConv1D", "QDepthwiseConv2D"
     ]:
-      output_cache[l.output.experimental_ref()] = l.activation
+      output_cache[l.output] = l.activation
     else:
       if isinstance(l.input, list):
         # right now, we just get the first one - we assume this is the leading
         # one.
         all_q = [
-            output_cache.get(l.input[i].experimental_ref())
+            output_cache.get(l.input[i])
             for i in range(len(l.input))
         ]
         q = all_q[0]
       else:
-        q = output_cache.get(l.input.experimental_ref(), None)
-      output_cache[l.output.experimental_ref()] = q
+        q = output_cache.get(l.input, None)
+      output_cache[l.output] = q
       if q is None:
         raise ValueError("Unknown operation in {}".format(l.name))
 
@@ -372,6 +371,7 @@ def create_activation_cache(model):
 
 def extract_model_operations(in_model):
   """Determines types of operations for convolutions."""
+  
 
   model = unfold_model(in_model)
   cache_q = create_activation_cache(model)
@@ -386,19 +386,19 @@ def extract_model_operations(in_model):
 
     if isinstance(layer.input, list):
       input_shape = [
-          cache_o.get(layer.input[i].experimental_ref(),
-                      layer.input[i].get_shape())
+          cache_o.get(layer.input[i],
+                      layer.input[i].shape)
           for i in range(len(layer.input))
       ]
     else:
-      input_shape = cache_o.get(layer.input.experimental_ref(),
-                                layer.input.get_shape())
+      input_shape = cache_o.get(layer.input,
+                                layer.input.shape)
 
     # Check if the inputs are a list of Dimensions
     if isinstance(input_shape, list):
       # Iterate though all of the input shapes and extract the dimension values
       for i, dim in enumerate(input_shape):
-        if isinstance(dim[0], tf.Dimension):
+        if dim is not None and isinstance(dim, (list, tuple)) and dim and dim[0] is not None:
           shape = [None]
           for j in range(1, len(dim)):
             shape.append(dim[j] if isinstance(dim[j], int) else dim[j].value)
@@ -406,7 +406,7 @@ def extract_model_operations(in_model):
 
     output_shape = layer.compute_output_shape(input_shape)
 
-    cache_o[layer.output.experimental_ref()] = output_shape
+    cache_o[layer.output] = output_shape
 
     if layer.__class__.__name__ not in ["QDense", "QConv2D", "QConv1D",
                                         "QDepthwiseConv2D", "QSeparableConv1D",

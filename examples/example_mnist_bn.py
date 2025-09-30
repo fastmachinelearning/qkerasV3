@@ -43,7 +43,7 @@ NB_EPOCH = 2
 BATCH_SIZE = 64
 VERBOSE = 1
 NB_CLASSES = 10
-OPTIMIZER = Adam(lr=0.0001)
+OPTIMIZER = Adam(learning_rate=0.0001)
 VALIDATION_SPLIT = 0.1
 WITH_BN = 1
 THRESHOLD = 0.1
@@ -98,7 +98,7 @@ x = x_in = Input(x_train.shape[1:], name="input")
 x = QConv2D(
     128, (3, 3),
     strides=1,
-    kernel_quantizer=ternary(threshold=THRESHOLD), #quantized_po2(4, 1),
+    kernel_quantizer=ternary(), #quantized_po2(4, 1),
     bias_quantizer=quantized_bits(4,2,0) if not WITH_BN else None,
     bias_range=4 if not WITH_BN else None,
     use_bias=not WITH_BN,
@@ -116,7 +116,7 @@ x = MaxPooling2D(2, 2, name="mp_0")(x)
 x = QConv2D(
     256, (3, 3),
     strides=1,
-    kernel_quantizer=ternary(threshold=THRESHOLD), #quantized_bits(2,0,1),
+    kernel_quantizer=ternary(), #quantized_bits(2,0,1),
     bias_quantizer=quantized_bits(4,2,1) if not WITH_BN else None,
     bias_range=4 if not WITH_BN else None,
     use_bias=not WITH_BN,
@@ -134,7 +134,7 @@ x = MaxPooling2D(2, 2, name="mp_1")(x)
 x = QConv2D(
     128, (3, 3),
     strides=1,
-    kernel_quantizer=ternary(threshold=THRESHOLD), #quantized_bits(2,0,1),
+    kernel_quantizer=ternary(), #quantized_bits(2,0,1),
     bias_quantizer=quantized_bits(4,2,1) if not WITH_BN else None,
     bias_range=4 if not WITH_BN else None,
     use_bias=not WITH_BN,

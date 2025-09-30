@@ -41,7 +41,7 @@ NB_EPOCH = 20
 BATCH_SIZE = 32
 VERBOSE = 1
 NB_CLASSES = 10
-OPTIMIZER = Adam(lr=0.0001)
+OPTIMIZER = Adam(learning_rate=0.0001)
 N_HIDDEN = 100
 VALIDATION_SPLIT = 0.1
 
@@ -176,7 +176,7 @@ if int(os.environ.get("TRAIN", 0)):
     print("{:30} {: 8.4f} {: 8.4f}".format(n, np.min(p), np.max(p)), end="")
     layer = model.get_layer(n)
     for i, weights in enumerate(layer.get_weights()):
-      weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
+      weights = tf.eval(layer.get_quantizers()[i](tf.constant(weights)))
       print(" ({: 8.4f} {: 8.4f})".format(np.min(weights), np.max(weights)),
             end="")
     print("")

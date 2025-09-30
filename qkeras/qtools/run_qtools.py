@@ -85,6 +85,7 @@ class QTools:
     """energy consumption calculation."""
 
     assert weights_on_memory in ["dram", "sram", "fixed"]
+
     energy_dict = qenergy.energy_estimate(
         self._model, self._layer_map, weights_on_memory,
         activations_on_memory, min_sram_size,

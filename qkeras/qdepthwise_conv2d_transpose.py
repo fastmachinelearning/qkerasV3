@@ -16,8 +16,8 @@
 
 
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2DTranspose
-from tensorflow.keras.layers import InputSpec
+from keras import layers
+from keras.saving import register_keras_serializable
 
 from .qconvolutional import deconv_output_length
 from .quantizers import get_quantizer
@@ -26,9 +26,9 @@ from tensorflow.python.keras import constraints
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import array_ops
 
-
+@register_keras_serializable(package="qkeras")
 # TODO(akshayap): Commonized functionality with QSeparableConv2DTranspose.
-class QDepthwiseConv2DTranspose(Conv2DTranspose):
+class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
   """Quantized Depthwise Conv2DTranspose layer."""
 
   # Most of these parameters follow the implementation of Conv2DTranspose
@@ -160,7 +160,7 @@ class QDepthwiseConv2DTranspose(Conv2DTranspose):
     _, input_channel, _, _ = self._get_input_dims(input_shape)
     channel_axis = self._get_input_axis()[1]
 
-    self.input_spec = InputSpec(
+    self.input_spec = layers.InputSpec(
         min_ndim=self.rank + 2, axes={channel_axis: input_channel}
     )
     # When setting kernel shape=(kw, kh, 1, input_channel), it does depthwise
@@ -271,7 +271,7 @@ class QDepthwiseConv2DTranspose(Conv2DTranspose):
     else:
       output_shape = (batch_size, out_height, out_width, output_filters)
 
-    output_shape_tensor = array_ops.stack(output_shape)
+    output_shape_tensor = tf.stack(output_shape)
 
     num_input_channels = self._input_shape[-1]
     if num_input_channels % self.group_size:

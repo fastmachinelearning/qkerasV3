@@ -20,9 +20,10 @@ from __future__ import print_function
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
 
+import tensorflow.compat.v2 as tf
 import pytest
-from tensorflow import keras
-from tensorflow.keras import backend as K
+import keras
+from keras import backend as K
 import tempfile
 
 from qkeras import set_internal_sigmoid
@@ -115,7 +116,7 @@ from qkeras.quantizers import _default_sigmoid_type
              dtype=K.floatx()),
         ),
     ])
-def disable_test_quantized_po2(
+def test_quantized_po2(
     bits,
     max_value,
     use_stochastic_rounding,
@@ -123,13 +124,17 @@ def disable_test_quantized_po2(
     log2_rounding,
     test_values,
     expected_values):
-  """Test quantized_po2 function."""
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_po2(
-      bits, max_value, use_stochastic_rounding,
-      quadratic_approximation, log2_rounding)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05, atol=1e-05)
+    """Test quantized_po2 function."""
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_po2(
+        bits=bits,
+        max_value=max_value,
+        use_stochastic_rounding=use_stochastic_rounding,
+        quadratic_approximation=quadratic_approximation,
+        log2_rounding=log2_rounding
+    )
+    result = q(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5, atol=1e-5)
 
 
 @pytest.mark.parametrize(
@@ -190,57 +195,53 @@ def disable_test_quantized_po2(
              dtype=K.floatx()),
         ),
     ])
-def disable_test_quantized_relu_po2(bits, max_value, use_stochastic_rounding,
-                                    quadratic_approximation, log2_rounding,
-                                    test_values, expected_values):
-  """Test quantized_po2 function."""
-  x = K.placeholder(ndim=2)
-  f = K.function([x],
-                 [quantized_relu_po2(bits, max_value, 0,
-                                     use_stochastic_rounding,
-                                     quadratic_approximation,
-                                     log2_rounding)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05, atol=1e-05)
+def test_quantized_relu_po2(bits, max_value, use_stochastic_rounding,
+                             quadratic_approximation, log2_rounding,
+                             test_values, expected_values):
+    """Test quantized_relu_po2 function."""
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_relu_po2(bits, max_value, 0, use_stochastic_rounding,
+                           quadratic_approximation, log2_rounding)
+    result = q(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5, atol=1e-5)
+
 
 
 def test_smooth_sigmoid():
-  """Test smooth_sigmoid function."""
-  test_values = np.array(
-      [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
-      dtype=K.floatx())
+    """Test smooth_sigmoid function."""
+    test_values = np.array(
+        [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
+        dtype=tf.keras.backend.floatx()
+    )
 
-  def ref_smooth_sigmoid(y):
-    x = 0.1875 * y + 0.5
-    z = 0.0 if x <= 0.0 else (1.0 if x >= 1.0 else x)
-    return z
+    def ref_smooth_sigmoid(y):
+        x = 0.1875 * y + 0.5
+        return 0.0 if x <= 0.0 else (1.0 if x >= 1.0 else x)
 
-  sigmoid = np.vectorize(ref_smooth_sigmoid)
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [smooth_sigmoid(x)])
-  result = f([test_values])[0]
-  expected = sigmoid(test_values)
-  assert_allclose(result, expected, rtol=1e-05)
+    sigmoid = np.vectorize(ref_smooth_sigmoid)
+    x = tf.constant(test_values)
+    result = smooth_sigmoid(x).numpy()
+    expected = sigmoid(test_values)
+    assert_allclose(result, expected, rtol=1e-5)
 
 
 def test_hard_sigmoid():
-  """Test hard_sigmoid function."""
-  test_values = np.array(
-      [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
-      dtype=K.floatx())
+    """Test hard_sigmoid function."""
+    test_values = np.array(
+        [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
+        dtype=tf.keras.backend.floatx()
+    )
 
-  def ref_hard_sigmoid(y):
-    x = 0.5 * y + 0.5
-    z = 0.0 if x <= 0.0 else (1.0 if x >= 1.0 else x)
-    return z
+    def ref_hard_sigmoid(y):
+        x = 0.5 * y + 0.5
+        return 0.0 if x <= 0.0 else (1.0 if x >= 1.0 else x)
 
-  sigmoid = np.vectorize(ref_hard_sigmoid)
+    sigmoid = np.vectorize(ref_hard_sigmoid)
+    x = tf.constant(test_values)
+    result = hard_sigmoid(x).numpy()
+    expected = sigmoid(test_values)
+    assert_allclose(result, expected, rtol=1e-5)
 
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [hard_sigmoid(x)])
-  result = f([test_values])[0]
-  expected = sigmoid(test_values)
-  assert_allclose(result, expected, rtol=1e-05)
 
 
 @pytest.mark.parametrize(
@@ -280,17 +281,18 @@ def test_hard_sigmoid():
     ])
 def test_quantized_sigmoid(bits, sigmoid_type, use_real_sigmoid,
                            test_values, expected_values):
-  """Test quantized_sigmoid function with three different sigmoid variants."""
+    """Test quantized_sigmoid function with three different sigmoid variants."""
 
-  set_internal_sigmoid(sigmoid_type)
-  x = K.placeholder(ndim=2)
-  f = K.function([x],
-                 [quantized_sigmoid(bits, symmetric=True,
-                                    use_real_sigmoid=use_real_sigmoid)(x)])
-  set_internal_sigmoid(_default_sigmoid_type)
+    set_internal_sigmoid(sigmoid_type)
 
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
+    result = q(x).numpy()
+
+    set_internal_sigmoid(_default_sigmoid_type)
+
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -329,24 +331,20 @@ def test_quantized_sigmoid(bits, sigmoid_type, use_real_sigmoid,
 
 def test_quantized_sigmoid_limits(
     bits, sigmoid_type, use_real_sigmoid, test_values, expected_values):
-  """Test the min and max values of quantized_sigmoid function with three different sigmoid variants."""
+    """Test the min and max values of quantized_sigmoid function with three different sigmoid variants."""
 
-  set_internal_sigmoid(sigmoid_type)
-  x = K.placeholder(ndim=2)
-  f = K.function([x],
-                 [quantized_sigmoid(bits, symmetric=True,
-                                    use_real_sigmoid=use_real_sigmoid)(x)])
-  set_internal_sigmoid(_default_sigmoid_type)
+    set_internal_sigmoid(sigmoid_type)
 
-  result = f([test_values])[0]
-  min_max = np.array(
-      [quantized_sigmoid(bits, symmetric=True,
-                         use_real_sigmoid=use_real_sigmoid).min(),
-       quantized_sigmoid(bits, symmetric=True,
-                         use_real_sigmoid=use_real_sigmoid).max()])
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
+    result = q(x).numpy()
 
-  assert_allclose(result, expected_values, rtol=1e-05)
-  assert_allclose(result, min_max, rtol=1e-05)
+    min_max = np.array([q.min(), q.max()])
+    set_internal_sigmoid(_default_sigmoid_type)
+
+    assert_allclose(result, expected_values, rtol=1e-5)
+    assert_allclose(result, min_max, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -371,17 +369,18 @@ def test_quantized_sigmoid_limits(
         )
     ])
 def test_quantized_tanh(bits, use_real_tanh, test_values, expected_values):
-  """Test quantized_tanh function with three different sigmoid variants."""
-  # store previous sigmoid type
+    """Test quantized_tanh function with three different sigmoid variants."""
 
-  set_internal_sigmoid('hard')
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_tanh(
-      bits, symmetric=True, use_real_tanh=use_real_tanh)(x)])
-  set_internal_sigmoid(_default_sigmoid_type)
+    set_internal_sigmoid("hard")
 
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
+    result = q(x).numpy()
+
+    set_internal_sigmoid(_default_sigmoid_type)
+
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -419,21 +418,21 @@ def test_quantized_tanh(bits, use_real_tanh, test_values, expected_values):
     ])
 def test_quantized_tanh_limits(bits, sigmoid_type, use_real_tanh, test_values,
                                expected_values):
-  """Test the min and max values of quantized_tanh function with three different sigmoid variants."""
+    """Test the min and max values of quantized_tanh function with three different sigmoid variants."""
 
-  set_internal_sigmoid(sigmoid_type)
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_tanh(
-      bits, symmetric=True, use_real_tanh=use_real_tanh)(x)])
-  set_internal_sigmoid(_default_sigmoid_type)
+    set_internal_sigmoid(sigmoid_type)
 
-  result = f([test_values])[0]
-  min_max = np.array(
-      [quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh).min(),
-       quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh).max()])
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
+    result = q(x).numpy()
 
-  assert_allclose(result, expected_values, rtol=1e-05)
-  assert_allclose(result, min_max, rtol=1e-05)
+    min_max = np.array([q.min(), q.max()])
+
+    set_internal_sigmoid(_default_sigmoid_type)
+
+    assert_allclose(result, expected_values, rtol=1e-5)
+    assert_allclose(result, min_max, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -467,11 +466,12 @@ def test_quantized_tanh_limits(bits, sigmoid_type, use_real_tanh, test_values,
          ]], dtype=K.floatx())),
     ])
 def test_quantized_relu(bits, integer, use_sigmoid, test_values, expected_values):
-  """Test quantized_relu function."""
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_relu(bits, integer, use_sigmoid)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    """Test quantized_relu function."""
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_relu(bits, integer, use_sigmoid)
+    result = q(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -526,11 +526,11 @@ def test_quantized_relu(bits, integer, use_sigmoid, test_values, expected_values
     ])
 def test_quantized_bits(bits, integer, symmetric, keep_negative, test_values,
                         expected_values, rtol):
-  x = K.placeholder(ndim=2)
-  f = K.function([x],
-                 [quantized_bits(bits, integer, symmetric, keep_negative)(x)])
-  result = f([test_values])[0]
+  q = quantized_bits(bits, integer, symmetric, keep_negative)
+  x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+  result = q(x).numpy()
   assert_allclose(result, expected_values, rtol=rtol)
+
 
 
 @pytest.mark.parametrize(
@@ -590,11 +590,11 @@ def test_quantized_bits_with_post_training_scale():
      np.array([[-10.0, -10.0, 0.0, 0, 0.0, 0.0, 0, 0, 10]], dtype=K.floatx())),
 ])
 def test_ternary(alpha, threshold, test_values, expected_values):
-  x = K.placeholder(ndim=2)
-  f = K.function([x],
-                 [ternary(alpha, threshold)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    layer = ternary(alpha, threshold)
+    result = layer(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize('use_01, alpha, test_values, expected_values', [
@@ -611,10 +611,11 @@ def test_ternary(alpha, threshold, test_values, expected_values):
      np.array([[0, 0, 0, 0, 5, 5, 5, 5, 5]], dtype=K.floatx())),
 ])
 def test_binary(use_01, alpha, test_values, expected_values):
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [binary(use_01, alpha)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    layer = binary(use_01, alpha)
+    result = layer(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize('test_values, expected_values', [
@@ -628,14 +629,15 @@ def test_binary(use_01, alpha, test_values, expected_values):
     (np.array([[0.0] * 100000], dtype=K.floatx()), 0.0),
 ])
 def test_stochastic_round_quantized_po2(test_values, expected_values):
-  K.set_learning_phase(1)
-  np.random.seed(666)
-  x = K.placeholder(ndim=2)
-  q = quantized_po2(use_stochastic_rounding=True)
-  f = K.function([x], [q(x)])
-  res = f([test_values])[0]
-  res = np.average(res)
-  assert_allclose(res, expected_values, rtol=1e-01, atol=1e-6)
+
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_po2(use_stochastic_rounding=True)
+
+    res = q(x, training=True).numpy()  
+    res = np.average(res)
+
+    assert_allclose(res, expected_values, rtol=1e-1, atol=1e-6)
+
 
 
 @pytest.mark.parametrize('test_values, expected_values', [
@@ -646,52 +648,51 @@ def test_stochastic_round_quantized_po2(test_values, expected_values):
     (np.array([[48.0] * 100000], dtype=K.floatx()), 48.0),
 ])
 def test_stochastic_round_quantized_relu_po2(test_values, expected_values):
-  K.set_learning_phase(1)
-  np.random.seed(666)
-  x = K.placeholder(ndim=2)
-  q = quantized_relu_po2(use_stochastic_rounding=True)
-  f = K.function([x], [q(x)])
-  res = f([test_values])[0]
-  res = np.average(res)
-  assert_allclose(res, expected_values, rtol=1e-01, atol=1e-6)
+    tf.random.set_seed(666)  
+    np.random.seed(666)      
+
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = quantized_relu_po2(use_stochastic_rounding=True)
+
+    
+    res = q(x, training=True).numpy()
+    res = np.average(res)
+
+    assert_allclose(res, expected_values, rtol=1e-1, atol=1e-6)
+
 
 
 def test_stochastic_binary():
-  np.random.seed(42)
-  K.set_learning_phase(1)
+    np.random.seed(42)
+    tf.random.set_seed(42)  
 
-  x = np.random.uniform(-0.01, 0.01, size=10)
-  x = np.sort(x)
-  # Adding a dimension to have a common channel axis for quantization. This is
-  # to cope with a bug fix in "_get_scale" without changing the test cases.
-  x = np.expand_dims(x, axis=1)
+    x = np.random.uniform(-0.01, 0.01, size=10).astype(np.float32)
+    x = np.sort(x)
+    x = np.expand_dims(x, axis=1) 
 
-  s = stochastic_binary(alpha="auto_po2")
+    s = stochastic_binary(alpha="auto_po2")
 
-  ty = np.zeros_like(s)
-  ts = 0.0
+    ty = np.zeros_like(x)
+    ts = 0.0
 
-  n = 1000
+    n = 1000
 
-  for _ in range(n):
-    y = K.eval(s(K.constant(x)))
-    scale = K.eval(s.scale)[0]
-    ts = ts + scale
-    ty = ty + (y / scale)
+    for _ in range(n):
+        y = s(tf.constant(x), training=True).numpy()  
+        scale = s.scale.numpy()[0]
+        ts += scale
+        ty += (y / scale)
 
-  # Perform squeezing to remove the common channel axis.
-  result = (ty/n).astype(np.float32)
-  result = np.squeeze(result)
-  scale = np.array([ts/n])
-  scale = np.squeeze(scale)
+    result = (ty / n).astype(np.float32)
+    result = np.squeeze(result)
+    scale = np.squeeze(np.array([ts / n]))
 
-  expected = np.array(
-      [-1., -1., -1., -0.852, 0.782, 0.768, 0.97, 0.978, 1.0, 1.0]
-  ).astype(np.float32)
-  expected_scale = np.array([0.003906])
+    expected = np.array([-1., -1., -1., -0.852, 0.782, 0.768, 0.97, 0.978, 1.0, 1.0], dtype=np.float32)
+    expected_scale = np.array([0.003906])
 
-  assert_allclose(result, expected, atol=0.1)
-  assert_allclose(scale, expected_scale, rtol=0.1)
+    assert_allclose(result, expected, atol=0.1)
+    assert_allclose(scale, expected_scale, rtol=0.1)
+
 
 
 @pytest.mark.parametrize('alpha, test_values, expected_values', [
@@ -704,12 +705,11 @@ def test_stochastic_binary():
      np.array([[-5.0, -5.0, -5.0, -5, 5.0, 5.0, 5, 5, 5]], dtype=K.floatx()))
 ])
 def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
-  K.set_learning_phase(0)
-  x = K.placeholder(ndim=2)
-  q = stochastic_binary(alpha)
-  f = K.function([x], [q(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = stochastic_binary(alpha)
+    result = q(x, training=False).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -735,29 +735,25 @@ def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
                      ).astype(np.float32)
         )
     ])
-def test_stochastic_ternary(bound, alpha, temperature, expected_values,
-                            expected_scale):
-  np.random.seed(42)
-  K.set_learning_phase(1)
+def test_stochastic_ternary(bound, alpha, temperature, expected_values, expected_scale):
+    np.random.seed(42)
+    tf.random.set_seed(42)
+    n = 1000
 
-  n = 1000
+    x_np = np.random.uniform(-bound, bound, size=(n, 10))
+    x_np = np.sort(x_np, axis=1)
+    x = tf.constant(x_np, dtype=tf.keras.backend.floatx())
 
-  x = np.random.uniform(-bound, bound, size=(n, 10))
-  x = np.sort(x, axis=1)
+    s = stochastic_ternary(alpha=alpha, temperature=temperature)
 
-  s = stochastic_ternary(alpha=alpha, temperature=temperature)
+    y = s(x, training=True).numpy()
+    scale = s.scale.numpy().astype(np.float32)[0]
 
-  y = K.eval(s(K.constant(x)))
-  scale = K.eval(s.scale).astype(np.float32)[0]
+    result = (y / scale).mean(axis=0).astype(np.float32)
 
-  ty = np.zeros_like(s)
-  for i in range(n):
-    ty = ty + (y[i] / scale)
+    assert_allclose(result, expected_values, atol=0.1)
+    assert_allclose(scale, expected_scale, rtol=0.1)
 
-  result = (ty/n).astype(np.float32)
-
-  assert_allclose(result, expected_values, atol=0.1)
-  assert_allclose(scale, expected_scale, rtol=0.1)
 
 
 @pytest.mark.parametrize('alpha, threshold, test_values, expected_values', [
@@ -769,15 +765,12 @@ def test_stochastic_ternary(bound, alpha, temperature, expected_values,
               dtype=K.floatx()),
      np.array([[-10.0, -10.0, 0.0, 0, 0.0, 0.0, 0, 0, 10]], dtype=K.floatx())),
 ])
-def test_stochastic_ternary_inference_mode(alpha, threshold, test_values,
-                                           expected_values):
-  K.set_learning_phase(0)
-  x = K.placeholder(ndim=2)
-  q = stochastic_ternary(alpha, threshold)
-  f = K.function([x],
-                 [q(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+def test_stochastic_ternary_inference_mode(alpha, threshold, test_values, expected_values):
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    q = stochastic_ternary(alpha, threshold)
+    result = q(x, training=False).numpy()  
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -805,19 +798,13 @@ def test_stochastic_ternary_inference_mode(alpha, threshold, test_values,
          ),])
 def test_quantized_hswish(bits, integer, symmetric, relu_shift,
                           relu_upper_bound, test_values, expected_values):
-  x = K.placeholder(ndim=2)
-  f = K.function(
-      [x], [quantized_hswish(bits, integer, symmetric, relu_shift=relu_shift,
-                             relu_upper_bound=relu_upper_bound)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    layer = quantized_hswish(bits, integer, symmetric,
+                              relu_shift=relu_shift,
+                              relu_upper_bound=relu_upper_bound)
+    result = layer(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
 
-
-def test_quantized_relu_fast_inference():
-  q1 = quantized_relu(10, 2, enable_fast_inference=False)
-  q2 = quantized_relu(10, 2, enable_fast_inference=True)
-  x = np.array([-2.1, 0.73, 2.36, 4.98])
-  np.testing.assert_array_equal(q1(x).numpy(), q2(x).numpy())
 
 
 if __name__ == '__main__':

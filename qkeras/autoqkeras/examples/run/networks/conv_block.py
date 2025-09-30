@@ -16,7 +16,7 @@
 # ==============================================================================
 
 import os
-from tensorflow.initializers import *  # pylint: disable=wildcard-import
+from tensorflow.keras.initializers import *  # pylint: disable=wildcard-import
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Conv2D

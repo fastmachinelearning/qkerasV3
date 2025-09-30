@@ -207,12 +207,14 @@ def energy_estimate(model, layer_map, weights_on_memory,
                     rd_wr_on_io):
   """estimate energy."""
 
+
   output_layers = layer_map["output_layers"]
   input_layers = layer_map["input_layers"]
   layer_data_type_map = layer_map["layer_data_type_map"]
 
   result = {}
   total_energy = 0
+
 
   # compute MAC and memory access energy for intermediate layers
   for layer in model.layers:
@@ -231,16 +233,18 @@ def energy_estimate(model, layer_map, weights_on_memory,
 
     input_rd_energy = 0
     energy_op = 0
-    input_shape = layer.input_shape
-    if not isinstance(input_shape, list):
-      input_shape = [input_shape]
+    # Sicheres Auslesen der Input-Shape(s)
+    if isinstance(layer.input, list):
+        input_shapes = [inp.shape for inp in layer.input]
+    else:
+        input_shapes = [layer.input.shape]
 
-    for (input_shape, input_quantizer) in zip(
-        input_shape, input_quantizer_list):
-      input_rd_energy += memory_read_energy(
-          is_input_layer, input_shape,
-          activations_on_memory, min_sram_size, rd_wr_on_io,
-          input_quantizer.bits)
+    for (input_shape, input_quantizer) in zip(input_shapes, input_quantizer_list):
+        input_rd_energy += memory_read_energy(
+            is_input_layer, input_shape,
+            activations_on_memory, min_sram_size, rd_wr_on_io,
+            input_quantizer.bits)
+
 
     parameter_rd_energy = parameter_read_energy(
         layer, layer_item, weights_on_memory, min_sram_size,

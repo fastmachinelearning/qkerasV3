@@ -21,8 +21,8 @@ from __future__ import print_function
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import *
+from keras.layers import *
+from keras.models import *
 import tensorflow.compat.v2 as tf
 
 from qkeras import *

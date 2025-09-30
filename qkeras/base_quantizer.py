@@ -14,7 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 import tensorflow.compat.v2 as tf
-import tensorflow.keras.backend as K
+from keras import backend as K
 
 
 def _create_variable_name(attr_name, var_name=None):

@@ -21,18 +21,12 @@ import warnings
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras import constraints
-from tensorflow.keras import initializers
-from tensorflow.keras import regularizers
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Conv1D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import Conv2DTranspose
-from tensorflow.keras.layers import DepthwiseConv2D
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import InputSpec
-from tensorflow.keras.layers import SeparableConv1D
-from tensorflow.keras.layers import SeparableConv2D
+from keras import constraints
+from keras import initializers
+from keras import regularizers
+from keras import layers
+from keras.utils import serialize_keras_object
+from keras.saving import register_keras_serializable
 
 from .qlayers import get_auto_range_constraint_initializer
 from .qlayers import QActivation
@@ -96,8 +90,8 @@ def deconv_output_length(
     )
   return length
 
-
-class QConv1D(Conv1D, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QConv1D(layers.Conv1D, PrunableLayer):
   """1D convolution layer (e.g. spatial convolution over images)."""
 
   # most of these parameters follow the implementation of Conv1D in Keras,
@@ -217,19 +211,18 @@ class QConv1D(Conv1D, PrunableLayer):
       return self.activation(outputs)
     return outputs
 
+
+
   def get_config(self):
     config = {
-        "kernel_quantizer": constraints.serialize(
-            self.kernel_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        "bias_quantizer": constraints.serialize(
-            self.bias_quantizer_internal# Google internal code, commented out by copybara
-        ),
+        "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
+        "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
         "kernel_range": self.kernel_range,
         "bias_range": self.bias_range,
     }
     base_config = super(QConv1D, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
+
 
   def get_quantization_config(self):
     return {
@@ -248,8 +241,8 @@ class QConv1D(Conv1D, PrunableLayer):
   def get_prunable_weights(self):
     return [self.kernel]
 
-
-class QConv2D(Conv2D, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QConv2D(layers.Conv2D, PrunableLayer):
   """2D convolution layer (e.g. spatial convolution over images)."""
 
   # most of these parameters follow the implementation of Conv2D in Keras,
@@ -292,7 +285,7 @@ class QConv2D(Conv2D, PrunableLayer):
       mask=None,
       **kwargs,
   ):
-
+    
     if kernel_range is not None:
       warnings.warn("kernel_range is deprecated in QConv2D layer.")
 
@@ -373,7 +366,7 @@ class QConv2D(Conv2D, PrunableLayer):
         dilation_rate=self.dilation_rate,
     )
 
-  @tf.function(jit_compile=True)
+  @tf.function(jit_compile=True,reduce_retracing=True)
   def _jit_compiled_convolution_op(self, inputs, kernel):
     return self.convolution_op(inputs, kernel)
 
@@ -418,18 +411,15 @@ class QConv2D(Conv2D, PrunableLayer):
 
   def get_config(self):
     config = {
-        "kernel_quantizer": constraints.serialize(
-            self.kernel_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        "bias_quantizer": constraints.serialize(
-            self.bias_quantizer_internal# Google internal code, commented out by copybara
-        ),
+        "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
+        "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
         "kernel_range": self.kernel_range,
         "bias_range": self.bias_range,
         "mask": self._mask.tolist() if self._mask is not None else None,
     }
     base_config = super().get_config()
     return dict(list(base_config.items()) + list(config.items()))
+
 
   @classmethod
   def from_config(cls, config):
@@ -456,8 +446,8 @@ class QConv2D(Conv2D, PrunableLayer):
   def get_prunable_weights(self):
     return [self.kernel]
 
-
-class QConv2DTranspose(Conv2DTranspose, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
   """2D convolution layer (e.g. spatial convolution over images)."""
 
   # most of these parameters follow the implementation of Conv2DTranspose
@@ -580,7 +570,7 @@ class QConv2DTranspose(Conv2DTranspose, PrunableLayer):
     else:
       quantized_kernel = self.kernel
 
-    output_shape_tensor = array_ops.stack(output_shape)
+    output_shape_tensor = tf.stack(output_shape)
     outputs = tf.keras.backend.conv2d_transpose(
         inputs,
         quantized_kernel,
@@ -628,8 +618,8 @@ class QConv2DTranspose(Conv2DTranspose, PrunableLayer):
   def get_prunable_weights(self):
     return [self.kernel]
 
-
-class QSeparableConv1D(SeparableConv1D, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
   """Depthwise separable 1D convolution."""
 
   # most of these parameters follow the implementation of SeparableConv1D
@@ -807,8 +797,8 @@ class QSeparableConv1D(SeparableConv1D, PrunableLayer):
   def get_prunable_weights(self):
     return [self.depthwise_kernel, self.pointwise_kernel]
 
-
-class QSeparableConv2D(SeparableConv2D, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
   """Depthwise separable 2D convolution."""
 
   # most of these parameters follow the implementation of SeparableConv2D
@@ -969,8 +959,8 @@ class QSeparableConv2D(SeparableConv2D, PrunableLayer):
   def get_prunable_weights(self):
     return [self.depthwise_kernel, self.pointwise_kernel]
 
-
-class QDepthwiseConv2D(DepthwiseConv2D, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
   """Creates quantized depthwise conv2d. Copied from mobilenet."""
 
   # most of these parameters follow the implementation of DepthwiseConv2D
@@ -1099,10 +1089,10 @@ class QDepthwiseConv2D(DepthwiseConv2D, PrunableLayer):
     else:
       self.bias = None
     # Set input spec.
-    self.input_spec = InputSpec(ndim=4, axes={channel_axis: input_dim})
+    self.input_spec = layers.InputSpec(ndim=4, axes={channel_axis: input_dim})
     self.built = True
 
-  def call(self, inputs, training=None):
+  def call(self, inputs):
     if self.depthwise_quantizer:
       quantized_depthwise_kernel = (
           self.depthwise_quantizer_internal(self.depthwise_kernel))
@@ -1145,12 +1135,9 @@ class QDepthwiseConv2D(DepthwiseConv2D, PrunableLayer):
     config["depthwise_constraint"] = constraints.serialize(
         self.depthwise_constraint# Google internal code, commented out by copybara
     )
-    config["depthwise_quantizer"] = constraints.serialize(
-        self.depthwise_quantizer_internal# Google internal code, commented out by copybara
-    )
-    config["bias_quantizer"] = constraints.serialize(
-        self.bias_quantizer_internal# Google internal code, commented out by copybara
-    )
+    config["depthwise_quantizer"] = serialize_keras_object(self.depthwise_quantizer_internal)
+    config["bias_quantizer"] = serialize_keras_object(self.bias_quantizer_internal)
+    
     config["depthwise_range"] = self.depthwise_range
     config["bias_range"] = self.bias_range
     return config
@@ -1172,7 +1159,7 @@ class QDepthwiseConv2D(DepthwiseConv2D, PrunableLayer):
   def get_prunable_weights(self):
     return [self.depthwise_kernel]
 
-
+@register_keras_serializable(package="qkeras")
 def QMobileNetSeparableConv2D(
     filters,  # pylint: disable=invalid-name
     kernel_size,
@@ -1261,7 +1248,7 @@ def QMobileNetSeparableConv2D(
           x = QActivation(depthwise_activation, name=name + "_dw_act")(x)
 
       if depthwise_dropout_rate > 0.0:
-        x = Dropout(rate=depthwise_dropout_rate, name=name + "_dw_dropout")(x)
+        x = layers.Dropout(rate=depthwise_dropout_rate, name=name + "_dw_dropout")(x)
 
     x = QDepthwiseConv2D(
         kernel_size,
@@ -1286,7 +1273,7 @@ def QMobileNetSeparableConv2D(
           x = QActivation(depthwise_activation, name=name + "_dw_act")(x)
 
       if depthwise_dropout_rate > 0.0:
-        x = Dropout(rate=depthwise_dropout_rate, name=name + "_dw_dropout")(x)
+        x = layers.Dropout(rate=depthwise_dropout_rate, name=name + "_dw_dropout")(x)
 
       x = QConv2D(
           filters, (1, 1),
@@ -1311,7 +1298,7 @@ def QMobileNetSeparableConv2D(
       if isinstance(activation, QActivation):
         x = activation(x)
       else:
-        x = Activation(activation, name=name + "_pw_act")(x)
+        x = layers.Activation(activation, name=name + "_pw_act")(x)
     return x
 
   return _call

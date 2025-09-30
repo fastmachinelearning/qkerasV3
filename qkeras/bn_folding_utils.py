@@ -22,9 +22,8 @@ from __future__ import print_function
 import networkx as nx
 import tensorflow as tf
 from six.moves import range
-from tensorflow.keras.models import clone_model
-from tensorflow.keras.models import Model
-from tensorflow.keras import Input
+from keras import models
+from keras import Input
 
 from .qconvolutional import QConv2D
 from .qconvolutional import QDepthwiseConv2D
@@ -98,46 +97,58 @@ def unfold_model(model):
   """
 
   def _convert_folded_layer(layer):
-    if layer.__class__.__name__ in [
-        "QConv2DBatchnorm", "QDepthwiseConv2DBatchnorm"]:
+    if layer.__class__.__name__ in ["QConv2DBatchnorm", "QDepthwiseConv2DBatchnorm"]:
       new_layer = convert_folded_layer_to_unfolded(layer)
     else:
       new_layer = layer.__class__.from_config(layer.get_config())
 
-    new_layer.build(layer.input_shape)
+    if isinstance(layer.input, (list, tuple)):
+      input_shapes = [inp.shape for inp in layer.input]
+    else:
+      input_shapes = layer.input.shape
+    if hasattr(new_layer, "build"):
+      new_layer.build(input_shapes)
+
     return new_layer
+  
+  
 
   def _clone_weights(src_layer, new_layer):
-    if (src_layer.__class__.__name__ == "QConv2DBatchnorm") and (
-        new_layer.__class__.__name__ == "QConv2D"):
+    if (src_layer.__class__.__name__ == "QConv2DBatchnorm") and (new_layer.__class__.__name__ == "QConv2D"):
       src_weights = src_layer.get_folded_weights()
-      # transfer weights from folded layer to the target layer
-      folded_kernel_quantized = (
-          src_weights[0].numpy())
-      folded_bias_quantized = (
-          src_weights[1].numpy())
+      folded_kernel_quantized = src_weights[0].numpy()
+      folded_bias_quantized = src_weights[1].numpy()
       new_layer.set_weights([folded_kernel_quantized, folded_bias_quantized])
 
-    elif (src_layer.__class__.__name__ == "QDepthwiseConv2DBatchnorm") and (
-        new_layer.__class__.__name__ == "QDepthwiseConv2D"):
-      # transfer weights from folded layer to the target layer
+    elif (src_layer.__class__.__name__ == "QDepthwiseConv2DBatchnorm") and (new_layer.__class__.__name__ == "QDepthwiseConv2D"):
       src_weights = src_layer.get_folded_weights()
       folded_depthwise_kernel_quantized = src_weights[0].numpy()
       folded_bias_quantized = src_weights[1].numpy()
-      new_layer.set_weights(
-          [folded_depthwise_kernel_quantized, folded_bias_quantized])
+      new_layer.set_weights([folded_depthwise_kernel_quantized, folded_bias_quantized])
+
     else:
       new_layer.set_weights(src_layer.get_weights())
 
-  inp = Input(shape=model.input_shape[1:])
-  cloned_model = clone_model(
-      model, input_tensors=inp, clone_function=_convert_folded_layer)
+  if isinstance(model.inputs, (list, tuple)):
+    inp2 = [Input(shape=t.shape[1:], dtype=t.dtype) for t in model.inputs]
+    if isinstance(model.input, list):
+        inp = inp2
+    else:
+        inp = inp2[0]
+
+  else:
+    inp = Input(shape=model.input.shape[1:], dtype=model.input.dtype)
+
+  cloned_model = models.clone_model(
+      model, input_tensors=inp, clone_function=_convert_folded_layer
+  )
 
   # replace weights
   for (src_layer, new_layer) in zip(model.layers, cloned_model.layers):
     _clone_weights(src_layer, new_layer)
 
   return cloned_model
+
 
 
 def populate_bias_quantizer_from_accumulator(model, source_quantizers):

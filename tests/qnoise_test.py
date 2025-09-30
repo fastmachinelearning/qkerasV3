@@ -22,7 +22,7 @@ import logging
 from numpy.testing import assert_allclose
 from numpy.testing import assert_equal
 import pytest
-from tensorflow.keras import backend as K
+from keras import backend as K
 from qkeras.quantizers import quantized_bits
 from qkeras.quantizers import quantized_relu
 

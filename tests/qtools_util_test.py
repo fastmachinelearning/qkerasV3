@@ -19,7 +19,7 @@ import json
 
 import numpy as np
 import pytest
-import tensorflow.keras as keras
+import keras
 import tensorflow as tf
 
 from qkeras import quantizers

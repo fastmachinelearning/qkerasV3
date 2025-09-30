@@ -22,15 +22,15 @@ from sklearn.datasets import load_iris
 from sklearn.preprocessing import MinMaxScaler
 import tensorflow.compat.v2 as tf
 tf.enable_v2_behavior()
-
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
+import keras
+from keras.layers import Activation
+from keras.layers import BatchNormalization
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.layers import Input
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
 from qkeras.autoqkeras import AutoQKerasScheduler
 
@@ -104,7 +104,7 @@ def test_autoqkeras():
 
   model = dense_model()
   model.summary()
-  optimizer = Adam(lr=0.01)
+  optimizer = Adam(learning_rate=0.01)
   model.compile(optimizer=optimizer, loss="categorical_crossentropy",
                 metrics=["acc"])
 
@@ -140,13 +140,15 @@ def test_autoqkeras():
 
   qmodel = autoqk.get_best_model()
 
-  optimizer = Adam(lr=0.01)
+  optimizer = Adam(learning_rate=0.01)
   qmodel.compile(optimizer=optimizer, loss="categorical_crossentropy",
                  metrics=["acc"])
   history = qmodel.fit(x_train, y_train, epochs=5, batch_size=150,
                        validation_split=0.1)
 
   quantized_acc = history.history["acc"][-1]
+
+
 
 if __name__ == "__main__":
   pytest.main([__file__])

@@ -24,11 +24,11 @@ from numpy.testing import assert_equal
 from numpy.testing import assert_raises
 import tempfile
 import tensorflow as tf
-from tensorflow.keras import layers
-from tensorflow.keras.models import Model
-from tensorflow.keras.backend import clear_session
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras import metrics
+from keras import layers
+from keras.models import Model
+from keras.backend import clear_session
+from keras.utils import to_categorical
+from keras import metrics
 
 from qkeras import QConv2DBatchnorm
 from qkeras import QConv2D

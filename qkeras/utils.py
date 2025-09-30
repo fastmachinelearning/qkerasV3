@@ -24,10 +24,13 @@ import six
 import re
 import networkx as nx
 import tensorflow as tf
-import tensorflow.keras.backend as K
+from keras import backend as K
+from keras import ops as Kops
 
-from tensorflow.keras.models import Model
-from tensorflow.keras.models import model_from_json
+from keras import Model
+from keras import models
+from keras import layers
+from keras import KerasTensor
 
 from tensorflow_model_optimization.python.core.sparsity.keras import pruning_wrapper
 from tensorflow_model_optimization.python.core.sparsity.keras import prune_registry
@@ -57,19 +60,10 @@ from .qconvolutional import QDepthwiseConv2D
 from .qnormalization import QBatchNormalization
 from .qpooling import QGlobalAveragePooling2D
 from .qtools import qgraph
-from .quantizers import binary
-from .quantizers import bernoulli
-from .quantizers import get_weight_scale
-from .quantizers import quantized_bits
-from .quantizers import quantized_relu
-from .quantizers import quantized_ulaw
-from .quantizers import quantized_tanh
-from .quantizers import quantized_sigmoid
-from .quantizers import quantized_po2
-from .quantizers import quantized_relu_po2
-from .quantizers import stochastic_binary
-from .quantizers import stochastic_ternary
-from .quantizers import ternary
+from .bn_folding_utils import unfold_model
+
+from .quantizers import *
+
 # from .google_internals.experimental_quantizers import quantized_bits_learnable_scale
 # from .google_internals.experimental_quantizers import parametric_quantizer_d_xmax
 from .safe_eval import safe_eval
@@ -335,8 +329,8 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
         elif (q_name == "quantized_bits" and
               quantizer.alpha == "auto_po2"):
           unsigned_bits = quantizer.bits - quantizer.keep_negative
-          m = K.cast_to_floatx(pow(2, unsigned_bits))
-          m_i = K.cast_to_floatx(K.pow(2, quantizer.integer))
+          m = Kops.cast(pow(2.0, unsigned_bits), tf.keras.backend.floatx())
+          m_i = Kops.cast(tf.pow(2.0, quantizer.integer), tf.keras.backend.floatx())
 
           assert hasattr(quantizer.scale, "numpy") or isinstance(
               quantizer.scale, np.ndarray), (
@@ -344,7 +338,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                   "to know the values of scale.")
           scale = quantizer.scale if isinstance(
               quantizer.scale, np.ndarray) else quantizer.scale.numpy()
-          scale = K.cast_to_floatx(scale)
+          scale = Kops.cast(scale, tf.keras.backend.floatx())
           # Make sure scale is power of 2 values
           log2val = np.log2(scale)
           diff = np.round(log2val) - log2val
@@ -376,10 +370,12 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
           else:
             pool_area = np.prod(layer.pool_size)
         else:
-          pool_area = layer.compute_pooling_area(input_shape=layer.input_shape)
-        saved_weights[
-            layer.name]["q_mult_factor"] = layer.average_quantizer_internal(
-                1.0 / pool_area).numpy()
+          pool_area = layer.compute_pooling_area(input_shape=layer.input.shape)
+        if hasattr(layer, "average_quantizer_internal") and callable(layer.average_quantizer_internal):
+          saved_weights[layer.name]["q_mult_factor"] = layer.average_quantizer_internal(
+            1.0 / pool_area).numpy()
+        else:
+          saved_weights[layer.name]["q_mult_factor"] = None
         saved_weights[layer.name]["mult_factor"] = 1.0 / pool_area
         saved_weights[layer.name]["pool_area"] = pool_area
 
@@ -481,99 +477,84 @@ def get_y_from_TFOpLambda(model_cfg, layer):
 
 
 def convert_to_folded_model(model):
-  """Find conv/dense layers followed by bn layers and fold them.
+    """Find Conv/Dense layers followed by BN layers and fold them.
 
-  Args:
-    model: input model
+    Args:
+        model: Keras model instance.
 
-  Returns:
-    new model without bn layers
-    list of layers being folded
+    Returns:
+        new_model: Keras model with folded BN layers.
+        layers_to_fold: list of folded layer names.
+    """
 
-  Note: supports sequential and non-sequential model
-  """
+    fold_model = clone_model(model)
+    model_cfg = model.get_config()
+    (graph, _) = qgraph.GenerateGraphFromModel(
+        fold_model, "quantized_bits(8, 0, 1)", "quantized_bits(8, 0, 1)")
 
-  fold_model = clone_model(model)
-  model_cfg = model.get_config()
-  (graph, _) = qgraph.GenerateGraphFromModel(
-      fold_model, "quantized_bits(8, 0, 1)", "quantized_bits(8, 0, 1)")
+    qgraph.GraphAddSingleSourceSingleSink(graph)
+    qgraph.GraphRemoveNodeWithNodeType(graph, "InputLayer")
+    qgraph.GraphPropagateActivationsToEdges(graph)
 
-  qgraph.GraphAddSingleSourceSingleSink(graph)
-  qgraph.GraphRemoveNodeWithNodeType(graph, "InputLayer")
-  qgraph.GraphPropagateActivationsToEdges(graph)
+    bn_nodes_to_delete = []
+    layers_to_fold = []
 
-  # Finds the Batchnorm nodes to be deleted and mark them.
-  bn_nodes_to_delete = []
-  layers_to_fold = []
-  for node_id in nx.topological_sort(graph):
-    layer_input_tensors = []
-    node = graph.nodes[node_id]
-    layer = node["layer"][0]
-    if layer:
-      successor_ids = list(graph.successors(node_id))
-      is_single = len(successor_ids) == 1
-      successor_layer = graph.nodes[successor_ids[0]]["layer"][0]
-      followed_by_bn = (successor_layer.__class__.__name__ ==
-                        "BatchNormalization")
-      # TODO(lishanok): extend to QDense types
-      is_foldable = layer.__class__.__name__ in [
-          "Conv2D", "DepthwiseConv2D"
-      ] and is_single and followed_by_bn
+    for node_id in nx.topological_sort(graph):
+        node = graph.nodes[node_id]
+        layer = node["layer"][0]
+        if layer:
+            successor_ids = list(graph.successors(node_id))
+            is_single = len(successor_ids) == 1
+            successor_layer = graph.nodes[successor_ids[0]]["layer"][0]
+            followed_by_bn = (successor_layer.__class__.__name__ == "BatchNormalization")
 
-      if is_foldable:
-        # Removes the batchnorm node from the graph.
-        bn_nodes_to_delete.append(successor_ids[0])
-        layers_to_fold.append(layer.name)
+            if layer.__class__.__name__ in ["Conv2D", "DepthwiseConv2D"] and is_single and followed_by_bn:
+                bn_nodes_to_delete.append(successor_ids[0])
+                layers_to_fold.append(layer.name)
 
-  # Deletes the marked nodes.
-  for node_id in bn_nodes_to_delete:
-    qgraph.GraphRemoveNode(graph, node_id)
+    for node_id in bn_nodes_to_delete:
+        qgraph.GraphRemoveNode(graph, node_id)
 
-  # Modifies model according to the graph.
-  model_outputs = []
-  x = model_inputs = fold_model.inputs
+    model_outputs = []
+    x = model_inputs = fold_model.inputs
 
-  for node_id in nx.topological_sort(graph):
-    layer_input_tensors = []
-    node = graph.nodes[node_id]
+    for node_id in nx.topological_sort(graph):
+        layer_input_tensors = []
+        node = graph.nodes[node_id]
+        layer = node["layer"][0]
+        if layer:
+            for parent_node_id in graph.predecessors(node_id):
+                edge = graph.edges[(parent_node_id, node_id)]
+                input_tensor = edge["tensor"]
+                layer_input_tensors.append(input_tensor)
 
-    layer = node["layer"][0]
-    if layer:
-      # Gets layer input tensors from graph edge.
-      for parent_node_id in graph.predecessors(node_id):
-        edge = graph.edges[(parent_node_id, node_id)]
-        input_tensor = edge["tensor"]
-        layer_input_tensors.append(input_tensor)
+            if len(layer_input_tensors) == 1:
+                layer_input_tensors = layer_input_tensors[0]
 
-      # We call the layer to get output tensor.
-      if len(layer_input_tensors) == 1:
-        layer_input_tensors = layer_input_tensors[0].deref()
-      else:
-        layer_input_tensors = [t.deref() for t in layer_input_tensors]
+            # Special handling depending on the layer type
+            if isinstance(layer, (layers.Multiply, layers.Add, layers.Concatenate)):
+                # Merge layers expect a list of tensors as input
+                x = layer(layer_input_tensors if isinstance(layer_input_tensors, list) else [layer_input_tensors])
+            elif is_TFOpLambda_layer(layer):
+                # For TFOpLambda layers, pass additional input `y` derived from the model configuration
+                y = get_y_from_TFOpLambda(model_cfg, layer)
+                x = layer(layer_input_tensors, y)
+            else:
+                # Standard layer call with single input tensor
+                x = layer(layer_input_tensors)
 
-      if is_TFOpLambda_layer(layer):
-        # TFOpLambda layer requires one extra input: "y"
-        y = get_y_from_TFOpLambda(model_cfg, layer)
-        x = layer(layer_input_tensors, y)
-      else:
-        x = layer(layer_input_tensors)
+            for u, v in graph.edges(node_id):
+                graph[u][v]["tensor"] = x
 
-      # Replaces edge tensors between the predecessor and successor
-      for u, v in graph.edges(node_id):
-        # u is current layer node, v is successor layer node
-        # graph[u][v] is the edge between the two nodes
-        # Replace the tensor on this edge so that the input tensor for the
-        # successor layer can be updated accordingly.
-        graph[u][v]["tensor"] = x.ref()
+                if v == -2 and not any(x is y for y in model_outputs):
+                  model_outputs.append(x)
 
-        if v == -2 and x not in model_outputs:
-          # When it is output layer, add the output tensor of this layer
-          # into model outputs.
-          model_outputs.append(x)
 
-  new_model = Model(inputs=model_inputs, outputs=model_outputs)
+    keras_outputs = [t for t in model_outputs if isinstance(t, KerasTensor)]
+    new_model = Model(inputs=model_inputs, outputs=keras_outputs)
 
-  return new_model, layers_to_fold
+    return new_model, layers_to_fold
+
 
 
 def model_quantize(model,
@@ -1006,7 +987,7 @@ def model_quantize(model,
         layer_config["activation"] = quantizer
       else:
         quantize_activation(layer_config, activation_bits)
-
+    q_name = None 
     registered_name = layer.pop("registered_name", None)
     if registered_name:
       layer["registered_name"] = q_name or registered_name
@@ -1027,7 +1008,13 @@ def model_quantize(model,
 
 
 def _add_supported_quantized_objects(custom_objects):
-  """Map all the quantized objects."""
+  """Map all the quantized objects and quantizers."""
+
+  
+  for name, quantizer in quantizer_registry._QUANTIZERS_REGISTRY._container.items():
+      custom_objects[name] = quantizer
+
+  
   custom_objects["QInitializer"] = QInitializer
   custom_objects["QDense"] = QDense
   custom_objects["QConv1D"] = QConv1D
@@ -1047,19 +1034,6 @@ def _add_supported_quantized_objects(custom_objects):
   custom_objects["QAdaptiveActivation"] = QAdaptiveActivation
   custom_objects["QBatchNormalization"] = QBatchNormalization
   custom_objects["Clip"] = Clip
-  custom_objects["quantized_bits"] = quantized_bits
-  custom_objects["bernoulli"] = bernoulli
-  custom_objects["stochastic_ternary"] = stochastic_ternary
-  custom_objects["ternary"] = ternary
-  custom_objects["stochastic_binary"] = stochastic_binary
-  custom_objects["binary"] = binary
-  custom_objects["quantized_relu"] = quantized_relu
-  custom_objects["quantized_ulaw"] = quantized_ulaw
-  custom_objects["quantized_tanh"] = quantized_tanh
-  custom_objects["quantized_sigmoid"] = quantized_sigmoid
-  custom_objects["quantized_po2"] = quantized_po2
-  custom_objects["quantized_relu_po2"] = quantized_relu_po2
-  # custom_objects["quantized_bits_learnable_scale"] = quantized_bits_learnable_scale
 
   custom_objects["QConv2DBatchnorm"] = QConv2DBatchnorm
   custom_objects["QDepthwiseConv2DBatchnorm"] = QDepthwiseConv2DBatchnorm
@@ -1070,34 +1044,73 @@ def _add_supported_quantized_objects(custom_objects):
 
 
 def clone_model(model, custom_objects=None):
-  """Clones model with custom_objects."""
-  if not custom_objects:
-    custom_objects = {}
+    """Clone a QKeras model safely, even with folded batchnorm layers."""
+    if not custom_objects:
+        custom_objects = {}
 
-  # Makes a deep copy to make sure our objects are not shared elsewhere.
-  custom_objects = copy.deepcopy(custom_objects)
+    
+    custom_objects = copy.deepcopy(custom_objects)
 
-  _add_supported_quantized_objects(custom_objects)
+    try:
+        
+        unfolded_model = unfold_model(model)
 
-  json_string = model.to_json()
-  qmodel = quantized_model_from_json(json_string, custom_objects=custom_objects)
-  qmodel.set_weights(model.get_weights())
+        
+        inputs = unfolded_model.inputs
+        if isinstance(inputs, (list, tuple)):
+          inp2 = [tf.keras.Input(shape=inp.shape[1:], dtype=inp.dtype) for inp in inputs]
+          if isinstance(model.input, list):
+              inp = inp2
+          else:
+              inp = inp2[0]
 
-  return qmodel
+        else:
+          inp = tf.keras.Input(shape=inputs.shape[1:], dtype=inputs.dtype)
+        
+        qmodel = tf.keras.models.clone_model(unfolded_model, input_tensors=inp, clone_function=None)
+        qmodel.set_weights(unfolded_model.get_weights())
 
+    except Exception as e:
+        print(f"[ERROR] Model cloning failed: {e}")
+        raise e
+
+    return qmodel
+
+def remove_mask_keys(obj):
+    if isinstance(obj, dict):
+        # Removes "mask" from all dictionaries (no matter how deeply nested)
+        return {
+            k: remove_mask_keys(v)
+            for k, v in obj.items()
+            if k != "mask"
+        }
+    elif isinstance(obj, list):
+        # Also processes lists (e.g., inbound_nodes is a list)
+        return [remove_mask_keys(v) for v in obj]
+    else:
+        return obj  # Primitive values (e.g., int, str) remain unchanged
 
 def quantized_model_from_json(json_string, custom_objects=None):
-  if not custom_objects:
-    custom_objects = {}
+    if not custom_objects:
+        custom_objects = {}
 
-  # Makes a deep copy to make sure our objects are not shared elsewhere.
-  custom_objects = copy.deepcopy(custom_objects)
+    # Makes a deep copy to ensure our objects are not shared elsewhere.
+    custom_objects = copy.deepcopy(custom_objects)
 
-  _add_supported_quantized_objects(custom_objects)
+    _add_supported_quantized_objects(custom_objects)
 
-  qmodel = model_from_json(json_string, custom_objects=custom_objects)
+    json_dict = json.loads(json_string)
 
-  return qmodel
+    # Recursively remove "mask"
+    cleaned_json_dict = remove_mask_keys(json_dict)
+
+    # Convert back into JSON string
+    cleaned_json_string = json.dumps(cleaned_json_dict)
+
+    # Load the model
+    qmodel = models.model_from_json(cleaned_json_string, custom_objects=custom_objects)
+
+    return qmodel
 
 
 def load_qmodel(filepath, custom_objects=None, compile=True):
@@ -1128,6 +1141,7 @@ def load_qmodel(filepath, custom_objects=None, compile=True):
   custom_objects = copy.deepcopy(custom_objects)
 
   _add_supported_quantized_objects(custom_objects)
+  
 
   qmodel = tf.keras.models.load_model(filepath, custom_objects=custom_objects,
                                       compile=compile)
@@ -1156,7 +1170,7 @@ def print_model_sparsity(model):
       print("{}: {}".format(
           layer.name, ", ".join([
               "({}, {})".format(weight.name,
-                  str(_get_sparsity(K.get_value(weight))))
+                  str(_get_sparsity(weight.numpy())))
               for weight in prunable_weights
           ])))
   print("\n")
@@ -1290,7 +1304,15 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
 
     for i, weights in enumerate(weights_to_examine):
       if hasattr(layer, "get_quantizers") and layer.get_quantizers()[i]:
-        weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
+        # Quantize the current weight using the corresponding quantizer
+        quantized_weights = layer.get_quantizers()[i](tf.constant(weights))
+
+        # Evaluate the tensor to a NumPy array if necessary
+        if isinstance(quantized_weights, tf.Tensor):
+          weights = quantized_weights.numpy()
+        else:
+          weights = quantized_weights
+
         if i == 0 and layer.__class__.__name__ in [
             "QConv1D", "QConv2D", "QConv2DTranspose", "QDense",
             "QSimpleRNN", "QLSTM", "QGRU",
@@ -1298,19 +1320,20 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
             "QConv2DBatchnorm", "QDepthwiseConv2DBatchnorm"
         ]:
           alpha = get_weight_scale(layer.get_quantizers()[i], weights)
-          # if alpha is 0, let's remove all weights.
           alpha_mask = (alpha == 0.0)
           weights = np.where(alpha_mask, weights * alpha, weights / alpha)
+
           if plot:
             plt_instance.hist(weights.flatten(), bins=25)
             plt_instance.title(layer.name + "(weights)")
             plt_instance.show()
-      print(" ({: 8.4f} {: 8.4f})".format(np.min(weights), np.max(weights)),
-            end="")
+
+      print(" ({: 8.4f} {: 8.4f})".format(np.min(weights), np.max(weights)), end="")
+
     if alpha is not None and isinstance(alpha, np.ndarray):
-      print(" a({: 10.6f} {: 10.6f})".format(
-          np.min(alpha), np.max(alpha)), end="")
+      print(" a({: 10.6f} {: 10.6f})".format(np.min(alpha), np.max(alpha)), end="")
     print("")
+
 
 
 def quantized_model_dump(model,

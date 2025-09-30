@@ -41,4 +41,4 @@ from .safe_eval import *  # pylint: disable=wildcard-import
 
 assert tf.executing_eagerly(), "QKeras requires TF with eager execution mode on"
 
-__version__ = "0.9.0"
+__version__ = "1.0.0"

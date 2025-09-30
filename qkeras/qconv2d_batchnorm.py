@@ -22,8 +22,10 @@ from __future__ import print_function
 import numpy as np
 from six.moves import range
 import tensorflow as tf
-from tensorflow.keras import layers
-from tensorflow.keras.models import Model
+from keras import layers
+from keras import Model
+from keras.saving import register_keras_serializable
+from keras import ops as Kops
 
 from .qconvolutional import QConv2D
 from .quantizers import *
@@ -34,6 +36,7 @@ tf.compat.v2.enable_v2_behavior()
 
 
 # TODO(lishanok): Create an abstract folding parent class
+@register_keras_serializable(package="qkeras")
 class QConv2DBatchnorm(QConv2D):
   """Fold batchnormalization with a previous qconv2d layer."""
 
@@ -107,6 +110,8 @@ class QConv2DBatchnorm(QConv2D):
           after enough training steps switch to moving_mean and moving_variance
           for kernel folding.
     """
+    kwargs.pop("synchronized", None)
+    
 
     # intialization the qconv2d part of the composite layer
     super().__init__(
@@ -128,25 +133,30 @@ class QConv2DBatchnorm(QConv2D):
         bias_quantizer=bias_quantizer,
         **kwargs
     )
-
+    
     # initialization of batchnorm part of the composite layer
     self.batchnorm = layers.BatchNormalization(
-        axis=axis, momentum=momentum, epsilon=epsilon, center=center,
-        scale=scale, beta_initializer=beta_initializer,
-        gamma_initializer=gamma_initializer,
-        moving_mean_initializer=moving_mean_initializer,
-        moving_variance_initializer=moving_variance_initializer,
-        beta_regularizer=beta_regularizer,
-        gamma_regularizer=gamma_regularizer,
-        beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-        renorm=renorm, renorm_clipping=renorm_clipping, 
-        renorm_momentum=renorm_momentum, fused=fused, trainable=trainable,
-        virtual_batch_size=virtual_batch_size, adjustment=adjustment)
+      axis=axis,
+      momentum=momentum,
+      epsilon=epsilon,
+      center=center,
+      scale=scale,
+      beta_initializer=beta_initializer,
+      gamma_initializer=gamma_initializer,
+      moving_mean_initializer=moving_mean_initializer,
+      moving_variance_initializer=moving_variance_initializer,
+      beta_regularizer=beta_regularizer,
+      gamma_regularizer=gamma_regularizer,
+      beta_constraint=beta_constraint,
+      gamma_constraint=gamma_constraint,
+      trainable=trainable)
+
 
     self.ema_freeze_delay = ema_freeze_delay
     assert folding_mode in ["ema_stats_folding", "batch_stats_folding"]
     self.folding_mode = folding_mode
 
+  
   def build(self, input_shape):
     super(QConv2DBatchnorm, self).build(input_shape)
 
@@ -157,17 +167,18 @@ class QConv2DBatchnorm(QConv2D):
     self._iteration = tf.Variable(-1, trainable=False, name="iteration",
                                   dtype=tf.int64)
 
-  def call(self, inputs, training=None):
+  def call(self, inputs, training=False):
 
     # numpy value, mark the layer is in training
-    training = self.batchnorm._get_training_value(training)  # pylint: disable=protected-access
+    if training is None:
+      training = tf.constant(False)  # pylint: disable=protected-access
 
     # checking if to update batchnorm params
     if (self.ema_freeze_delay is None) or (self.ema_freeze_delay < 0):
       # if ema_freeze_delay is None or a negative value, do not freeze bn stats
-      bn_training = tf.cast(training, dtype=bool)
+      bn_training = Kops.cast(training, dtype=bool)
     else:
-      bn_training = tf.math.logical_and(training, tf.math.less_equal(
+      bn_training = Kops.logical_and(training, tf.math.less_equal(
           self._iteration, self.ema_freeze_delay))
 
     kernel = self.kernel
@@ -197,12 +208,17 @@ class QConv2DBatchnorm(QConv2D):
     # calcuate mean and variance from current batch
     bn_shape = conv_outputs.shape
     ndims = len(bn_shape)
-    reduction_axes = [i for i in range(ndims) if i not in self.batchnorm.axis]
-    keep_dims = len(self.batchnorm.axis) > 1
-    mean, variance = self.batchnorm._moments(  # pylint: disable=protected-access
-        math_ops.cast(conv_outputs, self.batchnorm._param_dtype),  # pylint: disable=protected-access
+    axes = self.batchnorm.axis
+    if isinstance(axes, int):
+      axes = [axes]
+
+    reduction_axes = [i for i in range(ndims) if i not in axes]
+
+    keep_dims = len(axes) > 1
+    mean, variance = tf.nn.moments(  # pylint: disable=protected-access
+        math_ops.cast(conv_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
         reduction_axes,
-        keep_dims=keep_dims)
+        keepdims=keep_dims)
     # get batchnorm weights
     gamma = self.batchnorm.gamma
     beta = self.batchnorm.beta
@@ -300,6 +316,7 @@ class QConv2DBatchnorm(QConv2D):
 
     return folded_outputs
 
+
   def get_config(self):
     base_config = super().get_config()
     bn_config = self.batchnorm.get_config()
@@ -341,12 +358,13 @@ class QConv2DBatchnorm(QConv2D):
       bias = self.bias
     else:
       bias = 0
-
+    
     # get batchnorm weights and moving stats
     gamma = self.batchnorm.gamma
     beta = self.batchnorm.beta
     moving_mean = self.batchnorm.moving_mean
     moving_variance = self.batchnorm.moving_variance
+    
     # get the inversion factor so that we replace division by multiplication
     inv = math_ops.rsqrt(moving_variance + self.batchnorm.epsilon)
     if gamma is not None:

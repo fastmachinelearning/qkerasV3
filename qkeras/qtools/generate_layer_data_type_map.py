@@ -255,8 +255,12 @@ def generate_layer_data_type_map(
     output_shapes = None
     qkeras_weight_quantizer = None
 
-    if hasattr(layer, "output_shape"):
-      output_shapes = layer.output_shape
+    
+    if hasattr(layer, "output") and hasattr(layer.output, "shape"):
+      output_shapes = layer.output.shape
+    else:
+      output_shapes = None
+
 
     if hasattr(layer, "get_weights"):
       weights = layer.get_weights()

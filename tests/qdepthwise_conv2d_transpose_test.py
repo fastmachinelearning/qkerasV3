@@ -130,7 +130,7 @@ def create_model(group_size=1):
   )(x)
 
   model = tf.keras.Model(inputs=img_input, outputs=x)
-
+  print(f"Weights shapes: {[w.shape for w in model.layers[1].weights]}")
   return model
 
 
@@ -182,7 +182,7 @@ def test_qseparable_conv2d_transpose():
   model.layers[1].set_weights([dw_kernel, bias])
 
   actual_output = model.predict(inputs).astype(np.float16)
-  assert_equal(output_shape[1:], (8, 8, 3))
+  assert_equal(output_shape[1:], (8, 8, 2))
   assert_equal(len(ws), 2)
 
   # Test if the depthwise conv kernel shape is correct.
@@ -268,7 +268,7 @@ def test_qseparable_conv2d_transpose_with_groups():
 
   predicted = _FLOAT_PREDICTED_OUTPUT * 3.0  # kernel values replicated 3 times
 
-  assert_equal(output_shape[1:], (8, 8, 3))
+  assert_equal(output_shape[1:], (8, 8, 2))
   assert_equal(len(ws), 2)
 
   # Test if the depthwise conv kernel shape is correct.

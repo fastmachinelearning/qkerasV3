@@ -19,7 +19,7 @@ import json
 
 import numpy as np
 import pytest
-import tensorflow.keras as keras
+import keras as keras
 import tensorflow as tf
 
 from qkeras import QActivation
@@ -124,9 +124,6 @@ def float_po2_model():
   model = keras.Model(
       inputs=[x_in], outputs=[x])
 
-  for layer in model.layers:
-    print(layer)
-    print(layer.output_shape)
   return model
 
 
@@ -377,7 +374,6 @@ def run(model, input_quantizers, is_inference=False,
     print(dict_to_json)
 
   return output_dict
-
 
 def test_wrong_input_quantizers():
   input_quantizers = [
@@ -659,7 +655,6 @@ def test_qenergy():
   x = keras.layers.Activation("softmax", name="softmax")(x)
 
   model = keras.Model(inputs=[x_in], outputs=[x])
-  # print(model.summary())
 
   reference_internal = "int8"
   reference_accumulator = "int32"
@@ -793,6 +788,9 @@ def test_quntized_reference_energy_same_as_floating_trial():
         keras_quantizer=qenergy_config["reference_internal"],
         keras_accumulator=qenergy_config["reference_accumulator"],
         for_reference=for_reference)
+    
+
+
 
     # caculate energy of the derived data type map.
     energy_dict = q.pe(

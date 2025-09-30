@@ -22,9 +22,9 @@ from __future__ import print_function
 import logging
 
 import networkx as nx
-import tensorflow.keras.backend as K
+from keras import backend as K
 
-from tensorflow.keras.layers import InputLayer
+from keras import layers
 from qkeras.qtools.quantized_operators import quantizer_factory as quantizer_factory_module
 from qkeras.qtools.settings import cfg
 
@@ -47,6 +47,7 @@ def GraphRemoveNode(graph, v):
     for w in outgoing:
       in_attr = graph[u][v]
       out_attr = graph[v][w]
+
 
       assert list(in_attr["shape"]) == list(out_attr["shape"])
 
@@ -98,7 +99,7 @@ def  GraphAddHiddenInputLayer(model, graph, input_quantizer_map):
   # create a input layer node
   node_type = "InputLayer"
   input_shape = model.layers[0].input_shape
-  layer = InputLayer(input_shape=input_shape[1:])
+  layer = layers.InputLayer(input_shape=input_shape[1:])
   o_shape = input_shape
   node = (node_id, {"layer": [layer], "type": [node_type],
                     "out_quantizer": None})
@@ -126,16 +127,16 @@ def GraphAddSingleSourceSingleSink(graph):
 
     if graph.nodes[u]["type"][-1] == "InputLayer":
       # If the layer has multiple nodes, you can use get_output_at(node_index)
-      tensor = graph.nodes[u]["layer"][-1].get_output_at(0)
+      tensor = graph.nodes[u]["layer"][-1].output
       # if tf 1.0+, we can do tensor.shape with the same effect
-      shape = tuple(tensor.get_shape().as_list())
-      shape = [shape]
+      shape = tensor.shape
+      shape = shape
 
       edge_list.append((SOURCE, u, {
           "shape": shape, "tensor": tensor, "quantizer": None}))
 
     if graph.out_degree(u) == 0:
-      tensor = graph.nodes[u]["layer"][-1].get_output_at(0)
+      tensor = graph.nodes[u]["layer"][-1].output
       shape = tensor.shape
 
       edge_list.append((u, SINK, {
@@ -184,9 +185,9 @@ def AddToNodeDict(layer_items,
   """Adds layer to a node_dict, indexed by layer.(input or output).ref"""
   i_list = layer_items
   if not isinstance(layer_items, list):
-    i_list = [i_list.ref()]
+    i_list = [i_list]
   else:
-    i_list = [tmp.ref() for tmp in i_list]
+    i_list = [tmp for tmp in i_list]
 
   for i in i_list:
     # dict: tensor -> layers have this tensor as input
@@ -216,7 +217,7 @@ def GenerateGraphFromModel(model,
   # dict that map input_tensor to its quantizer
   input_quantizer_map = {}
   for (idx, tensor) in enumerate(model.inputs):
-    input_quantizer_map[tensor.ref()] = input_quantizer_list[idx]
+    input_quantizer_map[tensor] = input_quantizer_list[idx]
 
   graph = nx.DiGraph()
 
@@ -263,7 +264,7 @@ def GenerateGraphFromModel(model,
         if not u or not v:
           continue
 
-        o_shape = u.output_shape
+        o_shape = u.output.shape
 
         # layer -> layer_id
         u_id = node_dict[u]

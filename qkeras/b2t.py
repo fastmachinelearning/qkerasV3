@@ -15,7 +15,7 @@
 # ==============================================================================
 """Implements total/partial Binary to Thermometer decoder."""
 
-from tensorflow.keras.utils import to_categorical
+from keras import utils
 import numpy as np
 
 
@@ -95,13 +95,13 @@ def BinaryToThermometer(
   # we will have the classes 0, 1, 2, where for the number 3, we will
   # allocate 0.5 to bin 1 and 0.5 to bin 2 (namelly 3 = 0.5 * (2**2 + 2**1)).
 
-  xc_f = to_categorical(x_floor, classes + use_two_hot_encoding)
+  xc_f = utils.to_categorical(x_floor, classes + use_two_hot_encoding)
 
   if with_residue:
     xc_f_m = xc_f == 1
 
     if use_two_hot_encoding:
-      xc_c = to_categorical(x_ceil, classes + use_two_hot_encoding)
+      xc_c = utils.to_categorical(x_ceil, classes + use_two_hot_encoding)
       xc_c_m = xc_c == 1
       if np.any(xc_c_m):
         xc_c[xc_c_m] = x_mod_f.reshape(xc_c[xc_c_m].shape)

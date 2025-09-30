@@ -17,12 +17,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import pytest
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import DepthwiseConv2D
-from tensorflow.keras.layers import BatchNormalization
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
+from keras.layers import Activation
+from keras.layers import Conv2D
+from keras.layers import DepthwiseConv2D
+from keras.layers import BatchNormalization
+from keras.layers import Input
+from keras.models import Model
 
 from qkeras.estimate import print_qstats
 from qkeras.utils import model_quantize
@@ -104,6 +104,7 @@ def test_conversion_print_qstats():
       },
   }
   m2 = model_quantize(m2, d2, 4, enable_bn_folding=True)
+  m2(tf.random.normal((1, 28, 28, 1)))
   m2.summary()
   print_qstats(m2)
 

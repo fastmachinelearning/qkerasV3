@@ -41,15 +41,17 @@ import warnings
 import numpy as np
 import six
 import tensorflow.compat.v2 as tf
-from tensorflow.keras import activations
-from tensorflow.keras import constraints
-from tensorflow.keras import initializers
-from tensorflow.keras import regularizers
-import tensorflow.keras.backend as K
-from tensorflow.keras.constraints import Constraint
-from tensorflow.keras.initializers import Initializer
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Layer
+from keras.utils import serialize_keras_object
+from keras import activations
+from keras import constraints
+from keras import initializers
+from keras import regularizers
+from keras import backend as K
+from keras import ops as Kops
+from keras import constraints
+from keras import initializers
+from keras import layers
+from keras.saving import register_keras_serializable
 from tensorflow.python.framework import smart_cond as tf_utils
 
 from .quantizers import *
@@ -85,8 +87,8 @@ def get_auto_range_constraint_initializer(quantizer, constraint, initializer):
             initializer, use_scale=True, quantizer=quantizer)
   return constraint, initializer
 
-
-class QInitializer(Initializer):
+@register_keras_serializable(package="qkeras")
+class QInitializer(initializers.Initializer):
   """Wraps around Keras initializer to provide a fanin scaling factor."""
 
   def __init__(self, initializer, use_scale, quantizer):
@@ -146,8 +148,8 @@ class QInitializer(Initializer):
 # we may be replacing their instantiation by QActivation in the future.
 #
 
-
-class QActivation(Layer, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QActivation(layers.Layer, PrunableLayer):
   """Implements quantized activation layers."""
 
   # TODO(lishanok): Implement activation type conversion outside of the class.
@@ -209,8 +211,8 @@ class QActivation(Layer, PrunableLayer):
   def get_prunable_weights(self):
     return []
 
-
-class QAdaptiveActivation(Layer, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QAdaptiveActivation(layers.Layer, PrunableLayer):
   """[EXPERIMENTAL] Implements an adaptive quantized activation layer using EMA.
 
   This layer calculates an exponential moving average of min and max of the
@@ -394,9 +396,11 @@ class QAdaptiveActivation(Layer, PrunableLayer):
     self.will_ema_freeze = self.will_ema_freeze and self.trainable
 
     # Update the step count if the optimizer step count is unknown
-    self.step.assign_add(K.switch(
-        tf.math.logical_and(self.is_estimating_step_count, training),
-        tf.constant(1, tf.int64), tf.constant(0, tf.int64)))
+    self.step.assign_add(tf.cond(
+    Kops.logical_and(self.is_estimating_step_count, training),
+    lambda: tf.constant(1, tf.int64),
+    lambda: tf.constant(0, tf.int64)))
+
 
     # Perform the quantization
     if training:
@@ -404,9 +408,9 @@ class QAdaptiveActivation(Layer, PrunableLayer):
       # quantization noise to use. At training start, we want no quantization,
       # so qnoise_factor = 0.0. After quantization_delay steps, we want normal
       # quantization, so qnoise_factor = 1.0.
-      qnoise_factor = K.switch(
-          tf.greater_equal(self.step, self.quantization_delay),
-          lambda: tf.constant(1.0), lambda: tf.constant(0.0))
+      qnoise_factor = tf.cond(
+        tf.greater_equal(self.step, self.quantization_delay),
+        lambda: tf.constant(1.0), lambda: tf.constant(0.0))
       self.quantizer.update_qnoise_factor(qnoise_factor)
       qx = self.quantizer(x)
 
@@ -445,10 +449,11 @@ class QAdaptiveActivation(Layer, PrunableLayer):
       act_x = self.quantizer(x)  # act_x is the input after the activation
       # function, but before the quantizer. This is
       # done by using a qnoise_factor of 0
-      new_min = tf.squeeze(K.min(act_x, axis=axis, keepdims=True))
-      K.moving_average_update(self.ema_min, new_min, self.ema_decay)
-      new_max = tf.squeeze(K.max(act_x, axis=axis, keepdims=True))
-      K.moving_average_update(self.ema_max, new_max, self.ema_decay)
+      new_min = tf.squeeze(Kops.min(act_x, axis=axis, keepdims=True))
+      self.ema_min.assign(self.ema_min * self.ema_decay + new_min * (1.0 - self.ema_decay))
+      new_max = tf.squeeze(Kops.max(act_x, axis=axis, keepdims=True))
+      self.ema_max.assign(self.ema_max * self.ema_decay + new_max * (1.0 - self.ema_decay))
+
 
       # Reset the qnoise factor to the previous value
       self.quantizer.update_qnoise_factor(prev_qnoise_factor)
@@ -509,7 +514,8 @@ class QAdaptiveActivation(Layer, PrunableLayer):
 #    1. quantization approximation is symmetric (b = 0).
 #    2. max(x) and min(x) are 1 and -1 respectively.
 #
-class Clip(Constraint):
+@register_keras_serializable(package="qkeras")
+class Clip(constraints.Constraint):
   """Clips weight constraint."""
 
   # This function was modified from Keras minmaxconstraints.
@@ -559,8 +565,8 @@ class Clip(Constraint):
 # Similar implementations can be seen in the references.
 #
 
-
-class QDense(Dense, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QDense(layers.Dense, PrunableLayer):
   """Implements a quantized Dense layer."""
 
   # Most of these parameters follow the implementation of Dense in
@@ -629,7 +635,7 @@ class QDense(Dense, PrunableLayer):
                                                 bias_initializer))
     if activation is not None:
       activation = get_quantizer(activation)
-
+  
     super().__init__(
         units=units,
         activation=activation,
@@ -671,42 +677,23 @@ class QDense(Dense, PrunableLayer):
   def get_config(self):
     config = {
         "units": self.units,
-        "activation": activations.serialize(
-            self.activation# Google internal code, commented out by copybara
-        ),
+        "activation": activations.serialize(self.activation),
         "use_bias": self.use_bias,
-        "kernel_quantizer": constraints.serialize(
-            self.kernel_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        "bias_quantizer": constraints.serialize(
-            self.bias_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        "kernel_initializer": initializers.serialize(
-            self.kernel_initializer# Google internal code, commented out by copybara
-        ),
-        "bias_initializer": initializers.serialize(
-            self.bias_initializer# Google internal code, commented out by copybara
-        ),
-        "kernel_regularizer": regularizers.serialize(
-            self.kernel_regularizer# Google internal code, commented out by copybara
-        ),
-        "bias_regularizer": regularizers.serialize(
-            self.bias_regularizer# Google internal code, commented out by copybara
-        ),
-        "activity_regularizer": regularizers.serialize(
-            self.activity_regularizer# Google internal code, commented out by copybara
-        ),
-        "kernel_constraint": constraints.serialize(
-            self.kernel_constraint# Google internal code, commented out by copybara
-        ),
-        "bias_constraint": constraints.serialize(
-            self.bias_constraint# Google internal code, commented out by copybara
-        ),
+        "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
+        "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
+        "kernel_initializer": initializers.serialize(self.kernel_initializer),
+        "bias_initializer": initializers.serialize(self.bias_initializer),
+        "kernel_regularizer": regularizers.serialize(self.kernel_regularizer),
+        "bias_regularizer": regularizers.serialize(self.bias_regularizer),
+        "activity_regularizer": regularizers.serialize(self.activity_regularizer),
+        "kernel_constraint": constraints.serialize(self.kernel_constraint),
+        "bias_constraint": constraints.serialize(self.bias_constraint),
         "kernel_range": self.kernel_range,
         "bias_range": self.bias_range,
     }
     base_config = super(QDense, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
+
 
   def get_quantization_config(self):
     return {

@@ -20,7 +20,7 @@ from __future__ import print_function
 
 import pytest
 from qkeras import *
-from tensorflow.keras import backend as K
+from keras import backend as K
 
 
 def test_binary():

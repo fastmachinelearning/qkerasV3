@@ -22,7 +22,7 @@ from __future__ import print_function
 import copy
 import sys
 import numpy as np
-import tensorflow.keras.backend as K
+from keras import backend as K
 import tensorflow as tf
 from qkeras.qtools import quantized_operators
 
@@ -368,8 +368,8 @@ def get_layer_info(layer: tf.keras.layers.Layer, attr_name: str):
       f"Found {layer_type} instead.")
 
   # Get layer info such as input/output channels, kernel size and quantizers.
-  input_channel = layer.input_shape[-1]
-  output_channel = layer.output_shape[-1]
+  input_channel = layer.input.shape[-1]
+  output_channel = layer.output.shape[-1]
 
   # Change default kernel_size to 1 to represent Dense Layer with Conv Layers.
   kernel_height, kernel_width = layer.kernel_size if hasattr(

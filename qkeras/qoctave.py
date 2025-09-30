@@ -21,12 +21,7 @@ from __future__ import print_function
 
 import re
 
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Add
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import Conv2D
-from tensorflow.keras.layers import SeparableConv2D
-from tensorflow.keras.layers import UpSampling2D
+from keras import layers
 from .qlayers import QActivation
 from .qconvolutional import QConv2D
 from .qconvolutional import QSeparableConv2D
@@ -74,7 +69,6 @@ def QOctaveConv2D(
 
   def _QOctaveConv2DInternal(x):
     """Computes QOctaveConv2D on a tensor."""
-
     x_h, x_l = x
 
     bias_quantizer = kwargs.get("bias_quantizer", None)
@@ -111,10 +105,6 @@ def QOctaveConv2D(
             depthwise_quantizer=depthwise_quantizer,
             pointwise_quantizer=pointwise_quantizer,
             bias_quantizer=bias_quantizer,
-            depthwise_activation=depthwise_activation,
-            pointwise_range=pointwise_range,
-            depthwise_range=depthwise_range,
-            bias_range=bias_range,
             name=name + "_c_h_to_h")(x_h)
       else:
         x_h = QConv2D(
@@ -163,10 +153,6 @@ def QOctaveConv2D(
               depthwise_quantizer=depthwise_quantizer,
               pointwise_quantizer=pointwise_quantizer,
               bias_quantizer=bias_quantizer,
-              depthwise_activation=depthwise_activation,
-              pointwise_range=pointwise_range,
-              depthwise_range=depthwise_range,
-              bias_range=bias_range,
               name=name + "_c_h_to_h")(x_h)
         else:
           x_h_to_h = QConv2D(
@@ -192,7 +178,7 @@ def QOctaveConv2D(
       if x_h is not None:
         x_h_to_l = QAveragePooling2D(
             pool_size=2, strides=2,
-            quantizer=pooling_quantizer,
+            average_quantizer=pooling_quantizer,
             name=name + "_avg_h_to_l")(x_h)
 
         if use_separable:
@@ -210,10 +196,6 @@ def QOctaveConv2D(
               depthwise_quantizer=depthwise_quantizer,
               pointwise_quantizer=pointwise_quantizer,
               bias_quantizer=bias_quantizer,
-              depthwise_activation=depthwise_activation,
-              pointwise_range=pointwise_range,
-              depthwise_range=depthwise_range,
-              bias_range=bias_range,
               name=name + "_c_h_to_l")(x_h_to_l)
         else:
           x_h_to_l = QConv2D(
@@ -237,7 +219,7 @@ def QOctaveConv2D(
 
     if co_h > 0:
       if x_l is not None:
-        _, height, width, _ = x_l.shape.as_list()
+        _, height, width, _ = x_l.shape
         if height == 1 and width == 1:
           local_kernel = 1
           local_strides = 1
@@ -264,10 +246,6 @@ def QOctaveConv2D(
               depthwise_quantizer=depthwise_quantizer,
               pointwise_quantizer=pointwise_quantizer,
               bias_quantizer=bias_quantizer,
-              depthwise_activation=depthwise_activation,
-              pointwise_range=pointwise_range,
-              depthwise_range=depthwise_range,
-              bias_range=bias_range,
               name=name + "_c_l_to_h")(x_l)
         else:
           x_l_to_h = QConv2D(
@@ -290,7 +268,7 @@ def QOctaveConv2D(
               name=name + "_c_l_to_h_act" + acc_suffix)(x_l_to_h)
 
         if upsampling:
-          x_l_to_h = UpSampling2D(
+          x_l_to_h = layers.UpSampling2D(
               size=(2, 2), name=name + "_u_l_to_h")(x_l_to_h)
 
     if co_l > 0:
@@ -310,10 +288,6 @@ def QOctaveConv2D(
               depthwise_quantizer=depthwise_quantizer,
               pointwise_quantizer=depthwise_quantizer,
               bias_quantizer=bias_quantizer,
-              depthwise_activation=depthwise_activation,
-              pointwise_range=pointwise_range,
-              depthwise_range=depthwise_range,
-              bias_range=bias_range,
               name=name + "_c_l_to_l")(x_l)
         else:
           x_l_to_l = QConv2D(
@@ -336,7 +310,7 @@ def QOctaveConv2D(
                   x_l_to_l)
 
     if x_h_to_h is not None and x_l_to_h is not None:
-      x_h = Add(name=name + "_a_h")([x_h_to_h, x_l_to_h])
+      x_h = layers.Add(name=name + "_a_h")([x_h_to_h, x_l_to_h])
     elif x_h_to_h is not None:
       x_h = x_h_to_h
     elif x_l_to_h is not None:
@@ -345,7 +319,7 @@ def QOctaveConv2D(
       x_h = None
 
     if x_l_to_l is not None and x_h_to_l is not None:
-      x_l = Add(name=name + "_a_l")([x_l_to_l, x_h_to_l])
+      x_l = layers.Add(name=name + "_a_l")([x_l_to_l, x_h_to_l])
     elif x_l_to_l is not None:
       x_l = x_l_to_l
     elif x_h_to_l is not None:
@@ -392,7 +366,7 @@ def OctaveConv2D(
 
     if alpha == -1.0:
       if use_separable:
-        x_h = SeparableConv2D(
+        x_h = layers.SeparableConv2D(
             filters, kernel_size, strides=strides, padding=padding,
             depthwise_regularizer=kernel_regularizer,
             depthwise_constraint=kernel_constraint,
@@ -405,7 +379,7 @@ def OctaveConv2D(
             bias_initializer=bias_initializer,
             name=name + "_c_h_to_h")(x_h)
       else:
-        x_h = Conv2D(
+        x_h = layers.Conv2D(
             filters, kernel_size, strides=strides, padding=padding,
             kernel_regularizer=kernel_regularizer,
             kernel_constraint=kernel_constraint,
@@ -416,7 +390,7 @@ def OctaveConv2D(
             name=name+"_c_h_to_h")(x_h)
 
       if activation:
-        x_h = Activation(activation, name=name + "_c_h_to_h_act")(x_h)
+        x_h = layers.Activation(activation, name=name + "_c_h_to_h_act")(x_h)
 
       return [x_h, None]
 
@@ -431,7 +405,7 @@ def OctaveConv2D(
     if co_h > 0:
       if x_h is not None:
         if use_separable:
-          x_h_to_h = SeparableConv2D(
+          x_h_to_h = layers.SeparableConv2D(
               co_h, kernel_size, strides=strides, padding=padding,
               depthwise_regularizer=kernel_regularizer,
               depthwise_constraint=kernel_constraint,
@@ -444,7 +418,7 @@ def OctaveConv2D(
               bias_initializer=bias_initializer,
               name=name + "_c_h_to_h")(x_h)
         else:
-          x_h_to_h = Conv2D(
+          x_h_to_h = layers.Conv2D(
               co_h, kernel_size, strides=strides, padding=padding,
               kernel_regularizer=kernel_regularizer,
               kernel_constraint=kernel_constraint,
@@ -455,16 +429,16 @@ def OctaveConv2D(
               name=name + "_c_h_to_h")(x_h)
 
         if activation:
-          x_h_to_h = Activation(
+          x_h_to_h = layers.Activation(
               acc_quantizer, name=name + "_c_h_to_h_act")(x_h_to_h)
 
     if co_l > 0:
       if x_h is not None:
-        x_h_to_l = AveragePooling2D(pool_size=2, strides=2,
+        x_h_to_l = layers.AveragePooling2D(pool_size=2, strides=2,
                                     name=name + "_p_h_to_l")(x_h)
 
         if use_separable:
-          x_h_to_l = SeparableConv2D(
+          x_h_to_l = layers.SeparableConv2D(
               co_l, kernel_size, strides=strides, padding=padding,
               depthwise_regularizer=kernel_regularizer,
               depthwise_constraint=kernel_constraint,
@@ -477,7 +451,7 @@ def OctaveConv2D(
               bias_initializer=bias_initializer,
               name=name + "_c_h_to_l")(x_h_to_l)
         else:
-          x_h_to_l = Conv2D(
+          x_h_to_l = layers.Conv2D(
               co_l, kernel_size, strides=strides, padding=padding,
               kernel_regularizer=kernel_regularizer,
               kernel_constraint=kernel_constraint,
@@ -488,7 +462,7 @@ def OctaveConv2D(
               name=name + "_c_h_to_l")(x_h_to_l)
 
         if activation:
-          x_h_to_l = Activation(
+          x_h_to_l = layers.Activation(
               acc_quantizer, name=name + "_c_h_to_l_act")(x_h_to_l)
 
     if co_h > 0:
@@ -506,7 +480,7 @@ def OctaveConv2D(
           upsampling = True
 
         if use_separable and upsampling:
-          x_l_to_h = SeparableConv2D(
+          x_l_to_h = layers.SeparableConv2D(
               co_h, kernel_size, strides=strides, padding=padding,
               depthwise_regularizer=kernel_regularizer,
               depthwise_constraint=kernel_constraint,
@@ -519,7 +493,7 @@ def OctaveConv2D(
               bias_initializer=bias_initializer,
               name=name + "_c_l_to_h")(x_l)
         else:
-          x_l_to_h = Conv2D(
+          x_l_to_h = layers.Conv2D(
               co_h, local_kernel, strides=local_strides, padding=local_padding,
               kernel_regularizer=kernel_regularizer,
               kernel_constraint=kernel_constraint,
@@ -530,17 +504,17 @@ def OctaveConv2D(
               name=name + "_c_l_to_h")(x_l)
 
         if activation:
-          x_l_to_h = Activation(
+          x_l_to_h = layers.Activation(
               acc_quantizer, name=name + "_c_l_to_h_act")(x_l_to_h)
 
         if upsampling:
-          x_l_to_h = UpSampling2D(
+          x_l_to_h = layers.UpSampling2D(
               size=(2, 2), name=name + "_u_l_to_h")(x_l_to_h)
 
     if co_l > 0:
       if x_l is not None:
         if use_separable:
-          x_l_to_l = SeparableConv2D(
+          x_l_to_l = layers.SeparableConv2D(
               co_l, kernel_size, strides=strides, padding=padding,
               kernel_regularizer=kernel_regularizer,
               kernel_constraint=kernel_constraint,
@@ -550,7 +524,7 @@ def OctaveConv2D(
               bias_initializer=bias_initializer,
               name=name + "_c_l_to_l")(x_l)
         else:
-          x_l_to_l = Conv2D(
+          x_l_to_l = layers.Conv2D(
               co_l, kernel_size, strides=strides, padding=padding,
               kernel_regularizer=kernel_regularizer,
               kernel_constraint=kernel_constraint,
@@ -561,11 +535,11 @@ def OctaveConv2D(
               name=name + "_c_l_to_l")(x_l)
 
         if activation:
-          x_l_to_l = Activation(
+          x_l_to_l = layers.Activation(
               acc_quantizer, name=name + "_c_l_to_l_act")(x_l_to_l)
 
     if x_h_to_h is not None and x_l_to_h is not None:
-      x_h = Add(name=name + "_a_h")([x_h_to_h, x_l_to_h])
+      x_h = layers.Add(name=name + "_a_h")([x_h_to_h, x_l_to_h])
     elif x_h_to_h is not None:
       x_h = x_h_to_h
     elif x_l_to_h is not None:
@@ -574,7 +548,7 @@ def OctaveConv2D(
       x_h = None
 
     if x_l_to_l is not None and x_h_to_l is not None:
-      x_l = Add(name=name + "_a_l")([x_l_to_l, x_h_to_l])
+      x_l = layers.Add(name=name + "_a_l")([x_l_to_l, x_h_to_l])
     elif x_l_to_l is not None:
       x_l = x_l_to_l
     elif x_h_to_l is not None:
@@ -583,10 +557,10 @@ def OctaveConv2D(
       x_l = None
 
     if x_h is not None:
-      x_h = Activation(activation, name=name + "_h_act")(x_h)
+      x_h = layers.Activation(activation, name=name + "_h_act")(x_h)
 
     if x_l is not None:
-      x_l = Activation(activation, name=name + "_l_act")(x_l)
+      x_l = layers.Activation(activation, name=name + "_l_act")(x_l)
 
     return (x_h, x_l)
 

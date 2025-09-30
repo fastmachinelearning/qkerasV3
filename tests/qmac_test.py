@@ -26,9 +26,9 @@ import numpy as np
 from numpy.testing import assert_allclose
 from numpy.testing import assert_equal
 import pytest
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
+from keras import backend as K
+from keras.layers import Input
+from keras.models import Model
 
 from qkeras import QScaleShift
 from qkeras.utils import load_qmodel

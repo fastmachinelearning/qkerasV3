@@ -27,13 +27,14 @@ from numpy.testing import assert_allclose
 from numpy.testing import assert_equal
 import pytest
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.backend import clear_session
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
+from keras import backend as K
+from keras.backend import clear_session
+from keras.layers import Activation
+from keras.layers import Flatten
+from keras.layers import Input
+from keras.models import Model
 
+import qkeras.quantizers
 from qkeras import QActivation
 from qkeras import QDense
 from qkeras import quantized_bits
@@ -109,7 +110,7 @@ def test_qactivation_loads():
       layer_size,
       name='qdense',
   )(x)
-  x = QActivation(activation=quantized_relu(8), name='relu')(x)
+  x = QActivation(activation='quantized_relu(8)', name='relu')(x)
   model = tf.keras.Model(inputs=xin, outputs=x)
 
   # Generate random weights for the model.

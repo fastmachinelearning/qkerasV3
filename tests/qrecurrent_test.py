@@ -28,18 +28,18 @@ import numpy as np
 from numpy.testing import assert_allclose
 import pytest
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.backend import clear_session
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Bidirectional
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import GRU
-from tensorflow.keras.layers import Input
-from tensorflow.keras.layers import LSTM
-from tensorflow.keras.layers import SimpleRNN
-from tensorflow.keras.models import Model
-from tensorflow.keras.models import Sequential
+from keras import backend as K
+from keras.backend import clear_session
+from keras.layers import Activation
+from keras.layers import Bidirectional
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers import GRU
+from keras.layers import Input
+from keras.layers import LSTM
+from keras.layers import SimpleRNN
+from keras.models import Model
+from keras.models import Sequential
 
 from qkeras import QActivation
 from qkeras import QBidirectional
@@ -302,12 +302,22 @@ def create_network_birnn(rnn):
   x = Bidirectional(rnn(8))(xi)
   return Model(inputs=xi, outputs=x)
 
+def get_quantizer_name(q):
+    """Helper to extract quantizer class name from various formats."""
+    if isinstance(q, dict):
+        return q.get("class_name", "unknown")
+    if isinstance(q, str):
+        return q
+    return q.__class__.__name__
+
+
+
 
 @pytest.mark.parametrize('rnn', [SimpleRNN, LSTM, GRU])
 def test_birnn_conversion(rnn):
   m = create_network_birnn(rnn)
   m.use_legacy_config = True
-  name = 'Q' + m.layers[1].layer.__class__.__name__
+  name = 'Q' + m.layers[1].forward_layer.__class__.__name__
   d = {
       'QBidirectional': {
           'kernel_quantizer': 'binary',
@@ -321,23 +331,26 @@ def test_birnn_conversion(rnn):
     d['QBidirectional']['recurrent_activation_quantizer'] = 'binary'
 
   qq = model_quantize(m, d, 4)
-  layer = qq.layers[1].layer
-  assert str(layer.kernel_quantizer) == 'binary'
-  assert str(layer.recurrent_quantizer) == 'binary'
-  assert str(layer.bias_quantizer) == 'binary'
-  assert str(layer.state_quantizer) == 'binary'
+  layer = qq.layers[1].forward_layer
+  assert get_quantizer_name(layer.kernel_quantizer) == 'binary'
+  assert get_quantizer_name(layer.recurrent_quantizer) == 'binary'
+  assert get_quantizer_name(layer.bias_quantizer) == 'binary'
+  assert get_quantizer_name(layer.state_quantizer) == 'binary'
   assert str(layer.activation) == 'binary()'
   if name != 'QSimpleRNN':
-    assert str(layer.recurrent_activation) == 'binary()'
+      assert str(layer.recurrent_activation) == 'binary()'
+
   backward_layer = qq.layers[1].backward_layer
-  # backwards weight quantizers are dict because of contraints.serialize
-  assert str(backward_layer.kernel_quantizer['class_name']) == 'binary'
-  assert str(backward_layer.recurrent_quantizer['class_name']) == 'binary'
-  assert str(backward_layer.bias_quantizer['class_name']) == 'binary'
-  assert str(backward_layer.state_quantizer['class_name']) == 'binary'
+  assert get_quantizer_name(backward_layer.kernel_quantizer) == 'binary'
+  assert get_quantizer_name(backward_layer.recurrent_quantizer) == 'binary'
+  assert get_quantizer_name(backward_layer.bias_quantizer) == 'binary'
+  assert get_quantizer_name(backward_layer.state_quantizer) == 'binary'
   assert str(backward_layer.activation) == 'binary()'
   if name != 'QSimpleRNN':
-    assert str(backward_layer.recurrent_activation) == 'binary()'
+      assert str(backward_layer.recurrent_activation) == 'binary()'
+
+
+
 
 
 def test_birnn_subrnn():

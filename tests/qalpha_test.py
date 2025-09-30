@@ -22,7 +22,9 @@ import logging
 from numpy.testing import assert_allclose
 from numpy.testing import assert_equal
 import pytest
-from tensorflow.keras import backend as K
+import tensorflow.compat.v2 as tf
+from keras import backend as K
+from keras import initializers as I
 from qkeras import binary
 from qkeras import get_weight_scale
 from qkeras import ternary
@@ -43,10 +45,10 @@ def test_binary_auto():
 
   for m in m_list:
     x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-    x = K.constant(x)
+    x_tensor = tf.convert_to_tensor(x)
 
     quantizer = binary(alpha="auto")
-    q = K.eval(quantizer(x))
+    q = quantizer(x_tensor).numpy()
 
     result = get_weight_scale(quantizer, q)
     expected = m / 2.0
@@ -64,13 +66,13 @@ def test_binary_auto_po2():
 
   for m in m_list:
     x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-    x = K.constant(x)
+    x_tensor = tf.convert_to_tensor(x)
 
     quantizer_ref = binary(alpha="auto")
     quantizer = binary(alpha="auto_po2")
 
-    q_ref = K.eval(quantizer_ref(x))
-    q = K.eval(quantizer(x))
+    q_ref = quantizer_ref(x_tensor).numpy()
+    q = quantizer(x_tensor).numpy()
 
     ref = get_weight_scale(quantizer_ref, q_ref)
 
@@ -89,10 +91,10 @@ def test_ternary_auto():
 
   for m in m_list:
     x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-    x = K.constant(x)
+    x_tensor = tf.convert_to_tensor(x)
 
     quantizer = ternary(alpha="auto")
-    q = K.eval(quantizer(x))
+    q = quantizer(x_tensor).numpy()
 
     d = m/3.0
     result = np.mean(get_weight_scale(quantizer, q))
@@ -109,13 +111,13 @@ def test_ternary_auto_po2():
 
   for m in m_list:
     x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-    x = K.constant(x)
+    x_tensor = tf.convert_to_tensor(x)
 
     quantizer_ref = ternary(alpha="auto")
     quantizer = ternary(alpha="auto_po2")
 
-    q_ref = K.eval(quantizer_ref(x))
-    q = K.eval(quantizer(x))
+    q_ref = quantizer_ref(x_tensor).numpy()
+    q = quantizer(x_tensor).numpy()
 
     ref = get_weight_scale(quantizer_ref, q_ref)
 

@@ -45,12 +45,12 @@ from qkeras.codebook import weight_compression
         [ 0.15280165,  0.40714318, -0.04622072],
         [ 0.21560416, -0.22131851, -0.5365659 ]]], dtype=np.float32),
       np.array([
-       [[ 0.125 , -0.375 ,  0.25  ],
-        [ 0.75  ,  0.125 , -0.25  ],
+       [[ 0.125 , -0.25 ,  0.25  ],
+        [ 0.625  ,  0.125 , -0.25  ],
         [ 0.125 ,  0.0   , -0.25  ]],
 
        [[ 0.0   ,  0.25  ,  0.25  ],
-        [ 0.75  ,  0.375 , -0.375 ],
+        [ 0.75  ,  0.375 , -0.5 ],
         [ 0.375 ,  0.375 , -0.5   ]],
 
        [[ 0.0   ,  0.0   ,  0.0   ],
@@ -70,7 +70,6 @@ def test_codebook_weights(bits, axis, quantizer, weights, expected_result):
   new_weights = np.zeros(weights.shape)
   for i in range(weights.shape[axis]):
     new_weights[:, :, :, i] = codebook_table[i][index_table[:, :, :, i]]
-
   assert_allclose(new_weights, expected_result, rtol=1e-4)
 
 

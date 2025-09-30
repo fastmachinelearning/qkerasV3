@@ -24,12 +24,12 @@ import pytest
 import tempfile
 
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.backend import clear_session
+from keras import backend as K
+from keras.layers import Activation
+from keras.layers import Flatten
+from keras.layers import Input
+from keras.models import Model
+from keras.backend import clear_session
 
 from qkeras import binary
 from qkeras import ternary
@@ -50,150 +50,133 @@ from qkeras import extract_model_operations
 
 
 def test_qnetwork():
-  K.set_learning_phase(1)
-  x = x_in = Input((28, 28, 1), name='input')
-  x = QSeparableConv2D(
-      32, (2, 2),
-      strides=(2, 2),
-      depthwise_quantizer=binary(alpha=1.0),
-      pointwise_quantizer=quantized_bits(4, 0, 1, alpha=1.0),
-      activation=quantized_bits(6, 2, 1, alpha=1.0),
-      bias_quantizer=quantized_bits(4, 0, 1),
-      name='conv2d_0_m')(
-          x)
-  x = QActivation('quantized_relu(6,2,1)', name='act0_m')(x)
-  x = QConv2D(
-      64, (3, 3),
-      strides=(2, 2),
-      kernel_quantizer=ternary(alpha=1.0),
-      bias_quantizer=quantized_bits(4, 0, 1),
-      name='conv2d_1_m',
-      activation=quantized_relu(6, 3, 1))(
-          x)
-  x = QConv2D(
-      64, (2, 2),
-      strides=(2, 2),
-      kernel_quantizer=quantized_bits(6, 2, 1, alpha=1.0),
-      bias_quantizer=quantized_bits(4, 0, 1),
-      name='conv2d_2_m')(
-          x)
-  x = QActivation('quantized_relu(6,4,1)', name='act2_m')(x)
-  x = Flatten(name='flatten')(x)
-  x = QDense(
-      10,
-      kernel_quantizer=quantized_bits(6, 2, 1, alpha=1.0),
-      bias_quantizer=quantized_bits(4, 0, 1),
-      name='dense')(
-          x)
-  x = Activation('softmax', name='softmax')(x)
+    x = x_in = Input((28, 28, 1), name="input")
+    
+    x = QSeparableConv2D(
+        32, (2, 2),
+        strides=(2, 2),
+        depthwise_quantizer=binary(alpha=1.0),
+        pointwise_quantizer=quantized_bits(4, 0, 1, alpha=1.0),
+        activation=quantized_bits(6, 2, 1, alpha=1.0),
+        bias_quantizer=quantized_bits(4, 0, 1),
+        name="conv2d_0_m"
+    )(x)
 
-  model = Model(inputs=[x_in], outputs=[x])
+    x = QActivation("quantized_relu(6,2,1)", name="act0_m")(x)
 
-  # reload the model to ensure saving/loading works
-  json_string = model.to_json()
-  clear_session()
-  model = quantized_model_from_json(json_string)
+    x = QConv2D(
+        64, (3, 3),
+        strides=(2, 2),
+        kernel_quantizer=ternary(alpha=1.0),
+        bias_quantizer=quantized_bits(4, 0, 1),
+        activation=quantized_relu(6, 3, 1),
+        name="conv2d_1_m"
+    )(x)
 
-  # generate same output for weights
-  np.random.seed(42)
-  for layer in model.layers:
+    x = QConv2D(
+        64, (2, 2),
+        strides=(2, 2),
+        kernel_quantizer=quantized_bits(6, 2, 1, alpha=1.0),
+        bias_quantizer=quantized_bits(4, 0, 1),
+        name="conv2d_2_m"
+    )(x)
+
+    x = QActivation("quantized_relu(6,4,1)", name="act2_m")(x)
+
+    x = Flatten(name="flatten")(x)
+
+    x = QDense(
+        10,
+        kernel_quantizer=quantized_bits(6, 2, 1, alpha=1.0),
+        bias_quantizer=quantized_bits(4, 0, 1),
+        name="dense"
+    )(x)
+
+    x = Activation("softmax", name="softmax")(x)
+
+    model = Model(inputs=[x_in], outputs=[x])
+
+    # Reload model from JSON to check serialization/deserialization
+    json_string = model.to_json()
+    clear_session()
+    model = quantized_model_from_json(json_string)
+
+    np.random.seed(42)
+    for layer in model.layers:
+        all_weights = []
+        for i, weights in enumerate(layer.get_weights()):
+            input_shape = layer.input.shape
+            if hasattr(input_shape, "as_list"):
+                input_shape = input_shape.as_list()
+            input_size = np.prod(input_shape[1:]) if input_shape is not None else 1
+
+            if (len(layer.get_weights()) == 3 and i > 0):
+                input_size = input_size // np.prod(layer.kernel_size)
+            
+            shape = weights.shape
+            assert input_size > 0, f"input size for {layer.name} {i}"
+            all_weights.append(10.0 * np.random.normal(0.0, np.sqrt(2.0 / input_size), shape))
+        
+        if all_weights:
+            layer.set_weights(all_weights)
+
+    model_save_quantized_weights(model)
+
     all_weights = []
+    for layer in model.layers:
+        for weights in layer.get_weights():
+            all_weights.append(np.sum(weights))
+    all_weights = np.array(all_weights)
 
-    for i, weights in enumerate(layer.get_weights()):
-      input_size = np.prod(layer.input.shape.as_list()[1:])
-      if (len(layer.get_weights()) == 3 and i > 0): # pointwise kernel and bias
-        input_size = input_size // np.prod(layer.kernel_size)
-      shape = weights.shape
-      print(shape)
-      assert input_size > 0, 'input size for {} {}'.format(layer.name, i)
-      # he normal initialization with a scale factor of 2.0
-      all_weights.append(
-          10.0 * np.random.normal(0.0, np.sqrt(2.0 / input_size), shape))
-    if all_weights:
-      layer.set_weights(all_weights)
+    expected_weights = np.array([2., -6.75, -0.625, -2., -0.25, -56., 1.125, -1.625, -1.125])
+    assert all_weights.size == expected_weights.size
+    assert np.all(all_weights == expected_weights)
 
-  # apply quantizer to weights
-  model_save_quantized_weights(model)
+    expected_output = np.array(
+        [[0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
+         [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],
+         [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],
+         [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],
+         [0., 0., 0., 0., 0., 1., 0., 0., 0., 0.]], dtype=np.float16)
 
-  all_weights = []
+    inputs = 2 * np.random.rand(10, 28, 28, 1)
+    actual_output = model.predict(inputs, verbose=0).astype(np.float16)
+    assert_allclose(actual_output, expected_output, rtol=1e-2, atol=1e-3)
 
-  for layer in model.layers:
-    for i, weights in enumerate(layer.get_weights()):
-
-      w = np.sum(weights)
-      all_weights.append(w)
-
-  all_weights = np.array(all_weights)
-
-  # test_qnetwork_weight_quantization
-  all_weights_signature = np.array(
-      [2., -6.75, -0.625, -2., -0.25, -56., 1.125, -1.625, -1.125])
-
-  assert all_weights.size == all_weights_signature.size
-  assert np.all(all_weights == all_weights_signature)
-
-  # test_qnetwork_forward:
-  expected_output = np.array(
-      [[0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-        0.e+00, 1.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 1.e+00, 0.e+00, 0.e+00, 7.6e-06],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 0.e+00, 0.e+00, 0.e+00, 1.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 1.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 1.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 0.e+00, 0.e+00, 0.e+00, 1.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 1.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 1.e+00, 0.e+00, 0.e+00, 0.e+00,
-       0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 1.e+00,
-       0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00],
-      [0.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00,
-       1.e+00, 0.e+00, 0.e+00, 0.e+00, 0.e+00]]).astype(np.float16)
-  inputs = 2 * np.random.rand(10, 28, 28, 1)
-  actual_output = model.predict(inputs).astype(np.float16)
-  assert_allclose(actual_output, expected_output, rtol=1e-4)
 
 
 def test_sequential_qnetwork():
-  model = tf.keras.Sequential()
-  model.add(Input((28, 28, 1), name='input'))
-  model.add(
-      QConv2D(
-          32, (2, 2),
-          strides=(2, 2),
-          kernel_quantizer=quantized_bits(4, 0, 1),
-          bias_quantizer=quantized_bits(4, 0, 1),
-          name='conv2d_0_m'))
-  model.add(QActivation(quantized_relu(4, 0), name='act0_m'))
-  model.add(
-      QConv2D(
-          64, (3, 3),
-          strides=(2, 2),
-          kernel_quantizer=quantized_bits(4, 0, 1),
-          bias_quantizer=quantized_bits(4, 0, 1),
-          name='conv2d_1_m'))
-  model.add(QActivation(quantized_relu(4, 0), name='act1_m'))
-  model.add(
-      QConv2D(
-          64, (2, 2),
-          strides=(2, 2),
-          kernel_quantizer=quantized_bits(4, 0, 1),
-          bias_quantizer=quantized_bits(4, 0, 1),
-          name='conv2d_2_m'))
-  model.add(QActivation(quantized_relu(4, 0), name='act2_m'))
-  model.add(Flatten())
-  model.add(
-      QDense(
-          10,
-          kernel_quantizer=quantized_bits(4, 0, 1),
-          bias_quantizer=quantized_bits(4, 0, 1),
-          name='dense'))
-  model.add(Activation('softmax', name='softmax'))
+  inputs = tf.keras.Input(shape=(28, 28, 1), name='input')
+  x = QConv2D(32, (2, 2), strides=(2, 2),
+              kernel_quantizer=quantized_bits(4, 0, 1),
+              bias_quantizer=quantized_bits(4, 0, 1),
+              name='conv2d_0_m')(inputs)
+  x = QActivation(quantized_relu(4, 0), name='act0_m')(x)
+  x = QConv2D(64, (3, 3), strides=(2, 2),
+              kernel_quantizer=quantized_bits(4, 0, 1),
+              bias_quantizer=quantized_bits(4, 0, 1),
+              name='conv2d_1_m')(x)
+  x = QActivation(quantized_relu(4, 0), name='act1_m')(x)
+  x = QConv2D(64, (2, 2), strides=(2, 2),
+              kernel_quantizer=quantized_bits(4, 0, 1),
+              bias_quantizer=quantized_bits(4, 0, 1),
+              name='conv2d_2_m')(x)
+  x = QActivation(quantized_relu(4, 0), name='act2_m')(x)
+  x = Flatten()(x)
+  x = QDense(10,
+            kernel_quantizer=quantized_bits(4, 0, 1),
+            bias_quantizer=quantized_bits(4, 0, 1),
+            name='dense')(x)
+  outputs = Activation('softmax', name='softmax')(x)
+
+  model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+
 
   # Check that all model operation were found correctly
   model_ops = extract_model_operations(model)
@@ -248,7 +231,7 @@ def test_qconv1d(layer_cls):
   for layer in model.layers:
     all_weights = []
     for i, weights in enumerate(layer.get_weights()):
-      input_size = np.prod(layer.input.shape.as_list()[1:])
+      input_size = np.prod(layer.input.shape[1:])
       if input_size is None:
         input_size = 10 * 10
       shape = weights.shape

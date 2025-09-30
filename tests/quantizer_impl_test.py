@@ -21,8 +21,9 @@ from __future__ import print_function
 import numpy as np
 import pytest
 import tensorflow as tf
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import *
+from keras.layers import *
+from keras.models import *
+from keras import ops as Kops
 
 from qkeras import *
 from qkeras.qtools.quantized_operators import quantizer_impl
@@ -50,7 +51,7 @@ def test_QuantizedBits_ElementsPerScale():
   """Tests quantized_bits with elements_per_scale."""
   def _get_min_max_po2_exponent(x):
     """Get min and max po2 exponent of x."""
-    po2_x = K.log(x)/np.log(2.0)
+    po2_x = Kops.log(x)/np.log(2.0)
     return (tf.math.reduce_min(po2_x).numpy(),
             tf.math.reduce_max(po2_x).numpy())
 
@@ -445,7 +446,7 @@ def test_GetScale_MinPO2Exponent_MaxPO2Exponent():
 
   def _get_min_max_po2_exponent(x):
     """Get min and max po2 exponent of x."""
-    po2_x = K.log(x)/np.log(2.0)
+    po2_x = Kops.log(x)/np.log(2.0)
     return (tf.math.reduce_min(po2_x).numpy(),
             tf.math.reduce_max(po2_x).numpy())
 

@@ -22,8 +22,9 @@ import numpy as np
 import pytest
 import os
 import tempfile
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import *
+from keras import layers
+from keras.models import *
+
 
 from qkeras import *
 from qkeras.utils import get_model_sparsity
@@ -39,11 +40,11 @@ from qkeras.utils import load_qmodel
 def create_quantized_network():
   """Creates a simple quantized conv net model."""
   # Create a simple model
-  xi = Input((28, 28, 1))
-  x = Conv2D(32, (3, 3))(xi)
-  x = Activation("relu")(x)
-  x = Conv2D(32, (3, 3), activation="relu")(x)
-  x = Activation("softmax")(x)
+  xi = layers.Input((28, 28, 1))
+  x = layers.Conv2D(32, (3, 3))(xi)
+  x = layers.Activation("relu")(x)
+  x = layers.Conv2D(32, (3, 3), activation="relu")(x)
+  x = layers.Activation("softmax")(x)
   model = Model(inputs=xi, outputs=x)
 
   # Quantize the model
@@ -63,7 +64,7 @@ def create_quantized_network():
 
 def create_quantized_po2_network():
   """Creates a simple quantized conv net model with po2 quantizers."""
-  xi = Input((28, 28, 1))
+  xi = layers.Input((28, 28, 1))
   x = QConv2D(32, (3, 3), kernel_quantizer=quantized_po2(4))(xi)
   x = QActivation(quantized_bits(8))(x)
   x = QConv2D(32, (3, 3), kernel_quantizer=quantized_po2(4))(x)
@@ -124,17 +125,17 @@ def test_convert_to_folded_model():
   """Test convert_to_folded_model to work properly on non-sequential model."""
 
   def get_add_model():
-    x = x_in = Input(shape=(4, 4, 1), name="input")
-    x1 = Conv2D(4, kernel_size=(2, 2), padding="valid", strides=(1, 1),
+    x = x_in = layers.Input(shape=(4, 4, 1), name="input")
+    x1 = layers.Conv2D(4, kernel_size=(2, 2), padding="valid", strides=(1, 1),
                 name="conv2d_1")(x)
-    x1 = BatchNormalization(name="bn_1")(x1)
-    x1 = Activation("relu", name="relu_1")(x1)
-    x2 = Conv2D(4, kernel_size=(2, 2), padding="valid", strides=(1, 1),
+    x1 = layers.BatchNormalization(name="bn_1")(x1)
+    x1 = layers.Activation("relu", name="relu_1")(x1)
+    x2 = layers.Conv2D(4, kernel_size=(2, 2), padding="valid", strides=(1, 1),
                 name="conv2d_2")(x)
-    x2 = BatchNormalization(name="bn_2")(x2)
-    x2 = Activation("relu", name="relu_2")(x2)
-    x = Add(name="add")([x1, x2])
-    x = Softmax()(x)
+    x2 = layers.BatchNormalization(name="bn_2")(x2)
+    x2 = layers.Activation("relu", name="relu_2")(x2)
+    x = layers.Add(name="add")([x1, x2])
+    x = layers.Softmax()(x)
 
     return Model(inputs=[x_in], outputs=[x])
 
@@ -146,14 +147,14 @@ def test_convert_to_folded_model():
 
   # test if convert_to_folded_model work with TFOpLambda layers
   def hard_sigmoid(x):
-    return ReLU(6.)(x + 3.) * (1. / 6.)
+    return layers.ReLU(6.)(x + 3.) * (1. / 6.)
 
   def hard_swish(x):
-    return Multiply()([hard_sigmoid(x), x])
+    return layers.Multiply()([hard_sigmoid(x), x])
 
   def get_lambda_model():
-    x = x_in = Input(shape=(4, 4, 1), name="input")
-    x = Conv2D(
+    x = x_in = layers.Input(shape=(4, 4, 1), name="input")
+    x = layers.Conv2D(
         4, kernel_size=(2, 2), padding="valid", strides=(1, 1),
         name="conv2d_1")(x)
     x = hard_swish(x)
@@ -163,13 +164,14 @@ def test_convert_to_folded_model():
   model = get_lambda_model()
   fmodel, _ = convert_to_folded_model(model)
 
-  assert is_TFOpLambda_layer(model.layers[2])
-  assert is_TFOpLambda_layer(model.layers[4])
-  assert isinstance(fmodel.layers[5], Multiply)
+  assert isinstance(model.layers[2], layers.ReLU)
+  assert isinstance(model.layers[3], layers.Multiply)
+  assert any(isinstance(l, layers.Multiply) for l in fmodel.layers)
+
 
 
 def test_find_bn_fusing_layer_pair():
-  x = x_in = Input((23, 23, 1), name="input")
+  x = x_in = layers.Input((23, 23, 1), name="input")
   x1 = QConv2D(
       2, 2, 1,
       kernel_quantizer=quantized_bits(4, 0, 1),
@@ -196,7 +198,7 @@ def test_find_bn_fusing_layer_pair():
       beta_quantizer=quantized_bits(4, 0, 1),
       inverse_quantizer=quantized_bits(8, 0, 1), name="bn2")(x2)
 
-  x = Add(name="add")([x1, x2])
+  x = layers.Add(name="add")([x1, x2])
   model = Model(inputs=[x_in], outputs=[x])
 
   (conv_bn_pair_dict, _) = find_bn_fusing_layer_pair(model)
@@ -320,9 +322,11 @@ def test_clone_model_and_freeze_auto_po2_scale_serialization():
   new_model, _ = clone_model_and_freeze_auto_po2_scale(
       orig_model, quantize_model_weights=True)
 
-  fd, fname = tempfile.mkstemp(".hdf5")
+  fd, fname = tempfile.mkstemp(".keras")
   new_model.save(fname)
   _ = load_qmodel(fname)
+
+
   os.close(fd)
   os.remove(fname)
 

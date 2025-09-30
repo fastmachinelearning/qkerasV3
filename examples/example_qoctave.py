@@ -19,11 +19,12 @@ import sys
 from tensorflow.keras import activations
 from tensorflow.keras import initializers
 import tensorflow.keras.backend as K
-from tensorflow.keras.layers import Input
+from tensorflow.keras.layers import Input, UpSampling2D,Activation
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 from functools import partial
+from keras import ops as Kops
 from qkeras import *   # pylint: disable=wildcard-import
 
 
@@ -153,11 +154,12 @@ def create_model():
   return model
 
 
-# Create the model
+
+@keras.saving.register_keras_serializable()
 def customLoss(y_true,y_pred):
-  log1 = 1.5 * y_true * K.log(y_pred + 1e-9) * K.pow(1-y_pred, 2)
-  log0 = 0.5 * (1 - y_true) * K.log((1 - y_pred) + 1e-9) * K.pow(y_pred, 2)
-  return (- K.sum(K.mean(log0 + log1, axis = 0)))
+  log1 = 1.5 * y_true * Kops.log(y_pred + 1e-9) * tf.pow(1-y_pred, 2)
+  log0 = 0.5 * (1 - y_true) * Kops.log((1 - y_pred) + 1e-9) * tf.pow(y_pred, 2)
+  return (- Kops.sum(tf.mean(log0 + log1, axis = 0)))
 
 if __name__ == '__main__':
   model = create_model()

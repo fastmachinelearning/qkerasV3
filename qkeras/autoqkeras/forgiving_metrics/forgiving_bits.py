@@ -119,7 +119,7 @@ class ForgivingFactorBits(ForgivingFactor):
           else:
             bits = t_size
 
-        return bits * np.prod(layer.output.shape.as_list()[1:])
+        return bits * np.prod(layer.output.shape[1:])
     elif layer.__class__.__name__ in ["QActivation", "Activation"]:
       if isinstance(layer.activation, six.string_types):
         is_linear = layer.activation == "linear"

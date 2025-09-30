@@ -23,11 +23,12 @@ import six
 import warnings
 
 import tensorflow.compat.v2 as tf
-
-from tensorflow.keras import constraints
-from tensorflow.keras import initializers
-from tensorflow.keras import regularizers
-from tensorflow.keras.layers import BatchNormalization
+from keras.utils import serialize_keras_object
+from keras.saving import register_keras_serializable
+from keras import constraints
+from keras import initializers
+from keras import regularizers
+from keras import layers
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import smart_cond as tf_utils
 from tensorflow.python.ops import array_ops
@@ -41,8 +42,8 @@ from .quantizers import quantized_po2
 from .safe_eval import safe_eval
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import PrunableLayer
 
-
-class QBatchNormalization(BatchNormalization, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
   """Quantized Batch Normalization layer.
   For training, mean and variance are not quantized.
   For inference, the quantized moving mean and moving variance are used.
@@ -77,6 +78,7 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
       beta_range=None,
       gamma_range=None,
       **kwargs):
+    
 
     if gamma_range is not None:
       warnings.warn('gamma_range is deprecated in QBatchNormalization layer.')
@@ -155,27 +157,24 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
       del kwargs['adjustment']
 
     super().__init__(
-        axis=axis,
-        momentum=momentum,
-        epsilon=epsilon,
-        center=center,
-        scale=scale,
-        beta_initializer=beta_initializer,
-        gamma_initializer=gamma_initializer,
-        moving_mean_initializer=moving_mean_initializer,
-        moving_variance_initializer=moving_variance_initializer,
-        beta_regularizer=beta_regularizer,
-        gamma_regularizer=gamma_regularizer,
-        beta_constraint=beta_constraint,
-        gamma_constraint=gamma_constraint,
-        fused=False,
-        renorm=False,
-        virtual_batch_size=None,
-        adjustment=None,
-        **kwargs
-    )
+    axis=axis,
+    momentum=momentum,
+    epsilon=epsilon,
+    center=center,
+    scale=scale,
+    beta_initializer=beta_initializer,
+    gamma_initializer=gamma_initializer,
+    moving_mean_initializer=moving_mean_initializer,
+    moving_variance_initializer=moving_variance_initializer,
+    beta_regularizer=beta_regularizer,
+    gamma_regularizer=gamma_regularizer,
+    beta_constraint=beta_constraint,
+    gamma_constraint=gamma_constraint,
+    **kwargs
+)
 
-  def call(self, inputs, training=None):
+
+  def call(self, inputs, training=False):
     if self.scale and self.gamma_quantizer:
       quantized_gamma = self.gamma_quantizer_internal(self.gamma)
     else:
@@ -197,21 +196,22 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
     else:
       quantized_moving_variance = self.moving_variance
 
-    training = self._get_training_value(training)
+    
 
     # Compute the axes along which to reduce the mean / variance
     input_shape = inputs.shape
     ndims = len(input_shape)
-    reduction_axes = [i for i in range(ndims) if i not in self.axis]
+    axis = self.axis if isinstance(self.axis, (list, tuple)) else [self.axis]
+    reduction_axes = [i for i in range(ndims) if i not in axis]
 
     # Broadcasting only necessary for single-axis batch norm where the axis is
     # not the last dimension
     broadcast_shape = [1] * ndims
-    broadcast_shape[self.axis[0]] = input_shape.dims[self.axis[0]].value
+    broadcast_shape[axis[0]] = input_shape.dims[axis[0]].value
     def _broadcast(v):
       if (v is not None and len(v.shape) != ndims and
           reduction_axes != list(range(ndims - 1))):
-        return array_ops.reshape(v, broadcast_shape)
+        return tf.broadcast_to(v, broadcast_shape)
       return v
 
     scale, offset = _broadcast(quantized_gamma), _broadcast(quantized_beta)
@@ -224,11 +224,11 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
     else:
       # Some of the computations here are not necessary when training==False
       # but not a constant. However, this makes the code simpler.
-      keep_dims = len(self.axis) > 1
-      mean, variance = self._moments(
-          math_ops.cast(inputs, self._param_dtype),
-          reduction_axes,
-          keep_dims=keep_dims)
+      keep_dims = len(axis) > 1
+      mean, variance = tf.nn.moments(
+        math_ops.cast(inputs, self.compute_dtype),
+        axes=reduction_axes,
+        keepdims=keep_dims)
 
       moving_mean = self.moving_mean
       moving_variance = self.moving_variance
@@ -252,10 +252,11 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
       else:
         quantized_variance = variance
 
-      if self._support_zero_size_input():
-        inputs_size = array_ops.size(inputs)
-      else:
-        inputs_size = None
+      inputs_size = tf.cond(
+        tf.equal(tf.shape(inputs)[0], 0),
+        lambda: tf.size(inputs),
+        lambda: tf.constant(-1)
+      )
 
       def _do_update(var, value):
         """Compute the updates for mean and variance."""
@@ -273,8 +274,13 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
         false_branch = lambda: self.moving_variance
         return tf_utils.smart_cond(training, true_branch, false_branch)
 
-      self.add_update(mean_update)
-      self.add_update(variance_update)
+      moving_mean_assign = self.moving_mean.assign(
+        self.moving_mean * self.momentum + mean * (1.0 - self.momentum)
+      )
+      moving_variance_assign = self.moving_variance.assign(
+        self.moving_variance * self.momentum + variance * (1.0 - self.momentum)
+      )
+
 
     quantized_mean = _broadcast(math_ops.cast(quantized_mean, inputs.dtype))
     quantized_variance = _broadcast(
@@ -308,50 +314,25 @@ class QBatchNormalization(BatchNormalization, PrunableLayer):
         'epsilon': self.epsilon,
         'center': self.center,
         'scale': self.scale,
-        'beta_quantizer': constraints.serialize(
-            self.beta_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        'gamma_quantizer': constraints.serialize(
-            self.gamma_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        'mean_quantizer': constraints.serialize(
-            self.mean_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        'variance_quantizer': constraints.serialize(
-            self.variance_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        'beta_initializer': initializers.serialize(
-            self.beta_initializer# Google internal code, commented out by copybara
-        ),
-        'gamma_initializer': initializers.serialize(
-            self.gamma_initializer# Google internal code, commented out by copybara
-        ),
-        'moving_mean_initializer': initializers.serialize(
-            self.moving_mean_initializer# Google internal code, commented out by copybara
-        ),
-        'moving_variance_initializer': initializers.serialize(
-            self.moving_variance_initializer# Google internal code, commented out by copybara
-        ),
-        'inverse_quantizer': initializers.serialize(
-            self.inverse_quantizer_internal# Google internal code, commented out by copybara
-        ),
-        'beta_regularizer': regularizers.serialize(
-            self.beta_regularizer# Google internal code, commented out by copybara
-        ),
-        'gamma_regularizer': regularizers.serialize(
-            self.gamma_regularizer# Google internal code, commented out by copybara
-        ),
-        'beta_constraint': constraints.serialize(
-            self.beta_constraint# Google internal code, commented out by copybara
-        ),
-        'gamma_constraint': constraints.serialize(
-            self.gamma_constraint# Google internal code, commented out by copybara
-        ),
+        'beta_quantizer': serialize_keras_object(self.beta_quantizer_internal),
+        'gamma_quantizer': serialize_keras_object(self.gamma_quantizer_internal),
+        'mean_quantizer': serialize_keras_object(self.mean_quantizer_internal),
+        'variance_quantizer': serialize_keras_object(self.variance_quantizer_internal),
+        'beta_initializer': initializers.serialize(self.beta_initializer),
+        'gamma_initializer': initializers.serialize(self.gamma_initializer),
+        'moving_mean_initializer': initializers.serialize(self.moving_mean_initializer),
+        'moving_variance_initializer': initializers.serialize(self.moving_variance_initializer),
+        'inverse_quantizer': serialize_keras_object(self.inverse_quantizer_internal),
+        'beta_regularizer': regularizers.serialize(self.beta_regularizer),
+        'gamma_regularizer': regularizers.serialize(self.gamma_regularizer),
+        'beta_constraint': constraints.serialize(self.beta_constraint),
+        'gamma_constraint': constraints.serialize(self.gamma_constraint),
         'beta_range': self.beta_range,
         'gamma_range': self.gamma_range,
     }
     base_config = super().get_config()
     return dict(list(base_config.items()) + list(config.items()))
+
 
   def compute_output_shape(self, input_shape):
     return input_shape

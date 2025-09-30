@@ -20,8 +20,10 @@ from __future__ import print_function
 import numpy as np
 from numpy.testing import assert_allclose
 
+import tensorflow.compat.v2 as tf
+
 import pytest
-from tensorflow.keras import backend as K
+from keras import backend as K
 
 from qkeras import quantized_relu
 from qkeras import quantized_relu_po2
@@ -71,14 +73,13 @@ from qkeras import quantized_relu_po2
               0.0,      -0.25,     -0.25
          ]], dtype=K.floatx())),
     ])
-def test_quantized_relu(bits, integer, use_sigmoid, negative_slope, test_values,
-                        expected_values):
-  """Test quantized_relu function."""
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_relu(bits, integer, use_sigmoid,
-                                      negative_slope)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+def test_quantized_relu(bits, integer, use_sigmoid, negative_slope, test_values, expected_values):
+    """Test quantized_relu function."""
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    layer = quantized_relu(bits, integer, use_sigmoid, negative_slope)
+    result = layer(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 @pytest.mark.parametrize(
@@ -129,10 +130,11 @@ def test_quantized_relu(bits, integer, use_sigmoid, negative_slope, test_values,
         
     ])
 def test_quantized_relu_po2(bits, negative_slope, test_values, expected_values):
-  x = K.placeholder(ndim=2)
-  f = K.function([x], [quantized_relu_po2(bits, negative_slope=negative_slope)(x)])
-  result = f([test_values])[0]
-  assert_allclose(result, expected_values, rtol=1e-05)
+    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    layer = quantized_relu_po2(bits, negative_slope=negative_slope)
+    result = layer(x).numpy()
+    assert_allclose(result, expected_values, rtol=1e-5)
+
 
 
 if __name__ == '__main__':

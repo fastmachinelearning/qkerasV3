@@ -21,7 +21,7 @@ import numpy as np
 from numpy.testing import assert_allclose
 
 import pytest
-from tensorflow.keras import backend as K
+from keras import backend as K
 
 from qkeras import quantized_relu
 from qkeras import quantized_bits

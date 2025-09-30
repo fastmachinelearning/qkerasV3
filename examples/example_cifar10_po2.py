@@ -38,7 +38,7 @@ NB_EPOCH = 50
 BATCH_SIZE = 64
 VERBOSE = 1
 NB_CLASSES = 10
-OPTIMIZER = Adam(lr=0.0001)
+OPTIMIZER = Adam(learning_rate=0.0001)
 VALIDATION_SPLIT = 0.1
 
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()

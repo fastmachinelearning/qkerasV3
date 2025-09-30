@@ -20,30 +20,26 @@ from __future__ import print_function
 
 import warnings
 import tensorflow as tf
-from tensorflow.keras import activations
-from tensorflow.keras import constraints
-from tensorflow.keras import initializers
-from tensorflow.keras import regularizers
-from tensorflow.keras.layers import Activation
-from tensorflow.keras.layers import SimpleRNNCell
-from tensorflow.keras.layers import LSTMCell
-from tensorflow.keras.layers import GRUCell
-from tensorflow.keras.layers import RNN
-from tensorflow.keras.layers import Bidirectional
+from keras import activations
+from keras import constraints
+from keras import initializers
+from keras import regularizers
+from keras import layers
 from tensorflow.python.util import nest
 from tensorflow.python.ops import array_ops
 # from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import PrunableLayer
 
-import tensorflow.keras.backend as K
+from keras import backend as K
+from keras.saving import register_keras_serializable
 from .qlayers import get_auto_range_constraint_initializer
 from .qlayers import QActivation
 from .quantizers import get_quantized_initializer
 from .quantizers import get_quantizer
 
-
-class QSimpleRNNCell(SimpleRNNCell):
+@register_keras_serializable(package="qkeras")
+class QSimpleRNNCell(layers.SimpleRNNCell):
   """
   Cell class for the QSimpleRNNCell layer.
 
@@ -139,7 +135,7 @@ class QSimpleRNNCell(SimpleRNNCell):
         **kwargs
     )
 
-  def call(self, inputs, states, training=None):
+  def call(self, inputs, states, training=False):
     prev_output = states[0] if nest.is_nested(states) else states
 
     dp_mask = self.get_dropout_mask_for_cell(inputs, training)
@@ -201,8 +197,8 @@ class QSimpleRNNCell(SimpleRNNCell):
     base_config = super(QSimpleRNNCell, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
 
-
-class QSimpleRNN(RNN, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QSimpleRNN(layers.RNN, PrunableLayer):
   """
   Class for the QSimpleRNN layer.
 
@@ -290,10 +286,14 @@ class QSimpleRNN(RNN, PrunableLayer):
     self.activity_regularizer = regularizers.get(activity_regularizer)
     self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
 
-  def call(self, inputs, mask=None, training=None, initial_state=None):
+  def call(self, inputs, mask=None, training=False, initial_state=None):
     self._maybe_reset_cell_dropout_mask(self.cell)
     return super(QSimpleRNN, self).call(
         inputs, mask=mask, training=training, initial_state=initial_state)
+  
+  def compute_output_shape(self, inputs_shape):
+    return super().compute_output_shape(inputs_shape)
+
 
   def get_quantizers(self):
     return self.cell.quantizers
@@ -461,12 +461,13 @@ class QSimpleRNN(RNN, PrunableLayer):
 
   @classmethod
   def from_config(cls, config):
-    if 'implementation' in config:
-      config.pop('implementation')
-    return cls(**config)
+      config.pop('implementation', None)
+      config.pop('seed', None)
+      return cls(**config)
 
 
-class QLSTMCell(LSTMCell):
+@register_keras_serializable(package="qkeras")
+class QLSTMCell(layers.LSTMCell):
   """
   Cell class for the QLSTMCell layer.
 
@@ -597,7 +598,7 @@ class QLSTMCell(LSTMCell):
     o = self.recurrent_activation(z3)
     return c, o
 
-  def call(self, inputs, states, training=None):
+  def call(self, inputs, states, training=False):
     h_tm1_tmp = states[0]  # previous memory state
     c_tm1_tmp = states[1]  # previous carry state
 
@@ -695,8 +696,8 @@ class QLSTMCell(LSTMCell):
     base_config = super(QLSTMCell, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
 
-
-class QLSTM(RNN, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QLSTM(layers.RNN, PrunableLayer):
   """
   Class for the QLSTM layer.
 
@@ -793,10 +794,14 @@ class QLSTM(RNN, PrunableLayer):
     self.activity_regularizer = regularizers.get(activity_regularizer)
     self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
 
-  def call(self, inputs, mask=None, training=None, initial_state=None):
+  def call(self, inputs, mask=None, training=False, initial_state=None):
     self._maybe_reset_cell_dropout_mask(self.cell)
     return super(QLSTM, self).call(
         inputs, mask=mask, training=training, initial_state=initial_state)
+  
+  def compute_output_shape(self, inputs_shape):
+    return super().compute_output_shape(inputs_shape)
+
 
   def get_quantizers(self):
     return self.cell.quantizers
@@ -983,12 +988,14 @@ class QLSTM(RNN, PrunableLayer):
 
   @classmethod
   def from_config(cls, config):
-    if 'implementation' in config and config['implementation'] == 0:
-      config['implementation'] = 1
-    return cls(**config)
+      if 'implementation' in config and config['implementation'] == 0:
+          config['implementation'] = 1
+      config.pop("seed", None)  # <- Seed sicher entfernen
+      return cls(**config)
 
 
-class QGRUCell(GRUCell):
+@register_keras_serializable(package="qkeras")
+class QGRUCell(layers.GRUCell):
   """
   Cell class for the QGRUCell layer.
 
@@ -1097,7 +1104,7 @@ class QGRUCell(GRUCell):
         **kwargs
     )
 
-  def call(self, inputs, states, training=None):
+  def call(self, inputs, states, training=False):
     # previous memory
     h_tm1_tmp = states[0] if nest.is_nested(states) else states
 
@@ -1236,8 +1243,8 @@ class QGRUCell(GRUCell):
     base_config = super(QGRUCell, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
 
-
-class QGRU(RNN, PrunableLayer):
+@register_keras_serializable(package="qkeras")
+class QGRU(layers.RNN, PrunableLayer):
   """
   Class for the QGRU layer.
 
@@ -1335,10 +1342,14 @@ class QGRU(RNN, PrunableLayer):
     self.activity_regularizer = regularizers.get(activity_regularizer)
     self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
 
-  def call(self, inputs, mask=None, training=None, initial_state=None):
+  def call(self, inputs, mask=None, training=False, initial_state=None):
     self._maybe_reset_cell_dropout_mask(self.cell)
     return super(QGRU, self).call(
         inputs, mask=mask, training=training, initial_state=initial_state)
+  
+  def compute_output_shape(self, inputs_shape):
+    return super().compute_output_shape(inputs_shape)
+
 
   def get_quantizers(self):
     return self.cell.quantizers
@@ -1525,12 +1536,14 @@ class QGRU(RNN, PrunableLayer):
 
   @classmethod
   def from_config(cls, config):
-    if 'implementation' in config and config['implementation'] == 0:
-      config['implementation'] = 1
-    return cls(**config)
+      if 'implementation' in config and config['implementation'] == 0:
+          config['implementation'] = 1
+      config.pop("seed", None)  
+      return cls(**config)
 
 
-class QBidirectional(Bidirectional):
+@register_keras_serializable(package="qkeras")
+class QBidirectional(layers.Bidirectional):
   """
   Class for the QBidirecitonal wrapper.
 

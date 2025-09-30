@@ -14,18 +14,18 @@
 # limitations under the License.
 # ==============================================================================
 import numpy as np
-from tensorflow.keras import constraints
+from keras import constraints
 
 import tensorflow as tf
-import tensorflow.keras.backend as K
+from keras import backend as K
+from keras import ops as Kops
+from keras.saving import register_keras_serializable
 
-from tensorflow.keras.layers import AveragePooling2D
-from tensorflow.keras.layers import GlobalAveragePooling2D
-from .qlayers import QActivation
+from keras import layers
 from .quantizers import get_quantizer
 
-
-class QAveragePooling2D(AveragePooling2D):
+@register_keras_serializable(package="qkeras")
+class QAveragePooling2D(layers.AveragePooling2D):
   """Computes the quantized version of AveragePooling2D."""
 
   def __init__(self, pool_size=(2, 2),
@@ -92,7 +92,8 @@ class QAveragePooling2D(AveragePooling2D):
       # Quantizes the multiplication factor.
       mult_factor = 1.0 / pool_area
       q_mult_factor = self.average_quantizer_internal(mult_factor)
-      q_mult_factor = K.cast_to_floatx(q_mult_factor)
+      q_mult_factor = Kops.cast(q_mult_factor, dtype=tf.keras.backend.floatx())
+
 
       # Computes pooling average.
       x = x * q_mult_factor
@@ -128,8 +129,8 @@ class QAveragePooling2D(AveragePooling2D):
   def get_quantizers(self):
     return self.quantizers
 
-
-class QGlobalAveragePooling2D(GlobalAveragePooling2D):
+@register_keras_serializable(package="qkeras")
+class QGlobalAveragePooling2D(layers.GlobalAveragePooling2D):
   """Computes the quantized version of GlobalAveragePooling2D."""
 
   def __init__(self, data_format=None,
@@ -180,9 +181,9 @@ class QGlobalAveragePooling2D(GlobalAveragePooling2D):
     if self.average_quantizer:
       # Calculates pooling sum.
       if self.data_format == "channels_last":
-        x = K.sum(inputs, axis=[1, 2], keepdims=self.keepdims)
+        x = Kops.sum(inputs, axis=[1, 2], keepdims=self.keepdims)
       else:
-        x = K.sum(inputs, axis=[2, 3], keepdims=self.keepdims)
+        x = Kops.sum(inputs, axis=[2, 3], keepdims=self.keepdims)
 
       # Calculates the pooling area
       pool_area = self.compute_pooling_area(input_shape=inputs.shape)

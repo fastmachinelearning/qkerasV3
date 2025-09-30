@@ -25,7 +25,7 @@ from pyparsing import Regex
 from pyparsing import Suppress
 
 import logging
-from tensorflow import keras
+import keras
 
 
 def Num(s):

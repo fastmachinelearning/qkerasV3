@@ -30,10 +30,11 @@ from keras_tuner import RandomSearch
 import numpy as np
 import six
 import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.metrics import binary_accuracy
-from tensorflow.keras.metrics import categorical_accuracy
-from tensorflow.keras.metrics import sparse_categorical_accuracy
+from keras import backend as K
+from keras import metrics
+from keras import ops as Kops
+from keras.saving import register_keras_serializable
+from tensorflow.keras.models import Model
 from qkeras.autoqkeras.forgiving_metrics import forgiving_factor  # pylint: disable=line-too-long
 from qkeras.autoqkeras.forgiving_metrics import ForgivingFactor  # pylint: disable=line-too-long
 from qkeras.autoqkeras.quantization_config import default_quantization_config  # pylint: disable=line-too-long
@@ -323,13 +324,12 @@ class AutoQKHyperModel(HyperModel):
         self.groups[name][index] = (q_name, q_dict[q_name])
 
     return (q_name, q_dict[q_name])
-
+  
   def quantize_model(self, hp):
     """Quantize model by hyperparameter search and extracting size schema."""
 
     # configuration for quantization.
     q_dict = {}
-
     model = clone_model(self.model, self.custom_objects)
 
     fanin = []
@@ -568,6 +568,7 @@ class AutoQKHyperModel(HyperModel):
     # we are not using the fanin right now.
 
     q_model, _ = self.quantize_model(hp)
+    self.model = q_model
 
     # transfer weights from previous run as we know we will not
     if self.learning_rate_optimizer:
@@ -614,8 +615,7 @@ class AutoQKHyperModel(HyperModel):
     elif isinstance(self.metrics, list):
       score_metric = self.metrics[0]
 
-    self.score = AutoQKHyperModel.adjusted_score(
-        self, delta, score_metric)
+    self.score = AdjustedScore(delta=delta, metric_name=score_metric)
 
     # some papers suggest that we use learning_rate * sqrt(fanin) / layer
     # we cannot do that right now, but we can definitely do that
@@ -629,7 +629,7 @@ class AutoQKHyperModel(HyperModel):
 
     # we assume model has been compiled at least.
 
-    lr = float(self.model.optimizer.lr.numpy())
+    lr = float(self.model.optimizer.learning_rate.numpy())
 
     # we assume that delta_lr can lower lr to accommodate
     # for more quantization
@@ -664,14 +664,14 @@ class AutoQKHyperModel(HyperModel):
           score_key = self.head_name
         score_metric = ext_metrics[score_key]
         if isinstance(score_metric, list):
-          score_metric += [self.trial_size_metric(self.trial_size), self.score]
+          score_metric += [TrialMetric(trial_size=self.trial_size), self.score]
         else:
           score_metric = [score_metric]
-          score_metric += [self.trial_size_metric(self.trial_size), self.score]
+          score_metric += [TrialMetric(trial_size=self.trial_size), self.score]
         ext_metrics[score_key] = score_metric
       else:
         ext_metrics += [
-            self.trial_size_metric(self.trial_size),
+            TrialMetric(trial_size=self.trial_size),
             self.score]
       metrics = ext_metrics
 
@@ -690,44 +690,69 @@ class AutoQKHyperModel(HyperModel):
 
     return q_model
 
-  @staticmethod
-  def adjusted_score(hyper_model, delta, metric_function=None):
-    def score(y_true, y_pred):
-      y_t_rank = len(y_true.shape.as_list())
-      y_p_rank = len(y_pred.shape.as_list())
-      y_t_last_dim = y_true.shape.as_list()[-1]
-      y_p_last_dim = y_pred.shape.as_list()[-1]
+@register_keras_serializable(package="qkeras")
+class AdjustedScore(tf.keras.metrics.Metric):
+    def __init__(self, delta=0.0, metric_name="accuracy", name="adjusted_score", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.delta = delta
+        self.metric_name = metric_name
+        self.metric = self._resolve_metric(metric_name)
+        self.result_tracker = self.add_weight(name="adjusted_score_value", initializer="zeros")
 
-      is_binary = y_p_last_dim == 1
-      is_sparse_categorical = (
-          y_t_rank < y_p_rank or y_t_last_dim == 1 and y_p_last_dim > 1)
-
-      if isinstance(metric_function, six.string_types):
-        if metric_function in ["accuracy", "acc"]:
-          if is_binary:
-            metric = binary_accuracy(y_true, y_pred)
-          elif is_sparse_categorical:
-            metric = sparse_categorical_accuracy(y_true, y_pred)
-          else:
-            metric = categorical_accuracy(y_true, y_pred)
+    def _resolve_metric(self, name):
+        if name in ["accuracy", "acc"]:
+            return metrics.CategoricalAccuracy()
+        elif name == "sparse_categorical_accuracy":
+            return metrics.SparseCategoricalAccuracy()
+        elif name == "binary_accuracy":
+            return metrics.BinaryAccuracy()
         else:
-          metric = categorical_accuracy(y_true, y_pred)
-      else:
-        metric = metric_function(y_true, y_pred)
+            return metrics.get(name)
 
-      return K.cast(metric * (1.0 + delta), K.floatx())
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        self.metric.update_state(y_true, y_pred, sample_weight)
+        base_score = self.metric.result()
+        self.result_tracker.assign(base_score * (1.0 + self.delta))
 
-    if not metric_function:
-      metric_function = "accuracy"
+    def result(self):
+        return self.result_tracker
 
-    return score
+    def reset_states(self):
+        self.metric.reset_states()
+        self.result_tracker.assign(0.0)
 
-  @staticmethod
-  def trial_size_metric(trial_size):
-    def trial(y_true, y_pred):  # pylint: disable=unused-argument
-      return K.cast(trial_size, K.floatx())
-    return trial
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "delta": self.delta,
+            "metric_name": self.metric_name
+        })
+        return config
 
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+@register_keras_serializable(package="qkeras")
+class TrialMetric(tf.keras.metrics.Metric):
+    def __init__(self, trial_size=0.0, name="trial", **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.trial_size = trial_size
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        pass  # stateless
+
+    def result(self):
+        return Kops.cast(self.trial_size, K.floatx())
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"trial_size": self.trial_size})
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 class AutoQKeras:
   """Performs autoquantization in Keras model.
@@ -856,7 +881,7 @@ class AutoQKeras:
       if self.head_name:
         score_metric = "val_" + self.head_name + "_score"
       else:
-        score_metric = "val_score"
+        score_metric = "val_adjusted_score"
     assert mode in ["random", "bayesian", "hyperband"]
     if custom_tuner is not None:
       self.tuner = custom_tuner(
@@ -969,14 +994,14 @@ class AutoQKeras:
   @staticmethod
   def get_best_lr(qmodel):
     """Extracts best lr of model."""
-    return qmodel.optimizer.lr.numpy()
+    return qmodel.optimizer.learning_rate.numpy()
 
   def get_best_model(self):
     params = self.tuner.get_best_hyperparameters()[0]
 
     q_model = self.tuner.hypermodel.build(params)
 
-    self.learning_rate = q_model.optimizer.lr.numpy()
+    self.learning_rate = q_model.optimizer.learning_rate.numpy()
 
     return q_model
 
@@ -1082,7 +1107,7 @@ class AutoQKerasScheduler:
     self.head_name = head_name
 
     self.autoqk = None
-    self.learning_rate = model.optimizer.lr.numpy()
+    self.learning_rate = model.optimizer.learning_rate.numpy()
     self.overwrite = overwrite
 
     assert self.schedule_block in ["sequential", "cost"]
@@ -1166,7 +1191,7 @@ class AutoQKerasScheduler:
     if self.tuner_kwargs.get("max_trials", None):
       max_trials = float(self.tuner_kwargs["max_trials"])
 
-    lr = self.model.optimizer.lr.numpy()
+    lr = self.model.optimizer.learning_rate.numpy()
 
     model = self.model
 
@@ -1229,19 +1254,18 @@ class AutoQKerasScheduler:
       self.history.append(self.autoqk.history())
 
       model = self.autoqk.get_best_model()
-      self.learning_rate = model.optimizer.lr.numpy()
+      self.learning_rate = model.optimizer.learning_rate.numpy()
 
       # restore learning rate
       # this is just a placeholder for the optimizer.
-
       model.compile(
           model.optimizer,
           loss=self.model.loss,
-          metrics=self.model.metrics)
+          metrics=["accuracy"]
+          )
 
       frozen_layers = frozen_layers + new_frozen_layers
-
-      filename = self.output_dir + "/model_block_" + str(i)
+      filename = os.path.join(self.output_dir, f"model_block_{i}.keras")
       model.save(filename)
       self.next_block = i + 1
 

@@ -16,8 +16,8 @@
 
 
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2DTranspose
-from tensorflow.keras.layers import InputSpec
+from keras import layers
+from keras.saving import register_keras_serializable
 
 from .qconvolutional import deconv_output_length
 from .quantizers import get_quantizer
@@ -26,8 +26,8 @@ from tensorflow.python.keras import constraints
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import array_ops
 
-
-class QSeparableConv2DTranspose(Conv2DTranspose):
+@register_keras_serializable(package="qkeras")
+class QSeparableConv2DTranspose(layers.Conv2DTranspose):
   """Quantized Separable Conv2DTranspose layer."""
 
   # Most of these parameters follow the implementation of Conv2DTranspose
@@ -153,7 +153,7 @@ class QSeparableConv2DTranspose(Conv2DTranspose):
     _, input_channel, _, _ = self._get_input_dims(input_shape)
     channel_axis = self._get_input_axis()[1]
 
-    self.input_spec = InputSpec(
+    self.input_spec = layers.InputSpec(
         min_ndim=self.rank + 2, axes={channel_axis: input_channel}
     )
     # By enforcing the kernel shape, we can control how convolution is
@@ -264,7 +264,7 @@ class QSeparableConv2DTranspose(Conv2DTranspose):
     else:
       output_shape = (batch_size, out_height, out_width, output_filters)
 
-    output_shape_tensor = array_ops.stack(output_shape)
+    output_shape_tensor = tf.stack(output_shape)
 
     # Split the input channels into groups.
     x = tf.split(inputs, self._input_shape[-1], axis=-1)
