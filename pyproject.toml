@@ -3,16 +3,20 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "qkerasV3"
+name = "qkeras-v3"
 version = "1.0.0"
 description = "Quantization package for KerasV3"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 authors = [
-    { name = "Google", email = "qkeras-team@google.com" },
+    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
+    { name = "Marius Snella Köppel ", email = "mkoepp@phys.ethz.ch" },
+    { name = "Mattia Cerrato", email = "mcerrato@uni-mainz.de" },
 ]
 maintainers = [
-    { name = "Shan Li", email = "lishanok@google.com" },
+    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
+    { name = "Marius Snella Köppel ", email = "mkoepp@phys.ethz.ch" },
+    { name = "Mattia Cerrato", email = "mcerrato@uni-mainz.de" },
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -36,12 +40,13 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/google/qkeras"
-Repository = "https://github.com/google/qkeras"
-Issues = "https://github.com/google/qkeras/issues"
+Homepage = "https://github.com/makoeppel/qkerasV3"
+Repository = "https://github.com/makoeppel/qkerasV3"
+Issues = "https://github.com/makoeppel/qkerasV3"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }
+license-files = ["LICENSE", "NOTICE"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -q"
