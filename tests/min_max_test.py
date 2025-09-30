@@ -17,7 +17,6 @@
 
 
 import pytest
-
 from qkerasV3 import *
 
 

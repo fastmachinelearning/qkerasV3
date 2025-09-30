@@ -31,7 +31,6 @@ from typing import Any, List, Union
 
 import numpy as np
 import tensorflow as tf
-
 from qkerasV3 import base_quantizer, quantizers
 from qkerasV3.qtools import generate_layer_data_type_map, qgraph, qtools_util
 from qkerasV3.qtools.DnC import dnc_layer_cost_ace

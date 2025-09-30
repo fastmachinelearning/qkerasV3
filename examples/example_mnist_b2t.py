@@ -19,14 +19,13 @@
 import os
 
 import numpy as np
+from qkerasV3 import *
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import *
 from tensorflow.keras.layers import Activation, Flatten, Input
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
-
-from qkerasV3 import *
 
 np.random.seed(42)
 

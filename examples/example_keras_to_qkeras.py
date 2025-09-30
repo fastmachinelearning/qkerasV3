@@ -17,12 +17,11 @@
 
 
 
+from qkerasV3.estimate import print_qstats
+from qkerasV3.utils import model_quantize, quantized_model_dump
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
-
-from qkerasV3.estimate import print_qstats
-from qkerasV3.utils import model_quantize, quantized_model_dump
 
 x0 = x_in0 = Input((28, 28, 1), name="input0")
 x1 = x_in1 = Input((28, 28, 1), name="input1")

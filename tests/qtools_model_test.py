@@ -21,7 +21,6 @@ import keras as keras
 import numpy as np
 import pytest
 import tensorflow as tf
-
 from qkerasV3 import (
     QActivation,
     QAdaptiveActivation,

@@ -20,7 +20,6 @@ import abc
 import copy
 
 from absl import logging
-
 from qkerasV3.qtools.quantized_operators import adder_impl, quantizer_impl
 
 

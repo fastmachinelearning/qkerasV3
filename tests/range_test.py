@@ -18,7 +18,6 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from qkerasV3 import quantized_bits, quantized_relu
 
 

@@ -20,7 +20,6 @@ import pytest
 import tensorflow.compat.v2 as tf
 from keras import backend as K
 from numpy.testing import assert_allclose
-
 from qkerasV3 import quantized_relu, quantized_relu_po2
 
 

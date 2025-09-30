@@ -21,7 +21,6 @@ import logging
 import networkx as nx
 from keras import backend as K
 from keras import layers
-
 from qkerasV3.qtools.quantized_operators import (
     quantizer_factory as quantizer_factory_module,
 )

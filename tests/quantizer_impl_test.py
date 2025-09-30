@@ -23,7 +23,6 @@ from keras import ops as Kops
 from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal
-
 from qkerasV3 import *
 from qkerasV3 import quantizers
 from qkerasV3.qtools.quantized_operators import quantizer_impl

@@ -24,7 +24,6 @@ from keras.backend import clear_session
 from keras.models import Model
 from keras.utils import to_categorical
 from numpy.testing import assert_allclose, assert_equal, assert_raises
-
 from qkerasV3 import (
     QActivation,
     QConv2D,

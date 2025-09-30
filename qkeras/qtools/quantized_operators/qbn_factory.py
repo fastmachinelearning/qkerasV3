@@ -20,7 +20,6 @@ import copy
 import math
 
 import numpy as np
-
 from qkerasV3.qtools.quantized_operators import (
     adder_factory,
     divider_factory,

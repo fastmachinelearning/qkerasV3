@@ -17,6 +17,7 @@
 
 import os
 
+from qkerasV3 import *  # pylint: disable=wildcard-import
 from tensorflow.keras.initializers import *  # pylint: disable=wildcard-import
 from tensorflow.keras.layers import (
     Activation,
@@ -31,8 +32,6 @@ from tensorflow.keras.layers import (
 )
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import *  # pylint: disable=wildcard-import
-
-from qkerasV3 import *  # pylint: disable=wildcard-import
 
 
 class ConvBlockNetwork:

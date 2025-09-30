@@ -17,7 +17,6 @@
 
 import pytest
 from numpy.testing import assert_equal, assert_raises
-
 from qkerasV3 import registry
 
 

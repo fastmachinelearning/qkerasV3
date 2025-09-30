@@ -28,7 +28,6 @@ from keras.layers import Activation, BatchNormalization, Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
-
 from qkerasV3.autoqkerasV3 import AutoQKerasV3Scheduler
 
 

@@ -16,7 +16,11 @@
 """ "create subtractor quantizer."""
 
 
-from qkerasV3.qtools.quantized_operators import adder_factory, adder_impl, quantizer_impl
+from qkerasV3.qtools.quantized_operators import (
+    adder_factory,
+    adder_impl,
+    quantizer_impl,
+)
 
 
 class ISubtractor(adder_factory.IAdder):

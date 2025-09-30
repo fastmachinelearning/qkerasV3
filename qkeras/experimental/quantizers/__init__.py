@@ -16,7 +16,6 @@
 """Exports experimental quantizers."""
 
 import tensorflow as tf
-
 from qkerasV3.experimental.quantizers.quantizers_po2 import (
     quantized_bits_learnable_po2,
     quantized_bits_msqe_po2,

@@ -17,7 +17,6 @@
 
 import numpy as np
 import tensorflow as tf
-
 from qkerasV3 import (
     bernoulli,
     binary,

@@ -21,7 +21,6 @@ import itertools
 import numpy as np
 import pytest
 import tensorflow.compat.v2 as tf
-
 from qkerasV3.qlayers import QAdaptiveActivation
 from qkerasV3.quantizers import _get_integer_bits
 

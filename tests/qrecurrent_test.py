@@ -27,7 +27,6 @@ from keras.backend import clear_session
 from keras.layers import GRU, LSTM, Activation, Bidirectional, Input, SimpleRNN
 from keras.models import Model, Sequential
 from numpy.testing import assert_allclose
-
 from qkerasV3 import (
     QGRU,
     QLSTM,
