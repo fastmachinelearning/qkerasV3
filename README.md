@@ -276,6 +276,13 @@ patterns, and perform distribute training using available resources.
 Extensive documentation is present in notebook/AutoQKeras.ipynb.
 
 
+## Linting
+We use Ruff or linting (Pyflakes, pycodestyle, pyupgrade, isort, Pylint rules). The config lives in `pyproject.toml`, so you can run it from the project root:
+
+```bash
+ruff check --fix .
+```
+
 ## Related Work
 
 QKeras has been implemented based on the work of "B.Moons et al. -
