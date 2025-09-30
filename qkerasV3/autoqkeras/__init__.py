@@ -13,11 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Exports autoqkerasV3 as a package."""
+"""Exports AutoQKeras as a package."""
 
 # We use wildcard import for convenience at this moment, which will be later
 # refactored and removed.
-from .autoqkerasV3_internal import *  # pylint: disable=wildcard-import
+from .autoqkeras_internal import *  # pylint: disable=wildcard-import
 from .quantization_config import (
     default_quantization_config,  # pylint: disable=line-too-long
 )

@@ -17,7 +17,7 @@
 
 import pytest
 from qkerasV3 import *  # pylint: disable=wildcard-import
-from qkerasV3.autoqkerasV3.forgiving_metrics import (
+from qkerasV3.autoqkeras.forgiving_metrics import (
     ForgivingFactorBits,  # pylint: disable=line-too-long
 )
 from qkerasV3.utils import model_quantize

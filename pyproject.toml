@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qkerasV3"
+version = "1.0.0"
+description = "Quantization package for KerasV3"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Google", email = "qkeras-team@google.com" },
+]
+maintainers = [
+    { name = "Shan Li", email = "lishanok@google.com" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pyparser",
+    "setuptools",
+    "tensorflow-model-optimization",
+    "networkx",
+    "scikit-learn",
+    "tqdm",
+    "keras-tuner",
+    "tf_keras" # TODO: remove this when full keras3 support is implemented
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/google/qkeras"
+Repository = "https://github.com/google/qkeras"
+Issues = "https://github.com/google/qkeras/issues"
+
+[tool.setuptools]
+packages = { find = { where = ["."] } }
+
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+
+[tool.ruff]
+select = [
+    "F",   # Pyflakes
+    "E",   # pycodestyle (errors)
+    "W",   # pycodestyle (warnings)
+    "UP",  # pyupgrade
+    "I",   # isort
+    "PL",  # Pylint
+]
+ignore = []
+line-length = 88
+target-version = "py310"

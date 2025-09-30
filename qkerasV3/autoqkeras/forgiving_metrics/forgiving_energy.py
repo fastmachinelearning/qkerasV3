@@ -19,7 +19,7 @@
 import json
 
 import numpy as np
-from qkerasV3.autoqkerasV3.forgiving_metrics.forgiving_factor import (
+from qkerasV3.autoqkeras.forgiving_metrics.forgiving_factor import (
     ForgivingFactor,  # pylint: disable=line-too-long
 )
 from qkerasV3.qtools import run_qtools

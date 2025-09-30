@@ -18,7 +18,7 @@
 
 import warnings
 
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object

@@ -18,7 +18,7 @@
 
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from qkerasV3 import *
 from qkerasV3.utils import model_save_quantized_weights
 from tensorflow.keras.datasets import mnist

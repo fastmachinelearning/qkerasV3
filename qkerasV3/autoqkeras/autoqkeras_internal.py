@@ -31,14 +31,14 @@ from keras import metrics
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras_tuner import BayesianOptimization, Hyperband, HyperModel, RandomSearch
-from qkerasV3.autoqkerasV3.forgiving_metrics import (
+from qkerasV3.autoqkeras.forgiving_metrics import (
     ForgivingFactor,  # pylint: disable=line-too-long
     forgiving_factor,  # pylint: disable=line-too-long
 )
-from qkerasV3.autoqkerasV3.quantization_config import (
+from qkerasV3.autoqkeras.quantization_config import (
     default_quantization_config,  # pylint: disable=line-too-long
 )
-from qkerasV3.autoqkerasV3.utils import print_qmodel_summary
+from qkerasV3.autoqkeras.utils import print_qmodel_summary
 from qkerasV3.utils import clone_model, model_quantize
 
 # AutoQKHyperModel is implemented on top of keras_tuner
@@ -107,11 +107,11 @@ class AutoQKHyperModel(HyperModel):
       learning_rate_optimizer: if true, we optimize learning rate along with
         other parameters.
       head_name: specify which head to calcuate score/trial-size from in
-        autoqkerasV3
+        autoqkeras
       quantization_config: dictionary containing configuration of
         quantizers for kernel, bias and activation.
       extend_model_metrics: If to append the trial size and score metrics to
-        model metrics, which are used for AutoqkerasV3 to determine the quality
+        model metrics, which are used for autoqkeras to determine the quality
         of a model.
 
     Returns:
@@ -833,7 +833,7 @@ class TrialMetric(tf.keras.metrics.Metric):
         return cls(**config)
 
 
-class AutoqkerasV3:
+class AutoQKeras:
     """Performs autoquantization in Keras model.
 
     Arguments:
@@ -858,7 +858,7 @@ class AutoqkerasV3:
       quantization_config: file name of dictionary containing configuration of
         quantizers for kernel, bias and activation.
       head_name: specify which head to calcuate score/trial-size from in
-        autoqkerasV3
+        autoqkeras
       score_metric: Str. Optional metric name to use to evaluate the trials.
         Defaults to val_score
       tuner_kwargs: parameters for keras_tuner depending on whether
@@ -889,8 +889,8 @@ class AutoqkerasV3:
         score_metric=None,
         **tuner_kwargs,
     ):
-        # Collect input arguments to AutoqkerasV3 for usage by custom tuner
-        autoqkerasV3_input_args = locals()
+        # Collect input arguments to autoqkeras for usage by custom tuner
+        autoqkeras_input_args = locals()
 
         if not metrics:
             metrics = []
@@ -980,7 +980,7 @@ class AutoqkerasV3:
         if custom_tuner is not None:
             self.tuner = custom_tuner(
                 self.hypermodel,
-                autoqkerasV3_config=autoqkerasV3_input_args,
+                autoqkeras_config=autoqkeras_input_args,
                 objective=kt.Objective(score_metric, "max"),
                 project_name=output_dir,
                 **tuner_kwargs,
@@ -1115,7 +1115,7 @@ class AutoqkerasV3:
         return self.learning_rate
 
 
-class AutoQKerasV3Scheduler:
+class AutoQKerasScheduler:
     """Performs autoquantization one layer/group at a time.
 
     Arguments:
@@ -1141,7 +1141,7 @@ class AutoQKerasV3Scheduler:
         quantizers for kernel, bias and activation.
       debug: if True, fit will just print the groups for debugging purposes.
       head_name: specify which head to calcuate score/trial-size from in
-        autoqkerasV3
+        autoqkeras
       tuner_kwargs: parameters for keras_tuner depending on whether
         mode is random, hyperband or baeysian. Please refer to the
         documentation of kerstuner Tuners.
@@ -1354,7 +1354,7 @@ class AutoQKerasV3Scheduler:
                 frozen_layers = frozen_layers + new_frozen_layers
                 continue
 
-            self.autoqk = AutoqkerasV3(
+            self.autoqk = AutoQKeras(
                 model,
                 self.metrics,
                 custom_objects=self.custom_objects,

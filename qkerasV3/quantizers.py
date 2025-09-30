@@ -19,7 +19,7 @@ from typing import Any, List, Tuple
 
 import numpy as np
 import six
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras import activations as Kact
 from keras import backend as K
 from keras import initializers, utils

@@ -17,7 +17,7 @@
 
 import numpy as np
 import pytest
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras import backend as K
 from numpy.testing import assert_allclose
 from qkerasV3 import (

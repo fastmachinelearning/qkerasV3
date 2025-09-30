@@ -37,7 +37,7 @@ import warnings
 
 import numpy as np
 import six
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras import activations, constraints, initializers, layers, regularizers
 from keras import backend as K
 from keras import ops as Kops

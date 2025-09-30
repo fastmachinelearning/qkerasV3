@@ -18,7 +18,7 @@
 
 import numpy as np
 import pytest
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal

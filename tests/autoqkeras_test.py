@@ -19,16 +19,15 @@ import tempfile
 
 import numpy as np
 import pytest
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import MinMaxScaler
 
-tf.enable_v2_behavior()
 from keras.layers import Activation, BatchNormalization, Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
-from qkerasV3.autoqkerasV3 import AutoQKerasV3Scheduler
+from qkerasV3.autoqkeras import AutoQKerasScheduler
 
 
 def dense_model():
@@ -51,8 +50,8 @@ def dense_model():
     return model
 
 
-def test_autoqkerasV3():
-    """Tests AutoqkerasV3 scheduler."""
+def test_autoqkeras():
+    """Tests Autoqkeras scheduler."""
     np.random.seed(42)
     tf.random.set_seed(42)
 
@@ -117,7 +116,7 @@ def test_autoqkerasV3():
         "schedule_block": "cost",
     }
 
-    autoqk = AutoQKerasV3Scheduler(model, metrics=["acc"], **run_config)
+    autoqk = AutoQKerasScheduler(model, metrics=["acc"], **run_config)
     autoqk.fit(x_train, y_train, validation_split=0.1, batch_size=150, epochs=4)
 
     qmodel = autoqk.get_best_model()

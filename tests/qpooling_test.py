@@ -20,7 +20,7 @@ import tempfile
 
 import numpy as np
 import pytest
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
 from keras.backend import clear_session
 from keras.layers import AveragePooling2D, GlobalAveragePooling2D, Input
 from keras.models import Model
