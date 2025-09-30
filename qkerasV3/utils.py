@@ -1124,22 +1124,7 @@ def clone_model(model, custom_objects=None):
     try:
         unfolded_model = unfold_model(model)
 
-        inputs = unfolded_model.inputs
-        if isinstance(inputs, (list, tuple)):
-            inp2 = [
-                tf.keras.Input(shape=inp.shape[1:], dtype=inp.dtype) for inp in inputs
-            ]
-            if isinstance(model.input, list):
-                inp = inp2
-            else:
-                inp = inp2[0]
-
-        else:
-            inp = tf.keras.Input(shape=inputs.shape[1:], dtype=inputs.dtype)
-
-        qmodel = tf.keras.models.clone_model(
-            unfolded_model, input_tensors=inp, clone_function=None
-        )
+        qmodel = tf.keras.models.clone_model(model)
         qmodel.set_weights(unfolded_model.get_weights())
 
     except Exception as e:
