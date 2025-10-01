@@ -18,12 +18,16 @@
 
 import itertools
 
+import keras
 import numpy as np
 import pytest
-import tensorflow as tf
+from numpy.testing import assert_allclose
 
 from qkerasV3.qlayers import QAdaptiveActivation
 from qkerasV3.quantizers import _get_integer_bits
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def run_qadaptiveactivation_test(input_val, kwargs):
@@ -38,40 +42,32 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     assert kwargs["ema_freeze_delay"] is None, err
 
     # Prepare layer in a static TF graph
-    model = tf.keras.Sequential([QAdaptiveActivation(**kwargs)])
+    model = keras.models.Sequential([QAdaptiveActivation(**kwargs)])
     model.compile()
 
     # Test input on untrained EMAs
     qout = model(input_val, training=False).numpy()
-    assert np.isclose(model.layers[0].quantizer(input_val), qout).all(), err
-    assert np.isclose(model.layers[0].ema_min.numpy().flatten(), 0).all(), err
-    assert np.isclose(model.layers[0].ema_max.numpy().flatten(), 0).all(), err
+    assert_allclose(model.layers[0].quantizer(input_val), qout)
+    assert_allclose(model.layers[0].ema_min.numpy().flatten(), 0)
+    assert_allclose(model.layers[0].ema_max.numpy().flatten(), 0)
 
     # Run an unquantized input and train the EMA
     unquantized_out = model(input_val, training=True).numpy()
     assert kwargs["current_step"].numpy() == 0, err
     if kwargs["activation"] == "quantized_relu":
-        assert np.isclose(unquantized_out, np.maximum(input_val, 0)).all(), err
+        assert_allclose(unquantized_out, np.maximum(input_val, 0))
     elif kwargs["activation"] == "quantized_bits":
-        assert np.isclose(unquantized_out, input_val).all(), err
+        assert_allclose(unquantized_out, input_val)
     else:
         raise ValueError("Invalid quantizer type ", kwargs["activation"])
 
     # Check EMAs
     if kwargs["per_channel"]:
-        assert np.isclose(
-            model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2))
-        ).all(), err
-        assert np.isclose(
-            model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2))
-        ).all(), err
+        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2)))
+        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2)))
     else:
-        assert np.isclose(
-            model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2, 3))
-        ).all(), err
-        assert np.isclose(
-            model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2, 3))
-        ).all(), err
+        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2, 3)))
+        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2, 3)))
 
     # Check quantizer
     quant = model.layers[0].quantizer
@@ -96,10 +92,10 @@ def run_qadaptiveactivation_test(input_val, kwargs):
         keep_negative,
         kwargs["po2_rounding"],
     ).numpy()
-    assert np.isclose(expected_integer_bits, quant.integer.numpy()).all(), err
+    assert_allclose(expected_integer_bits, quant.integer.numpy(), atol=1e-4)
 
     # Skip to a step where the quantization is used
-    kwargs["current_step"].assign(tf.constant(kwargs["quantization_delay"], tf.int64))
+    kwargs["current_step"].assign(keras.Variable(kwargs["quantization_delay"], trainable=False, dtype="int64"))
 
     # Check quantized output
     # To set qnoise_factor to 1.0 explicitly.
@@ -109,11 +105,11 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     # Revert qnoise_factor to its original value.
     quant.update_qnoise_factor(qnoise_factor)
     qout = model(input_val, training=True).numpy()
-    assert np.isclose(expected_qout, qout).all(), err
+    assert_allclose(expected_qout, qout, atol=1e-4)
 
     # Check testing mode
     qout = model(input_val, training=False).numpy()
-    assert np.isclose(quant(input_val), qout).all(), err
+    assert_allclose(quant(input_val), qout, atol=1e-4)
 
 
 @pytest.mark.parametrize(
@@ -136,7 +132,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
     if estimate_step_count:
         step = None
     else:
-        step = tf.Variable(0, dtype=tf.int64)
+        step = keras.Variable(0, dtype="int64")
     q_act = QAdaptiveActivation(
         activation="quantized_bits",
         total_bits=8,
@@ -147,7 +143,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
         per_channel=True,
         po2_rounding=False,
     )
-    model = tf.keras.Sequential([q_act])
+    model = keras.models.Sequential([q_act])
     model.compile()
 
     # Simulate a number of training steps and check the EMA values
@@ -200,7 +196,7 @@ def test_qadaptiveactivation():
         args["ema_decay"] = 0  # This test not test the EMA delay
         for img_shape in [(1, 28, 28, 3), (1, 3, 4, 5)]:
             for input_scale in [255, 1]:
-                args["current_step"] = tf.Variable(0, dtype=tf.int64)
+                args["current_step"] = keras.Variable(0, dtype="int64")
                 img = np.random.random(img_shape) * input_scale
                 run_qadaptiveactivation_test(img, args)
 

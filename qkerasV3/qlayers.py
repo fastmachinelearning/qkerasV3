@@ -35,6 +35,7 @@
 import sys
 import warnings
 
+import keras
 import numpy as np
 import six
 import tensorflow as tf
@@ -281,10 +282,10 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
         self.is_estimating_step_count = False  # If the layer should estimate its
         # own step count by incrementing it
         # every call.
-        if isinstance(current_step, tf.Variable):
+        if isinstance(current_step, keras.Variable):
             self.step = current_step
         elif current_step is None:
-            self.step = tf.Variable(-1, dtype=tf.int64)
+            self.step = keras.Variable(-1, dtype="int64")
             self.is_estimating_step_count = True
             print(
                 "[WARNING] QAdaptiveActivation is estimating it's own training "
@@ -294,7 +295,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
                 file=sys.stderr,
             )
         else:
-            self.step = tf.Variable(current_step, dtype=tf.int64)
+            self.step = keras.Variable(current_step, dtype="int64")
             print(
                 "[WARNING] QAdaptiveActivation is disconnected from the optimizer "
                 "current step, which may lead to incorrect training. If you wish to"
@@ -386,19 +387,19 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
 
         # Initialize the moving mins and max
         if self.ema_min is None or self.ema_max is None:
-            self.ema_min = tf.Variable(
-                tf.zeros(num_channels), name="ema_min", trainable=False
+            self.ema_min = keras.Variable(
+                np.zeros(num_channels), name="ema_min", trainable=False
             )
-            self.ema_max = tf.Variable(
-                tf.zeros(num_channels), name="ema_max", trainable=False
+            self.ema_max = keras.Variable(
+                np.zeros(num_channels), name="ema_max", trainable=False
             )
 
         # Determine the parameters for the quantizer
         self.quantizer.bits = self.total_bits
 
         # Set up the initial integer bits and quantizer params
-        self.quantizer.integer = tf.Variable(
-            tf.zeros(num_channels, dtype=tf.int32),
+        self.quantizer.integer = keras.Variable(
+            np.zeros(num_channels, dtype="int32"),
             name="quantizer_integer_bits",
             trainable=False,
         )
@@ -483,11 +484,13 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             # done by using a qnoise_factor of 0
             new_min = tf.squeeze(Kops.min(act_x, axis=axis, keepdims=True))
             self.ema_min.assign(
-                self.ema_min * self.ema_decay + new_min * (1.0 - self.ema_decay)
+                keras.ops.cast(self.ema_min * self.ema_decay, dtype="float32") + \
+                keras.ops.cast(new_min * (1.0 - self.ema_decay), dtype="float32")
             )
             new_max = tf.squeeze(Kops.max(act_x, axis=axis, keepdims=True))
             self.ema_max.assign(
-                self.ema_max * self.ema_decay + new_max * (1.0 - self.ema_decay)
+                keras.ops.cast(self.ema_max * self.ema_decay, dtype="float32") + \
+                keras.ops.cast(new_max * (1.0 - self.ema_decay), dtype="float32")
             )
 
             # Reset the qnoise factor to the previous value
