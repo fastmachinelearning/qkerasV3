@@ -17,10 +17,9 @@
 
 import json
 
-import keras as keras
+import keras
 import numpy as np
 import pytest
-import tensorflow as tf
 
 from qkerasV3 import (
     QActivation,
@@ -964,10 +963,10 @@ def test_auto_po2():
         )
     )
     model.compile(loss="mse", run_eagerly=True)
-    model.layers[1].quantizers[0].scale = tf.constant(
+    model.layers[1].quantizers[0].scale = np.array(
         [[[[0.0625, 0.0625, 0.0625, 0.0625, 0.03125]]]]
     )
-    model.layers[4].quantizers[0].scale = tf.constant([[0.5, 0.5, 1, 0.5, 0.25]])
+    model.layers[4].quantizers[0].scale = np.array([[0.5, 0.5, 1, 0.5, 0.25]])
     input_quantizers = [
         quantizers.quantized_bits(bits=8, integer=0, keep_negative=False)
     ]
@@ -1068,7 +1067,7 @@ def test_divide_and_conquer_sequential_conv2d():
     # We will need to add more tests with more complex graph architecture
     # in the future as our solution grows.
 
-    xin = x = tf.keras.layers.Input(shape=(16, 16, 1), name="input_layer")
+    xin = x = keras.layers.Input(shape=(16, 16, 1), name="input_layer")
     x = QConv2D(
         kernel_size=3,
         filters=3,
@@ -1085,7 +1084,7 @@ def test_divide_and_conquer_sequential_conv2d():
     )(x)
 
     # Create a model
-    model = tf.keras.Model(inputs=xin, outputs=x)
+    model = keras.Model(inputs=xin, outputs=x)
 
     # Test if the flow works perperly. In the future we will construct more
     # detailed tests regarding cost once the cost design matures.
