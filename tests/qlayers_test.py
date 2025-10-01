@@ -21,7 +21,6 @@ import tempfile
 
 import numpy as np
 import pytest
-import tensorflow as tf
 from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
@@ -96,13 +95,13 @@ def test_qactivation_loads():
     layer_size = 10
 
     # Create a small model with QActivation layer.
-    x = xin = tf.keras.layers.Input(shape=(layer_size,), name="input")
+    x = xin = Input(shape=(layer_size,), name="input")
     x = QDense(
         layer_size,
         name="qdense",
     )(x)
     x = QActivation(activation="quantized_relu(8)", name="relu")(x)
-    model = tf.keras.Model(inputs=xin, outputs=x)
+    model = Model(inputs=xin, outputs=x)
 
     # Generate random weights for the model.
     w_k = np.random.rand(layer_size, layer_size)
