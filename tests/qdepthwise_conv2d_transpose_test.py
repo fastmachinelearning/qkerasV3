@@ -19,9 +19,9 @@
 import os
 import tempfile
 
+import keras
 import numpy as np
 import pytest
-import tensorflow as tf
 from numpy.testing import assert_equal
 
 from qkerasV3 import QDepthwiseConv2DTranspose, quantized_bits
@@ -116,7 +116,7 @@ _FLOAT_PREDICTED_OUTPUT = np.array(
 
 
 def create_model(group_size=1):
-    x = img_input = tf.keras.layers.Input(shape=(4, 4, 3))
+    x = img_input = keras.layers.Input(shape=(4, 4, 3))
     x = QDepthwiseConv2DTranspose(
         filters=2,
         kernel_size=(2, 2),
@@ -129,13 +129,13 @@ def create_model(group_size=1):
         group_size=group_size,
     )(x)
 
-    model = tf.keras.Model(inputs=img_input, outputs=x)
+    model = keras.Model(inputs=img_input, outputs=x)
     print(f"Weights shapes: {[w.shape for w in model.layers[1].weights]}")
     return model
 
 
 def create_quantized_model(group_size=1):
-    x = img_input = tf.keras.layers.Input(shape=(4, 4, 3))
+    x = img_input = keras.layers.Input(shape=(4, 4, 3))
     x = QDepthwiseConv2DTranspose(
         filters=2,
         kernel_size=(2, 2),
@@ -148,7 +148,7 @@ def create_quantized_model(group_size=1):
         group_size=group_size,
     )(x)
 
-    model = tf.keras.Model(inputs=img_input, outputs=x)
+    model = keras.Model(inputs=img_input, outputs=x)
 
     return model
 
@@ -169,7 +169,7 @@ def test_qseparable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = tf.constant(inputs.reshape((1, 4, 4, -1)), dtype=tf.float32)
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
 
     # depthwise kernel of shape (2, 2, 3, 1)
     dw_kernel = np.array(
@@ -179,7 +179,7 @@ def test_qseparable_conv2d_transpose():
         ]
     )
 
-    bias = tf.zeros((2,))
+    bias = np.zeros((2,))
 
     model.layers[1].set_weights([dw_kernel, bias])
 
@@ -205,7 +205,7 @@ def test_quantization_in_separable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = tf.constant(inputs.reshape((1, 4, 4, -1)), dtype=tf.float32)
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
 
     # depthwise kernel of shape (2, 2, 3, 1)
     dw_kernel = np.array(
@@ -215,7 +215,7 @@ def test_quantization_in_separable_conv2d_transpose():
         ]
     )
 
-    bias = tf.ones((2,))
+    bias = np.ones((2,))
 
     model.layers[1].set_weights([dw_kernel, bias])
 
@@ -254,7 +254,7 @@ def test_qseparable_conv2d_transpose_with_groups():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = tf.constant(inputs.reshape((1, 4, 4, -1)), dtype=tf.float32)
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
 
     # depthwise kernel of shape (2, 2, 3, 3)
     dw_kernel = np.array(
@@ -270,7 +270,7 @@ def test_qseparable_conv2d_transpose_with_groups():
         ]
     )
 
-    bias = tf.zeros((2,))
+    bias = np.zeros((2,))
 
     model.layers[1].set_weights([dw_kernel, bias])
 
@@ -302,7 +302,7 @@ def test_save_and_load_model():
         "QDepthwiseConv2DTranspose": QDepthwiseConv2DTranspose,
     }
 
-    model_loaded = tf.keras.models.load_model(fname, custom_objects=custom_object)
+    model_loaded = keras.models.load_model(fname, custom_objects=custom_object)
 
     # Clean the h5 file after loading the model
     os.close(fd)
