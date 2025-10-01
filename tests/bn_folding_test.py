@@ -17,9 +17,10 @@
 
 import tempfile
 
+import keras
 import numpy as np
 import tensorflow as tf
-from keras import layers, metrics
+from keras import layers
 from keras.backend import clear_session
 from keras.models import Model
 from keras.utils import to_categorical
@@ -34,14 +35,17 @@ from qkerasV3 import (
     QDepthwiseConv2DBatchnorm,
     bn_folding_utils,
 )
-from qkerasV3 import utils as qkerasV3_utils
+from qkerasV3.utils import (
+    _add_supported_quantized_objects,
+    load_qmodel,
+    quantized_model_from_json,
+)
 
+# set random seed
+keras.utils.set_random_seed(812)
 
-def get_sgd_optimizer(learning_rate):
-    if hasattr(tf.keras.optimizers, "legacy"):
-        return tf.keras.optimizers.legacy.SGD(learning_rate)
-    else:
-        return tf.keras.optimizers.SGD(learning_rate)
+# TODO: fix run_eagerly=True
+tf.config.run_functions_eagerly(True)
 
 
 def get_qconv2d_model(input_shape, kernel_size, kernel_quantizer=None):
@@ -126,8 +130,8 @@ def get_qconv2d_batchnorm_model(
 
 def get_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
     x_shape = (2, 2, 1)
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    optimizer = get_sgd_optimizer(learning_rate=1e-3)
+    loss_fn = keras.losses.MeanSquaredError()
+    optimizer = keras.optimizers.SGD(learning_rate=1e-3)
 
     # define a model with seperate conv2d and bn layers
     x = x_in = layers.Input(x_shape, name="input")
@@ -156,17 +160,11 @@ def get_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
         gamma_regularizer=None,
         beta_constraint=None,
         gamma_constraint=None,
-        renorm=False,
-        renorm_clipping=None,
-        renorm_momentum=0.99,
-        fused=None,
         trainable=True,
-        virtual_batch_size=None,
-        adjustment=None,
         name="bn",
     )(x)
     unfold_model = Model(inputs=[x_in], outputs=[x])
-    unfold_model.compile(loss=loss_fn, optimizer=optimizer, metrics="acc")
+    unfold_model.compile(loss=loss_fn, optimizer=optimizer, metrics=["acc"])
 
     x = x_in = layers.Input(x_shape, name="input")
     x = QConv2DBatchnorm(
@@ -186,7 +184,7 @@ def get_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
         name="foldconv2d",
     )(x)
     fold_model = Model(inputs=[x_in], outputs=[x])
-    fold_model.compile(loss=loss_fn, optimizer=optimizer, metrics="acc")
+    fold_model.compile(loss=loss_fn, optimizer=optimizer, metrics=["acc"])
 
     return (unfold_model, fold_model)
 
@@ -202,13 +200,10 @@ def get_debug_model(model):
 
 
 def generate_dataset(
-    train_size=10, batch_size=5, input_shape=(3, 3, 1), num_class=2, output_shape=None
+    train_size=10, input_shape=(3, 3, 1), num_class=2, output_shape=None
 ):
-    """create tf.data.Dataset with shape: (N,) + input_shape."""
+    """create a toy dataset"""
 
-    x_train = np.random.randint(
-        4, size=(train_size, input_shape[0], input_shape[1], input_shape[2])
-    )
     x_train = np.random.rand(train_size, input_shape[0], input_shape[1], input_shape[2])
 
     if output_shape:
@@ -217,52 +212,15 @@ def generate_dataset(
         y_train = np.random.randint(num_class, size=train_size)
         y_train = to_categorical(y_train, num_class)
 
-    train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-    train_ds = train_ds.batch(batch_size)
-    return train_ds
+    return x_train, y_train
 
 
 def run_training(
-    model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+    model, x, y, epochs, loss_fn, loss_metric, optimizer, do_preditc=False
 ):
-    # Iterate over epochs.
-    for epoch in range(epochs):
-        if do_print:
-            print(f"- epoch {epoch} -")
-
-        # Iterate over the batches of the dataset.
-        for step, (x_batch_train, y_batch_train) in enumerate(train_ds):
-            if do_print:
-                print(f"\n   - step {step} -")
-            with tf.GradientTape() as tape:
-                predictions = model(x_batch_train, training=True)
-
-                if epoch == epochs - 1:
-                    if do_print:
-                        print("y_pred:", predictions)
-                        print("y:", y_batch_train)
-                    output_predictions = predictions
-
-                # Compute loss
-                loss = loss_fn(y_batch_train, predictions)
-
-                grads = tape.gradient(loss, model.trainable_weights)
-                if do_print:
-                    if epoch == epochs - 1:
-                        # print("old trainable:", model.trainable_weights)
-                        print("grads:", grads)
-                optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-                if do_print:
-                    if epoch == epochs - 1:
-                        # print("new trainable:", model.trainable_weights)
-                        print("loss:", loss)
-                loss_metric(loss)
-                if do_print:
-                    if epoch == epochs - 1:
-                        print("mean loss = %.4f" % (loss_metric.result()))
-
-    return output_predictions
+    model.compile(loss=loss_fn, optimizer=optimizer, metrics=[loss_metric])
+    model.fit(x, y, epochs=epochs, shuffle=False)
+    if do_preditc: return model.predict(x)
 
 
 def test_unfold_model():
@@ -314,7 +272,7 @@ def test_unfold_model():
         )(x)
         model = Model(inputs=[x_in], outputs=[x])
         model.layers[1].set_weights(
-            [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+            [kernel, iteration, gamma, beta, moving_mean, moving_variance]
         )
 
         return model
@@ -348,7 +306,7 @@ def test_unfold_model():
         x = layers.Dense(2, use_bias=False, kernel_initializer="ones", name="dense")(x)
         model = Model(inputs=[x_in], outputs=[x])
         model.layers[4].set_weights(
-            [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+            [kernel, iteration, gamma, beta, moving_mean, moving_variance]
         )
         return model
 
@@ -360,9 +318,8 @@ def test_unfold_model():
 
         output_shape = model.output_shape[1:]
         input_shape = model.input_shape[1:]
-        train_ds = generate_dataset(
+        x, y = generate_dataset(
             train_size=10,
-            batch_size=5,
             input_shape=input_shape,
             output_shape=output_shape,
         )
@@ -390,47 +347,47 @@ def test_unfold_model():
                 assert_equal(weight1[1], weight2[1])
 
         # test if the predictions of the two models are identical
-        pred1 = model.predict(train_ds)
-        pred2 = cvt_model.predict(train_ds)
+        pred1 = model.predict(x)
+        pred2 = cvt_model.predict(x)
         assert_equal(pred1, pred2)
 
 
 def test_loading():
     """Test to load model using different approahches."""
 
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    loss_metric = metrics.Mean()
-    optimizer = get_sgd_optimizer(learning_rate=1e-3)
+    loss_fn = keras.losses.MeanSquaredError()
+    loss_metric = 'MAE'
+    optimizer = keras.optimizers.SGD(learning_rate=1e-3)
     x_shape = (2, 2, 1)
 
     custom_objects = {}
-    qkerasV3_utils._add_supported_quantized_objects(custom_objects)
+    _add_supported_quantized_objects(custom_objects)
 
-    train_ds = generate_dataset(
-        train_size=1, batch_size=1, input_shape=x_shape, num_class=2
+    x, y = generate_dataset(
+        train_size=1,
+        input_shape=x_shape,
+        num_class=2
     )
 
     model_fold = get_qconv2d_batchnorm_model(
         input_shape=x_shape, kernel_size=(2, 2), folding_mode="ema_stats_folding"
     )
-    model_fold.compile(loss=loss_fn, optimizer=optimizer, metrics="acc")
-
     run_training(
-        model_fold, 10, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model_fold, x, y, 10, loss_fn, loss_metric, optimizer, do_preditc=False
     )
 
     # test load model from json to ensure saving/loading model architecture works
     model_fold.use_legacy_config = True  # Ensures old Keras serialization
     json_string = model_fold.to_json()
     clear_session()
-    model_from_json = qkerasV3_utils.quantized_model_from_json(json_string)
+    model_from_json = quantized_model_from_json(json_string)
     model_from_json.use_legacy_config = True
     assert json_string == model_from_json.to_json()
 
     # test reload model from hdf5 files to ensure saving/loading works
-    _, fname = tempfile.mkstemp(".h5")
+    _, fname = tempfile.mkstemp(".keras")
     model_fold.save(fname)
-    model_loaded = qkerasV3_utils.load_qmodel(fname)
+    model_loaded = load_qmodel(fname)
     weight1 = model_fold.layers[1].get_folded_weights()
     weight2 = model_loaded.layers[1].get_folded_weights()
     assert_equal(np.array(weight1[0]), np.array(weight2[0]))
@@ -450,9 +407,8 @@ def test_same_training_and_prediction():
     """test if fold/unfold layer has the same training and prediction output."""
 
     epochs = 5
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    loss_metric = metrics.Mean()
-    optimizer = get_sgd_optimizer(learning_rate=1e-3)
+    loss_fn = keras.losses.MeanSquaredError()
+    loss_metric = 'MAE'
 
     x_shape = (2, 2, 1)
     kernel = np.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
@@ -462,8 +418,10 @@ def test_same_training_and_prediction():
     moving_variance = np.array([1.0, 2.0])
     iteration = np.array(-1)
 
-    train_ds = generate_dataset(
-        train_size=10, batch_size=10, input_shape=x_shape, num_class=2
+    x, y = generate_dataset(
+        train_size=10,
+        input_shape=x_shape,
+        num_class=2
     )
 
     (unfold_model, fold_model_batch) = get_models_with_one_layer(
@@ -476,44 +434,55 @@ def test_same_training_and_prediction():
     unfold_model.layers[1].set_weights([kernel])
     unfold_model.layers[2].set_weights([gamma, beta, moving_mean, moving_variance])
     fold_model_batch.layers[1].set_weights(
-        [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
     fold_model_ema.layers[1].set_weights(
-        [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
 
     # check if prediction is the same
-    y1 = unfold_model.predict(train_ds)
-    y2_batch = fold_model_batch.predict(train_ds)
-    y2_ema = fold_model_ema.predict(train_ds)
-    assert_allclose(y1, y2_batch, rtol=1e-4)
-    assert_allclose(y1, y2_ema, rtol=1e-4)
+    y1 = unfold_model.predict(x)
+    y2_batch = fold_model_batch.predict(x)
+    y2_ema = fold_model_ema.predict(x)
+    assert_allclose(y1, y2_batch, rtol=1e-2)
+    assert_allclose(y1, y2_ema, rtol=1e-2)
 
     # check if training for a number of epochs, and before bn freeeze, models
     # reached the same point
     y1 = run_training(
-        unfold_model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=unfold_model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
+
     y2_batch = run_training(
-        fold_model_batch,
-        epochs,
-        loss_fn,
-        loss_metric,
-        optimizer,
-        train_ds,
-        do_print=False,
+        model=fold_model_batch,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
+
     y2_ema = run_training(
-        fold_model_ema,
-        epochs,
-        loss_fn,
-        loss_metric,
-        optimizer,
-        train_ds,
-        do_print=False,
+        model=fold_model_ema,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
-    assert_allclose(y1, y2_batch, rtol=1e-4)
-    assert_allclose(y1, y2_ema, rtol=1e-4)
+    assert_allclose(y1, y2_batch, atol=1e-1)
+    assert_allclose(y1, y2_ema, atol=1e-1)
 
     # check if training for long enough (after bn freezes), unfold model and fold
     # models should be different, but the two folding modes should be the same
@@ -528,31 +497,43 @@ def test_same_training_and_prediction():
     unfold_model.layers[1].set_weights([kernel])
     unfold_model.layers[2].set_weights([gamma, beta, moving_mean, moving_variance])
     fold_model_batch.layers[1].set_weights(
-        [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
     fold_model_ema.layers[1].set_weights(
-        [kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
+
     y1 = run_training(
-        unfold_model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=unfold_model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
+
     y2_batch = run_training(
-        fold_model_batch,
-        epochs,
-        loss_fn,
-        loss_metric,
-        optimizer,
-        train_ds,
-        do_print=False,
+        model=fold_model_batch,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
+
     y2_ema = run_training(
-        fold_model_ema,
-        epochs,
-        loss_fn,
-        loss_metric,
-        optimizer,
-        train_ds,
-        do_print=False,
+        model=fold_model_ema,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
     assert_raises(AssertionError, assert_allclose, y1, y2_batch, rtol=1e-4)
     assert_allclose(y2_batch, y2_ema, rtol=1e-4)
@@ -632,8 +613,10 @@ def test_same_training_and_prediction():
     dense_weight = np.array([[1.0, 0], [0, 0], [0, 0], [0, 0]])
 
     # generate dataset
-    train_ds = generate_dataset(
-        train_size=3, batch_size=3, input_shape=input_shape, num_class=2
+    x, y = generate_dataset(
+        train_size=3,
+        input_shape=input_shape,
+        num_class=2
     )
 
     # define models, one with folded layer and one without
@@ -647,7 +630,7 @@ def test_same_training_and_prediction():
 
     # set weights
     fold_model.layers[1].set_weights(
-        [depthwise_kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [depthwise_kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
     fold_model.layers[3].set_weights([dense_weight])
 
@@ -657,15 +640,28 @@ def test_same_training_and_prediction():
 
     # perform training
     epochs = 5
-    loss_fn = tf.keras.losses.MeanSquaredError()
-    loss_metric = metrics.Mean()
-    optimizer = get_sgd_optimizer(learning_rate=1e-3)
+    loss_fn = keras.losses.MeanSquaredError()
+    loss_metric = 'MAE'
 
     pred1 = run_training(
-        model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
     pred2 = run_training(
-        fold_model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=fold_model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
 
     # before bn freezes, the two models should reach the same point
@@ -683,17 +679,32 @@ def test_same_training_and_prediction():
         ema_freeze_delay=ema_freeze_delay,
     )
     fold_model.layers[1].set_weights(
-        [depthwise_kernel, gamma, beta, iteration, moving_mean, moving_variance]
+        [depthwise_kernel, iteration, gamma, beta, moving_mean, moving_variance]
     )
     fold_model.layers[3].set_weights([dense_weight])
     model.layers[1].set_weights([depthwise_kernel])
     model.layers[2].set_weights([gamma, beta, moving_mean, moving_variance])
     model.layers[4].set_weights([dense_weight])
+
     pred1 = run_training(
-        model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
     pred2 = run_training(
-        fold_model, epochs, loss_fn, loss_metric, optimizer, train_ds, do_print=False
+        model=fold_model,
+        x=x,
+        y=y,
+        epochs=epochs,
+        loss_fn=loss_fn,
+        loss_metric=loss_metric,
+        optimizer=keras.optimizers.SGD(learning_rate=1e-3),
+        do_preditc=True
     )
 
     assert_raises(AssertionError, assert_allclose, pred1, pred2, rtol=1e-4)

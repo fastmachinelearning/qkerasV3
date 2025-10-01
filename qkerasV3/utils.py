@@ -20,6 +20,7 @@ import re
 import tempfile
 import types
 
+import keras
 import networkx as nx
 import numpy as np
 import six
@@ -1197,7 +1198,7 @@ def load_qmodel(filepath, custom_objects=None, compile=True):
 
     _add_supported_quantized_objects(custom_objects)
 
-    qmodel = tf.keras.models.load_model(
+    qmodel = keras.models.load_model(
         filepath, custom_objects=custom_objects, compile=compile
     )
     return qmodel

@@ -15,6 +15,7 @@
 # ==============================================================================
 """Fold batchnormalization with previous QDepthwiseConv2D layers."""
 
+import keras
 import tensorflow as tf
 from keras import layers
 from keras import ops as Kops
@@ -153,12 +154,27 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
     def build(self, input_shape):
         super(QDepthwiseConv2DBatchnorm, self).build(input_shape)
 
+        if self.data_format == "channels_last":
+            channel_axis = -1
+        else:
+            channel_axis = 1
+
+        in_channels = int(input_shape[channel_axis])
+        out_channels = in_channels * self.depth_multiplier
+
+        if self.data_format == "channels_last":
+            bn_input_shape = (input_shape[0], 1, 1, out_channels)
+        else:  # channels_first
+            bn_input_shape = (input_shape[0], out_channels, 1, 1)
+
+        self.batchnorm.build(bn_input_shape)
+
         # If start training from scratch, self._iteration (i.e., training_steps)
         # is initialized with -1. When loading ckpt, it can load the number of
         # training steps that have been previously trainied.
         # TODO(lishanok): develop a way to count iterations outside layer
-        self._iteration = tf.Variable(
-            -1, trainable=False, name="iteration", dtype=tf.int64
+        self._iteration = keras.Variable(
+            -1, trainable=False, name="iteration", dtype="int64"
         )
 
     def call(self, inputs, training=False):
@@ -359,3 +375,13 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         folded_depthwise_kernel = inv * depthwise_kernel
 
         return [folded_depthwise_kernel, folded_bias]
+
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        # Stores the value of the variable upon saving
+        store["iteration"] = self._iteration.numpy()
+
+    def load_own_variables(self, store):
+        super().load_own_variables(store)
+        # Assigns the value of the variable upon loading
+        self._iteration.assign(store["iteration"])

@@ -16,6 +16,7 @@
 """Fold batchnormalization with previous QConv2D layers."""
 
 
+import keras
 import tensorflow as tf
 from keras import layers
 from keras import ops as Kops
@@ -152,12 +153,20 @@ class QConv2DBatchnorm(QConv2D):
     def build(self, input_shape):
         super(QConv2DBatchnorm, self).build(input_shape)
 
+        if self.data_format == "channels_last":
+            # BN sees only C_out; shape rank doesn’t matter as long as last dim is C_out
+            bn_input_shape = (input_shape[0], 1, 1, self.filters)
+        else:  # channels_first
+            bn_input_shape = (input_shape[0], self.filters, 1, 1)
+
+        self.batchnorm.build(bn_input_shape)
+
         # self._iteration (i.e., training_steps) is initialized with -1. When
         # loading ckpt, it can load the number of training steps that have been
         # previously trainied. If start training from scratch.
         # TODO(lishanok): develop a way to count iterations outside layer
-        self._iteration = tf.Variable(
-            -1, trainable=False, name="iteration", dtype=tf.int64
+        self._iteration = keras.Variable(
+            -1, trainable=False, name="iteration", dtype="int64"
         )
 
     def call(self, inputs, training=False):
@@ -382,3 +391,13 @@ class QConv2DBatchnorm(QConv2D):
         folded_bias = inv * (bias - moving_mean) + beta
 
         return [folded_kernel, folded_bias]
+
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        # Stores the value of the variable upon saving
+        store["iteration"] = self._iteration.numpy()
+
+    def load_own_variables(self, store):
+        super().load_own_variables(store)
+        # Assigns the value of the variable upon loading
+        self._iteration.assign(store["iteration"])
