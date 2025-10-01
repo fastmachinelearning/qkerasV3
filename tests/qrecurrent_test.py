@@ -339,7 +339,6 @@ def create_network_rnn(rnn):
 @pytest.mark.parametrize("rnn", [SimpleRNN, LSTM, GRU])
 def test_rnn_conversion(rnn):
     m = create_network_rnn(rnn)
-    m.use_legacy_config = True
     name = "Q" + m.layers[1].__class__.__name__
     d = {
         name: {
@@ -386,7 +385,6 @@ def get_quantizer_name(q):
 @pytest.mark.parametrize("rnn", [SimpleRNN, LSTM, GRU])
 def test_birnn_conversion(rnn):
     m = create_network_birnn(rnn)
-    m.use_legacy_config = True
     name = "Q" + m.layers[1].forward_layer.__class__.__name__
     d = {
         "QBidirectional": {

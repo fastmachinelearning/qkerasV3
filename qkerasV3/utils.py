@@ -34,7 +34,6 @@ from tensorflow_model_optimization.python.core.sparsity.keras import (
     pruning_wrapper,
 )
 
-from .bn_folding_utils import unfold_model
 from .qconv2d_batchnorm import QConv2DBatchnorm
 from .qconvolutional import (
     QConv1D,
@@ -1116,17 +1115,15 @@ def _add_supported_quantized_objects(custom_objects):
 
 
 def clone_model(model, custom_objects=None):
-    """Clone a qkerasV3 model safely, even with folded batchnorm layers."""
+    """Clone a qkerasV3 model safely."""
     if not custom_objects:
         custom_objects = {}
 
     custom_objects = copy.deepcopy(custom_objects)
 
     try:
-        unfolded_model = unfold_model(model)
-
-        qmodel = tf.keras.models.clone_model(model)
-        qmodel.set_weights(unfolded_model.get_weights())
+        qmodel = keras.models.clone_model(model)
+        qmodel.set_weights(model.get_weights())
 
     except Exception as e:
         print(f"[ERROR] Model cloning failed: {e}")
@@ -1595,13 +1592,13 @@ def clone_model_and_freeze_auto_po2_scale(
         orig_model = load_qmodel(orig_model_path, compile=False)
 
     # Quantize model weights and compute quantizer scale values.
-    quantized_model = tf.keras.models.clone_model(orig_model)
+    quantized_model = keras.models.clone_model(orig_model)
     quantized_model.set_weights(orig_model.get_weights())
     # In silicon flow, weight binary files are generated from hw weights.
     orig_hw_weights = model_save_quantized_weights(quantized_model)
 
     # Create a new model with fixed scale quantizers.
-    x = inputs = tf.keras.Input(
+    x = inputs = keras.Input(
         shape=orig_model.input_shape[1:], name=orig_model.layers[0].name
     )
     for layer in quantized_model.layers[1:]:
@@ -1629,7 +1626,7 @@ def clone_model_and_freeze_auto_po2_scale(
         else:
             x = _create_other_layer(layer)(x)
 
-    new_model = tf.keras.Model(inputs, x)
+    new_model = keras.Model(inputs, x)
     # Set the weights of the new model to the original model (float weights).
     new_model.set_weights(orig_model.get_weights())
 
