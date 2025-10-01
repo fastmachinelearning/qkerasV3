@@ -36,9 +36,9 @@ Example usages:
 import abc
 import re
 
+import keras.backend as K
 import numpy as np
 import tensorflow as tf
-import tensorflow.keras.backend as K
 from keras import ops as Kops
 from six.moves import range
 from tensorflow.keras.layers import Layer

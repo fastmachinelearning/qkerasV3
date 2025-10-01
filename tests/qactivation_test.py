@@ -169,7 +169,7 @@ def test_quantized_po2(
     expected_values,
 ):
     """Test quantized_po2 function."""
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_po2(
         bits=bits,
         max_value=max_value,
@@ -281,7 +281,7 @@ def test_quantized_relu_po2(
     expected_values,
 ):
     """Test quantized_relu_po2 function."""
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_relu_po2(
         bits,
         max_value,
@@ -298,7 +298,7 @@ def test_smooth_sigmoid():
     """Test smooth_sigmoid function."""
     test_values = np.array(
         [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
-        dtype=tf.keras.backend.floatx(),
+        dtype=K.floatx(),
     )
 
     def ref_smooth_sigmoid(y):
@@ -316,7 +316,7 @@ def test_hard_sigmoid():
     """Test hard_sigmoid function."""
     test_values = np.array(
         [[-3.0, -2.0, -1.0, -0.5, 0.005, 0.0, 0.005, 0.5, 1, 4, 10]],
-        dtype=tf.keras.backend.floatx(),
+        dtype=K.floatx(),
     )
 
     def ref_hard_sigmoid(y):
@@ -389,7 +389,7 @@ def test_quantized_sigmoid(
 
     set_internal_sigmoid(sigmoid_type)
 
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
     result = q(x).numpy()
 
@@ -431,7 +431,7 @@ def test_quantized_sigmoid_limits(
 
     set_internal_sigmoid(sigmoid_type)
 
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
     result = q(x).numpy()
 
@@ -472,7 +472,7 @@ def test_quantized_tanh(bits, use_real_tanh, test_values, expected_values):
 
     set_internal_sigmoid("hard")
 
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
     result = q(x).numpy()
 
@@ -514,7 +514,7 @@ def test_quantized_tanh_limits(
 
     set_internal_sigmoid(sigmoid_type)
 
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
     result = q(x).numpy()
 
@@ -630,7 +630,7 @@ def test_quantized_tanh_limits(
 )
 def test_quantized_relu(bits, integer, use_sigmoid, test_values, expected_values):
     """Test quantized_relu function."""
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_relu(bits, integer, use_sigmoid)
     result = q(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -690,7 +690,7 @@ def test_quantized_bits(
     bits, integer, symmetric, keep_negative, test_values, expected_values, rtol
 ):
     q = quantized_bits(bits, integer, symmetric, keep_negative)
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     result = q(x).numpy()
     assert_allclose(result, expected_values, rtol=rtol)
 
@@ -770,7 +770,7 @@ def test_quantized_bits_with_post_training_scale():
     ],
 )
 def test_ternary(alpha, threshold, test_values, expected_values):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     layer = ternary(alpha, threshold)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -800,7 +800,7 @@ def test_ternary(alpha, threshold, test_values, expected_values):
     ],
 )
 def test_binary(use_01, alpha, test_values, expected_values):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     layer = binary(use_01, alpha)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -820,7 +820,7 @@ def test_binary(use_01, alpha, test_values, expected_values):
     ],
 )
 def test_stochastic_round_quantized_po2(test_values, expected_values):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_po2(use_stochastic_rounding=True)
 
     res = q(x, training=True).numpy()
@@ -843,7 +843,7 @@ def test_stochastic_round_quantized_relu_po2(test_values, expected_values):
     tf.random.set_seed(666)
     np.random.seed(666)
 
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = quantized_relu_po2(use_stochastic_rounding=True)
 
     res = q(x, training=True).numpy()
@@ -903,7 +903,7 @@ def test_stochastic_binary():
     ],
 )
 def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = stochastic_binary(alpha)
     result = q(x, training=False).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -987,7 +987,7 @@ def test_stochastic_ternary(bound, alpha, temperature, expected_values, expected
 
     x_np = np.random.uniform(-bound, bound, size=(n, 10))
     x_np = np.sort(x_np, axis=1)
-    x = tf.constant(x_np, dtype=tf.keras.backend.floatx())
+    x = tf.constant(x_np, dtype=K.floatx())
 
     s = stochastic_ternary(alpha=alpha, temperature=temperature)
 
@@ -1020,7 +1020,7 @@ def test_stochastic_ternary(bound, alpha, temperature, expected_values, expected
 def test_stochastic_ternary_inference_mode(
     alpha, threshold, test_values, expected_values
 ):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     q = stochastic_ternary(alpha, threshold)
     result = q(x, training=False).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -1077,7 +1077,7 @@ def test_stochastic_ternary_inference_mode(
 def test_quantized_hswish(
     bits, integer, symmetric, relu_shift, relu_upper_bound, test_values, expected_values
 ):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     layer = quantized_hswish(
         bits,
         integer,

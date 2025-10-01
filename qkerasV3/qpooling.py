@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
+import keras
 import numpy as np
-import tensorflow as tf
 from keras import constraints, layers
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
@@ -92,7 +93,7 @@ class QAveragePooling2D(layers.AveragePooling2D):
             # Quantizes the multiplication factor.
             mult_factor = 1.0 / pool_area
             q_mult_factor = self.average_quantizer_internal(mult_factor)
-            q_mult_factor = Kops.cast(q_mult_factor, dtype=tf.keras.backend.floatx())
+            q_mult_factor = Kops.cast(q_mult_factor, dtype=keras.backend.floatx())
 
             # Computes pooling average.
             x = x * q_mult_factor

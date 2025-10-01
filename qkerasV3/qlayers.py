@@ -49,6 +49,7 @@ from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer imp
     PrunableLayer,
 )
 
+from .ops_portable import bias_add_portable
 from .quantizers import *
 from .quantizers import _get_integer_bits, get_quantizer
 
@@ -258,7 +259,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
           ema_freeze_delay: Int. Steps to wait until stopping the update of the
             exponential moving average values. Set to None for an infinite delay.
           ema_decay: Float. The decay value used for exponential moving average (see
-            tf.keras.backend.moving_average_update)
+            keras.backend.moving_average_update)
           per_channel: Bool. If to quantize the activation values on a
             per-channel basis.
           po2_rounding: Bool. If true, the EMA max value is rounded to the nearest
@@ -583,7 +584,7 @@ class Clip(constraints.Constraint):
             w = self.constraint(w)
             if self.quantizer:
                 w = self.quantizer(w)
-        w = tf.keras.backend.clip(w, self.min_value, self.max_value)
+        w = keras.ops.clip(w, self.min_value, self.max_value)
         return w
 
     def get_config(self):
@@ -693,13 +694,13 @@ class QDense(layers.Dense, PrunableLayer):
             quantized_kernel = self.kernel_quantizer_internal(self.kernel)
         else:
             quantized_kernel = self.kernel
-        output = tf.keras.backend.dot(inputs, quantized_kernel)
+        output = keras.ops.dot(inputs, quantized_kernel)
         if self.use_bias:
             if self.bias_quantizer:
                 quantized_bias = self.bias_quantizer_internal(self.bias)
             else:
                 quantized_bias = self.bias
-            output = tf.keras.backend.bias_add(
+            output = bias_add_portable(
                 output, quantized_bias, data_format="channels_last"
             )
         if self.activation is not None:

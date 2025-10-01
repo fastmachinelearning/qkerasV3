@@ -18,8 +18,6 @@
 
 import json
 
-import tensorflow as tf
-
 Q_SEQUENCE_LAYERS = ["QSimpleRNN", "QLSTM", "QGRU", "QBidirectional"]
 
 
@@ -62,7 +60,7 @@ def print_qmodel_summary(q_model):
             print()
         elif layer.__class__.__name__ == "QBatchNormalization":
             print(
-                f"{layer.name:20} QBN, mean={str(tf.keras.backend.eval(layer.moving_mean))}",
+                f"{layer.name:20} QBN, mean={str(layer.moving_mean)}",
                 end="",
             )
             print()

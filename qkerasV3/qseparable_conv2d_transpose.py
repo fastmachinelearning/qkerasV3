@@ -15,6 +15,7 @@
 # ==============================================================================
 
 
+import keras
 import tensorflow as tf
 from keras import layers
 from keras.saving import register_keras_serializable
@@ -22,6 +23,7 @@ from tensorflow.python.eager import context
 from tensorflow.python.keras import constraints
 from tensorflow.python.ops import array_ops
 
+from .ops_portable import bias_add_portable
 from .qconvolutional import deconv_output_length
 from .quantizers import get_quantizer
 
@@ -280,15 +282,6 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
         else:
             quantized_kernel = kernel_weights
 
-        output_filters = 1 if is_depthwise else filters
-
-        if self.data_format == "channels_first":
-            output_shape = (batch_size, output_filters, out_height, out_width)
-        else:
-            output_shape = (batch_size, out_height, out_width, output_filters)
-
-        output_shape_tensor = tf.stack(output_shape)
-
         # Split the input channels into groups.
         x = tf.split(inputs, self._input_shape[-1], axis=-1)
 
@@ -297,10 +290,9 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
             # convolution, we run convolution on each slice of inputs and concat
             # the results.
             outputs = [
-                tf.keras.backend.conv2d_transpose(
-                    x=x[i],
+                keras.ops.conv_transpose(
+                    x[i],
                     kernel=quantized_kernel[:, :, :, i : i + 1],
-                    output_shape=output_shape_tensor,
                     strides=strides,
                     padding=padding,
                     data_format=self.data_format,
@@ -313,10 +305,9 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
             outputs = tf.concat(outputs, axis=-1)
 
         else:
-            outputs = tf.keras.backend.conv2d_transpose(
+            outputs = keras.ops.conv_transpose(
                 inputs,
                 quantized_kernel,
-                output_shape_tensor,
                 strides=strides,
                 padding=padding,
                 data_format=self.data_format,
@@ -335,7 +326,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
 
         if use_bias:
             quantized_bias = bias_quantizer(bias) if bias_quantizer else bias
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 

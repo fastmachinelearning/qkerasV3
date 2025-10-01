@@ -16,6 +16,7 @@
 
 import warnings
 
+import keras
 import numpy as np
 import tensorflow as tf
 from keras import constraints, initializers, layers, regularizers
@@ -29,6 +30,7 @@ from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer imp
     PrunableLayer,
 )
 
+from .ops_portable import bias_add_portable
 from .qlayers import QActivation, get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
 
@@ -181,7 +183,7 @@ class QConv1D(layers.Conv1D, PrunableLayer):
         else:
             quantized_kernel = self.kernel
 
-        outputs = tf.keras.backend.conv1d(
+        outputs = keras.ops.conv(
             inputs,
             quantized_kernel,
             strides=self.strides[0],
@@ -196,7 +198,7 @@ class QConv1D(layers.Conv1D, PrunableLayer):
             else:
                 quantized_bias = self.bias
 
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 
@@ -340,7 +342,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
         )
 
     def convolution_op(self, inputs, kernel):
-        return tf.keras.backend.conv2d(
+        return keras.ops.conv(
             inputs,
             kernel,
             strides=self.strides,
@@ -384,7 +386,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
             else:
                 quantized_bias = self.bias
 
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 
@@ -509,53 +511,15 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
 
     def call(self, inputs):
         inputs_shape = array_ops.shape(inputs)
-        batch_size = inputs_shape[0]
-        if self.data_format == "channels_first":
-            h_axis, w_axis = 2, 3
-        else:
-            h_axis, w_axis = 1, 2
-
-        height, width = inputs_shape[h_axis], inputs_shape[w_axis]
-        kernel_h, kernel_w = self.kernel_size
-        stride_h, stride_w = self.strides
-
-        if self.output_padding is None:
-            out_pad_h = out_pad_w = None
-        else:
-            out_pad_h, out_pad_w = self.output_padding
-
-        # Infer the dynamic output shape:
-        out_height = deconv_output_length(
-            height,
-            kernel_h,
-            padding=self.padding,
-            output_padding=out_pad_h,
-            stride=stride_h,
-            dilation=self.dilation_rate[0],
-        )
-        out_width = deconv_output_length(
-            width,
-            kernel_w,
-            padding=self.padding,
-            output_padding=out_pad_w,
-            stride=stride_w,
-            dilation=self.dilation_rate[1],
-        )
-        if self.data_format == "channels_first":
-            output_shape = (batch_size, self.filters, out_height, out_width)
-        else:
-            output_shape = (batch_size, out_height, out_width, self.filters)
 
         if self.kernel_quantizer:
             quantized_kernel = self.kernel_quantizer_internal(self.kernel)
         else:
             quantized_kernel = self.kernel
 
-        output_shape_tensor = tf.stack(output_shape)
-        outputs = tf.keras.backend.conv2d_transpose(
+        outputs = keras.ops.conv_transpose(
             inputs,
             quantized_kernel,
-            output_shape_tensor,
             strides=self.strides,
             padding=self.padding,
             data_format=self.data_format,
@@ -573,7 +537,7 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
             else:
                 quantized_bias = self.bias
 
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 
@@ -741,7 +705,7 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
         else:
             quantized_pointwise_kernel = pointwise_kernel
 
-        outputs = tf.keras.backend.separable_conv2d(
+        outputs = keras.ops.separable_conv(
             inputs,
             quantized_depthwise_kernel,
             quantized_pointwise_kernel,
@@ -757,7 +721,7 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
             else:
                 quantized_bias = self.bias
 
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 
@@ -915,7 +879,7 @@ class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
         else:
             quantized_pointwise_kernel = self.pointwise_kernel
 
-        outputs = tf.keras.backend.separable_conv2d(
+        outputs = keras.ops.separable_conv(
             inputs,
             quantized_depthwise_kernel,
             quantized_pointwise_kernel,
@@ -931,7 +895,7 @@ class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
             else:
                 quantized_bias = self.bias
 
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 
@@ -1115,7 +1079,7 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
             )
         else:
             quantized_depthwise_kernel = self.depthwise_kernel
-        outputs = tf.keras.backend.depthwise_conv2d(
+        outputs = keras.ops.depthwise_conv(
             inputs,
             quantized_depthwise_kernel,
             strides=self.strides,
@@ -1129,7 +1093,7 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
                 quantized_bias = self.bias_quantizer_internal(self.bias)
             else:
                 quantized_bias = self.bias
-            outputs = tf.keras.backend.bias_add(
+            outputs = bias_add_portable(
                 outputs, quantized_bias, data_format=self.data_format
             )
 

@@ -22,6 +22,7 @@ from keras import ops as Kops
 from tensorflow.python.framework import smart_cond as tf_utils
 from tensorflow.python.ops import array_ops, math_ops
 
+from .ops_portable import bias_add_portable
 from .qconvolutional import QDepthwiseConv2D
 from .quantizers import *
 
@@ -68,13 +69,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         gamma_regularizer=None,
         beta_constraint=None,
         gamma_constraint=None,
-        renorm=False,
-        renorm_clipping=None,
-        renorm_momentum=0.99,
-        fused=None,
         trainable=True,
-        virtual_batch_size=None,
-        adjustment=None,
         # other params
         ema_freeze_delay=None,
         folding_mode="ema_stats_folding",
@@ -193,7 +188,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         depthwise_kernel = self.depthwise_kernel
 
         # Depthwise Convolution
-        conv_outputs = tf.keras.backend.depthwise_conv2d(
+        conv_outputs = keras.ops.depthwise_conv(
             inputs,
             depthwise_kernel,
             strides=self.strides,
@@ -204,7 +199,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
 
         if self.use_bias:
             bias = self.bias
-            conv_outputs = tf.keras.backend.bias_add(
+            conv_outputs = bias_add_portable(
                 conv_outputs, bias, data_format=self.data_format
             )
         else:
@@ -282,7 +277,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         applied_kernel = q_folded_depthwise_kernel
         applied_bias = q_folded_bias
 
-        folded_outputs = tf.keras.backend.depthwise_conv2d(
+        folded_outputs = keras.ops.depthwise_conv(
             inputs,
             applied_kernel,
             strides=self.strides,
@@ -300,7 +295,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             )
             folded_outputs = folded_outputs * y_corr
 
-        folded_outputs = tf.keras.backend.bias_add(
+        folded_outputs = bias_add_portable(
             folded_outputs, applied_bias, data_format=self.data_format
         )
 

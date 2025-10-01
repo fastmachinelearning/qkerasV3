@@ -166,7 +166,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     def apply_quantizer(quantizer, input_weight):
         if quantizer:
             weight = tf.constant(input_weight)
-            weight = tf.keras.backend.eval(quantizer(weight))
+            weight = quantizer(weight)
         else:
             weight = input_weight
         return weight
@@ -190,7 +190,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     inv = inv.numpy()
     if bn_layer.inverse_quantizer_internal is not None:
         quantizer = bn_layer.inverse_quantizer_internal
-        inv = tf.keras.backend.eval(quantizer(inv))
+        inv = quantizer(inv)
 
     # Compute fused_bias[i]
     if prev_layer.use_bias:
@@ -283,7 +283,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
             for quantizer, weight in zip(qs, ws):
                 if quantizer:
                     weight = tf.constant(weight)
-                    weight = tf.keras.backend.eval(quantizer(weight))
+                    weight = quantizer(weight)
 
                 # If quantizer is power-of-2 (quantized_po2 or quantized_relu_po2),
                 # we would like to process it here.
@@ -325,9 +325,9 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                     scales.append([])
                 elif q_name == "quantized_bits" and quantizer.alpha == "auto_po2":
                     unsigned_bits = quantizer.bits - quantizer.keep_negative
-                    m = Kops.cast(pow(2.0, unsigned_bits), tf.keras.backend.floatx())
+                    m = Kops.cast(pow(2.0, unsigned_bits), keras.backend.floatx())
                     m_i = Kops.cast(
-                        tf.pow(2.0, quantizer.integer), tf.keras.backend.floatx()
+                        tf.pow(2.0, quantizer.integer), keras.backend.floatx()
                     )
 
                     assert hasattr(quantizer.scale, "numpy") or isinstance(
@@ -341,7 +341,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                         if isinstance(quantizer.scale, np.ndarray)
                         else quantizer.scale.numpy()
                     )
-                    scale = Kops.cast(scale, tf.keras.backend.floatx())
+                    scale = Kops.cast(scale, keras.backend.floatx())
                     # Make sure scale is power of 2 values
                     log2val = np.log2(scale)
                     diff = np.round(log2val) - log2val

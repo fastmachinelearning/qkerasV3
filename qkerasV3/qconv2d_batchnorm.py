@@ -25,6 +25,7 @@ from six.moves import range
 from tensorflow.python.framework import smart_cond as tf_utils
 from tensorflow.python.ops import math_ops
 
+from .ops_portable import bias_add_portable
 from .qconvolutional import QConv2D
 from .quantizers import *
 
@@ -70,13 +71,7 @@ class QConv2DBatchnorm(QConv2D):
         gamma_regularizer=None,
         beta_constraint=None,
         gamma_constraint=None,
-        renorm=False,
-        renorm_clipping=None,
-        renorm_momentum=0.99,
-        fused=None,
         trainable=True,
-        virtual_batch_size=None,
-        adjustment=None,
         # other params
         ema_freeze_delay=None,
         folding_mode="ema_stats_folding",
@@ -113,6 +108,7 @@ class QConv2DBatchnorm(QConv2D):
             kernel_size=kernel_size,
             strides=strides,
             padding=padding,
+            data_format=data_format,
             dilation_rate=dilation_rate,
             activation=activation,
             use_bias=use_bias,
@@ -186,7 +182,7 @@ class QConv2DBatchnorm(QConv2D):
         kernel = self.kernel
 
         # run conv to produce output for the following batchnorm
-        conv_outputs = tf.keras.backend.conv2d(
+        conv_outputs = keras.ops.conv(
             inputs,
             kernel,
             strides=self.strides,
@@ -197,7 +193,7 @@ class QConv2DBatchnorm(QConv2D):
 
         if self.use_bias:
             bias = self.bias
-            conv_outputs = tf.keras.backend.bias_add(
+            conv_outputs = bias_add_portable(
                 conv_outputs, bias, data_format=self.data_format
             )
         else:
@@ -303,7 +299,7 @@ class QConv2DBatchnorm(QConv2D):
         applied_bias = q_folded_bias
 
         # calculate conv2d output using the quantized folded kernel
-        folded_outputs = tf.keras.backend.conv2d(
+        folded_outputs = keras.ops.conv(
             inputs,
             applied_kernel,
             strides=self.strides,
@@ -323,7 +319,7 @@ class QConv2DBatchnorm(QConv2D):
             )
             folded_outputs = math_ops.mul(folded_outputs, y_corr)
 
-        folded_outputs = tf.keras.backend.bias_add(
+        folded_outputs = bias_add_portable(
             folded_outputs, applied_bias, data_format=self.data_format
         )
         if self.activation is not None:

@@ -232,7 +232,7 @@ def test_quantized_relu(
     bits, integer, use_sigmoid, negative_slope, test_values, expected_values
 ):
     """Test quantized_relu function."""
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     layer = quantized_relu(bits, integer, use_sigmoid, negative_slope)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -398,7 +398,7 @@ def test_quantized_relu(
     ],
 )
 def test_quantized_relu_po2(bits, negative_slope, test_values, expected_values):
-    x = tf.constant(test_values, dtype=tf.keras.backend.floatx())
+    x = tf.constant(test_values, dtype=K.floatx())
     layer = quantized_relu_po2(bits, negative_slope=negative_slope)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
