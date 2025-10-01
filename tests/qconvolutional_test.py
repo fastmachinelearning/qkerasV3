@@ -18,9 +18,9 @@
 import os
 import tempfile
 
+import keras
 import numpy as np
 import pytest
-import tensorflow as tf
 from keras.backend import clear_session
 from keras.layers import Activation, Flatten, Input
 from keras.models import Model
@@ -160,7 +160,7 @@ def test_qnetwork():
 
 
 def test_sequential_qnetwork():
-    inputs = tf.keras.Input(shape=(28, 28, 1), name="input")
+    inputs = keras.Input(shape=(28, 28, 1), name="input")
     x = QConv2D(
         32,
         (2, 2),
@@ -197,7 +197,7 @@ def test_sequential_qnetwork():
     )(x)
     outputs = Activation("softmax", name="softmax")(x)
 
-    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    model = keras.Model(inputs=inputs, outputs=outputs)
 
     # Check that all model operation were found correctly
     model_ops = extract_model_operations(model)
@@ -348,8 +348,8 @@ def test_qconv2dtranspose():
 
 def test_masked_qconv2d_creates_correct_parameters():
     mask = mask = np.ones((5, 5), dtype=np.float32)
-    model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Input(shape=(10, 10, 1)))
+    model = keras.Sequential()
+    model.add(keras.layers.Input(shape=(10, 10, 1)))
     model.add(QConv2D(mask=mask, filters=1, kernel_size=(5, 5), use_bias=False))
 
     # There should be no non-trainable params.
@@ -374,8 +374,8 @@ def test_qconv2d_masks_weights():
         ],
         dtype=np.float32,
     )
-    model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Input(shape=(5, 5, 1)))
+    model = keras.Sequential()
+    model.add(keras.layers.Input(shape=(5, 5, 1)))
     model.add(QConv2D(mask=mask, filters=1, kernel_size=(5, 5), use_bias=False))
 
     # Set the weights to be all ones.
@@ -388,8 +388,8 @@ def test_qconv2d_masks_weights():
 
 
 def test_masked_qconv2d_load_restore_works():
-    model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Input(shape=(10, 10, 1)))
+    model = keras.Sequential()
+    model.add(keras.layers.Input(shape=(10, 10, 1)))
     model.add(
         QConv2D(
             mask=np.ones((5, 5), dtype=np.float32),
@@ -408,7 +408,7 @@ def test_masked_qconv2d_load_restore_works():
         custom_objects = {
             "QConv2D": QConv2D,
         }
-        loaded_model = tf.keras.models.load_model(
+        loaded_model = keras.models.load_model(
             model_path, custom_objects=custom_objects
         )
 
@@ -418,8 +418,8 @@ def test_masked_qconv2d_load_restore_works():
 
 
 def test_qconv2d_groups_works():
-    model = tf.keras.Sequential()
-    model.add(tf.keras.layers.Input(shape=(10, 10, 10)))
+    model = keras.Sequential()
+    model.add(keras.layers.Input(shape=(10, 10, 10)))
     model.add(
         QConv2D(
             filters=6,
