@@ -243,7 +243,7 @@ def test_find_bn_fusing_layer_pair():
 
 def create_test_model_for_scale_freezing(bias_quantizer):
     def _create_simple_model(bias_quantizer):
-        x = x_in = tf.keras.Input((4, 4, 1), name="input")
+        x = x_in = keras.Input((4, 4, 1), name="input")
         x = QConv2D(
             filters=4,
             kernel_size=2,
@@ -271,14 +271,14 @@ def create_test_model_for_scale_freezing(bias_quantizer):
         )(x)
 
         x = QActivation(activation=quantized_bits(4, 0), name="relu")(x)
-        x = tf.keras.layers.Flatten(name="flatten")(x)
+        x = keras.layers.Flatten(name="flatten")(x)
         x = QDense(
             units=2,
             kernel_quantizer=quantized_bits(4, 2, 1, alpha="auto_po2"),
             bias_quantizer=bias_quantizer,
             name="dense",
         )(x)
-        model = tf.keras.Model(inputs=x_in, outputs=x)
+        model = keras.Model(inputs=x_in, outputs=x)
 
         return model
 
