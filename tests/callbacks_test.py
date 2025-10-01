@@ -19,6 +19,7 @@
 import numpy as np
 import pytest
 import tensorflow as tf
+from keras import layers
 from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal
@@ -28,7 +29,7 @@ from qkerasV3.callbacks import QNoiseScheduler
 
 
 def qconv_model():
-    x = x_in = tf.keras.layers.Input((4, 4, 1), name="input")
+    x = x_in = layers.Input((4, 4, 1), name="input")
     x = QConv2D(
         1,
         2,
