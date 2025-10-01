@@ -16,7 +16,7 @@
 """Utility functions for folding batchnorm with qconv/qdense layers."""
 
 
-import tensorflow as tf
+import keras
 from keras import Input, models
 
 from .qconvolutional import QConv2D, QDepthwiseConv2D
@@ -207,7 +207,7 @@ def populate_bias_quantizer_from_accumulator(model, source_quantizers):
                     layer
                 ].bias_quantizer
 
-                if tf.is_tensor(qtools_bias_quantizer.int_bits):
+                if keras.utils.is_keras_tensor(qtools_bias_quantizer.int_bits):
                     qtools_bias_quantizer.int_bits = (
                         qtools_bias_quantizer.int_bits.numpy()
                     )

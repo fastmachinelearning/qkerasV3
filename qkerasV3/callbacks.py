@@ -14,11 +14,63 @@
 # limitations under the License.
 # ==============================================================================
 
+import contextlib
+import json
+import os
+import threading
+import time
+
+import keras
 import numpy as np
-import tensorflow as tf
+
+_current = threading.local()
+_current.writer = None
+
+class _JSONLWriter:
+    def __init__(self, log_dir: str):
+        os.makedirs(log_dir, exist_ok=True)
+        fname = f"events_{int(time.time())}.jsonl"
+        self.path = os.path.join(log_dir, fname)
+        # Line-buffered for immediate writes
+        self._fh = open(self.path, "a", buffering=1, encoding="utf-8")
+
+    @contextlib.contextmanager
+    def as_default(self):
+        prev = getattr(_current, "writer", None)
+        _current.writer = self
+        try:
+            yield self
+        finally:
+            _current.writer = prev
+
+    def _write_scalar(self, tag: str, value, step: int):
+        rec = {
+            "wall_time": time.time(),
+            "step": int(step),
+            "tag": str(tag),
+            "value": float(value),
+        }
+        self._fh.write(json.dumps(rec) + "\n")
+
+    def close(self):
+        try:
+            self._fh.close()
+        except Exception:
+            pass
+
+def create_file_writer(log_dir: str):
+    """Create a writer object with .as_default() context manager."""
+    return _JSONLWriter(log_dir)
+
+def scalar(name: str, data, step: int):
+    """Write a scalar under the active default writer."""
+    w = getattr(_current, "writer", None)
+    if w is None:
+        raise RuntimeError("No default writer set. Use `with writer.as_default():`.")
+    w._write_scalar(name, data, step)
 
 
-class QNoiseScheduler(tf.keras.callbacks.Callback):
+class QNoiseScheduler(keras.callbacks.Callback):
     """Schedules the gradual quantization noise training for each step (or epoch).
 
     It updates the qnoise_factor in the quantizers to gradually introduce the
@@ -75,9 +127,7 @@ class QNoiseScheduler(tf.keras.callbacks.Callback):
         self.qnoise_factor = None
         self.use_ste = use_ste
         self.quantizers = None
-        self.summary_writer = None
-        if log_dir:
-            self.summary_writer = tf.summary.create_file_writer(log_dir)
+        self.summary_writer = create_file_writer(log_dir) if log_dir else None
         self.num_iters = np.array(0, dtype="int64")
 
     def calculate_qnoise_factor(self, freq):
@@ -119,10 +169,10 @@ class QNoiseScheduler(tf.keras.callbacks.Callback):
             if hasattr(quantizer, "use_variables"):
                 quantizer.use_variables = True
             if hasattr(quantizer, "built"):
-                # If the quantizer has been built but not using tf.Variable then it
-                # builds again to create tf.Variables.
+                # If the quantizer has been built but not using keras.Variable then it
+                # builds again to create keras.Variables.
                 if quantizer.built and not isinstance(
-                    quantizer.qnoise_factor, tf.Variable
+                    quantizer.qnoise_factor, keras.Variable
                 ):
                     quantizer.build(use_variables=True)
 
@@ -179,9 +229,9 @@ class QNoiseScheduler(tf.keras.callbacks.Callback):
             self.update_qnoise_factor(self.initial_step_or_epoch + self.num_iters)
 
     def on_epoch_end(self, epoch, logs=None):
-        if self.summary_writer:
+        if self.summary_writer and self.qnoise_factor is not None:
             with self.summary_writer.as_default():
-                tf.summary.scalar("qnoise_factor", data=self.qnoise_factor, step=epoch)
+                scalar("qnoise_factor", data=self.qnoise_factor, step=epoch)
 
     def on_train_batch_begin(self, batch, logs=None):
         if self.freq_type == "step":

@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import keras
+import numpy as np
 import tensorflow as tf
 from keras import backend as K
 
@@ -49,10 +51,10 @@ class BaseQuantizer(tf.Module):
     def build(self, var_name=None, use_variables=False):
         if use_variables:
             if hasattr(self, "qnoise_factor"):
-                self.qnoise_factor = tf.Variable(
-                    lambda: tf.constant(self.qnoise_factor, dtype=tf.float32),
+                self.qnoise_factor = keras.Variable(
+                    np.array(self.qnoise_factor, dtype="float32"),
                     name=_create_variable_name("qnoise_factor", var_name=var_name),
-                    dtype=tf.float32,
+                    dtype="float32",
                     trainable=False,
                 )
         self.built = True
@@ -62,18 +64,18 @@ class BaseQuantizer(tf.Module):
 
     def update_qnoise_factor(self, qnoise_factor):
         """Update qnoise_factor."""
-        if isinstance(self.qnoise_factor, tf.Variable):
-            # self.qnoise_factor is a tf.Variable.
+        if isinstance(self.qnoise_factor, keras.Variable):
+            # self.qnoise_factor is a keras.Variable.
             # This is to update self.qnoise_factor during training.
             self.qnoise_factor.assign(qnoise_factor)
-        elif isinstance(qnoise_factor, tf.Variable):
+        elif isinstance(qnoise_factor, keras.Variable):
             # self.qnoise_factor is a numpy variable, and qnoise_factor is a
-            # tf.Variable.
+            # keras.Variable.
             self.qnoise_factor = qnoise_factor.eval()
         else:
             # self.qnoise_factor and qnoise_factor are numpy variables.
             # This is to set self.qnoise_factor before building
-            # (creating tf.Variable) it.
+            # (creating keras.Variable) it.
             self.qnoise_factor = qnoise_factor
 
     # Override not to expose the quantizer variables.
