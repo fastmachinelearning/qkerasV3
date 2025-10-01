@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import tensorflow as tf
+import keras
 from keras import constraints
 from keras.saving import register_keras_serializable
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
@@ -28,7 +28,7 @@ from .quantizers import get_quantizer
 
 
 @register_keras_serializable(package="qkerasV3")
-class QScaleShift(tf.keras.layers.Layer, PrunableLayer):
+class QScaleShift(keras.layers.Layer, PrunableLayer):
     """Quantized scale and shift layer.
 
     output = scale * x + bias where scale and bias are each of shape (1,).
@@ -119,7 +119,7 @@ class QScaleShift(tf.keras.layers.Layer, PrunableLayer):
             else self.weight
         )
 
-        outputs = tf.math.multiply(inputs, quantized_weight)
+        outputs = inputs * quantized_weight
 
         if self.use_bias:
             quantized_bias = (
