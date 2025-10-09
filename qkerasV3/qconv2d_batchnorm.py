@@ -17,7 +17,7 @@
 
 
 import keras
-import tensorflow as tf
+import keras.ops.numpy as knp
 from keras import layers
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
@@ -28,8 +28,6 @@ from tensorflow.python.ops import math_ops
 from .ops_portable import bias_add_portable
 from .qconvolutional import QConv2D
 from .quantizers import *
-
-tf.compat.v2.enable_v2_behavior()
 
 
 # TODO(lishanok): Create an abstract folding parent class
@@ -168,7 +166,7 @@ class QConv2DBatchnorm(QConv2D):
     def call(self, inputs, training=False):
         # numpy value, mark the layer is in training
         if training is None:
-            training = tf.constant(False)  # pylint: disable=protected-access
+            training = False  # pylint: disable=protected-access
 
         # checking if to update batchnorm params
         if (self.ema_freeze_delay is None) or (self.ema_freeze_delay < 0):
@@ -176,7 +174,7 @@ class QConv2DBatchnorm(QConv2D):
             bn_training = Kops.cast(training, dtype=bool)
         else:
             bn_training = Kops.logical_and(
-                training, tf.math.less_equal(self._iteration, self.ema_freeze_delay)
+                training, knp.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
         kernel = self.kernel
@@ -204,8 +202,8 @@ class QConv2DBatchnorm(QConv2D):
         self._iteration.assign_add(
             tf_utils.smart_cond(
                 training,
-                lambda: tf.constant(1, tf.int64),
-                lambda: tf.constant(0, tf.int64),
+                lambda: knp.array(1, dtype="int64"),
+                lambda: knp.array(0, dtype="int64"),
             )
         )
 
@@ -219,7 +217,7 @@ class QConv2DBatchnorm(QConv2D):
         reduction_axes = [i for i in range(ndims) if i not in axes]
 
         keep_dims = len(axes) > 1
-        mean, variance = tf.nn.moments(  # pylint: disable=protected-access
+        mean, variance = keras.ops.moments(  # pylint: disable=protected-access
             math_ops.cast(conv_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
             reduction_axes,
             keepdims=keep_dims,
@@ -315,7 +313,7 @@ class QConv2DBatchnorm(QConv2D):
                     math_ops.sqrt(moving_variance + self.batchnorm.epsilon)
                     * math_ops.rsqrt(variance + self.batchnorm.epsilon)
                 ),
-                lambda: tf.constant(1.0, shape=moving_variance.shape),
+                lambda: 1.0,
             )
             folded_outputs = math_ops.mul(folded_outputs, y_corr)
 

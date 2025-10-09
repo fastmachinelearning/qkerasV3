@@ -17,8 +17,8 @@
 
 import os
 
-from tensorflow.keras.initializers import *  # pylint: disable=wildcard-import
-from tensorflow.keras.layers import (
+from keras.initializers import *  # pylint: disable=wildcard-import
+from keras.layers import (
     Activation,
     BatchNormalization,
     Conv2D,
@@ -29,8 +29,8 @@ from tensorflow.keras.layers import (
     Input,
     MaxPooling2D,
 )
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import *  # pylint: disable=wildcard-import
+from keras.models import Model
+from keras.optimizers import *  # pylint: disable=wildcard-import
 
 from qkerasV3 import *  # pylint: disable=wildcard-import
 

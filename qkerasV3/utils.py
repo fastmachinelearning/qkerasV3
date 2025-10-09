@@ -21,10 +21,9 @@ import tempfile
 import types
 
 import keras
+import keras.ops.numpy as knp
 import networkx as nx
-import numpy as np
 import six
-import tensorflow as tf
 from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
 from tensorflow.python.ops import math_ops
@@ -165,7 +164,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
 
     def apply_quantizer(quantizer, input_weight):
         if quantizer:
-            weight = tf.constant(input_weight)
+            weight = input_weight
             weight = quantizer(weight)
         else:
             weight = input_weight
@@ -282,7 +281,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
 
             for quantizer, weight in zip(qs, ws):
                 if quantizer:
-                    weight = tf.constant(weight)
+                    weight = weight
                     weight = quantizer(weight)
 
                 # If quantizer is power-of-2 (quantized_po2 or quantized_relu_po2),
@@ -315,37 +314,38 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                     # Quantized_relu_po2 does not have a sign.
                     if q_name == "quantized_po2":
                         has_sign = True
-                    sign = np.sign(weight)
+                    sign = knp.sign(weight)
                     # Makes sure values are -1 or +1 only
-                    sign += 1.0 - np.abs(sign)
+                    sign += 1.0 - knp.abs(sign)
                     # hw_weight store the weight in the format that hardware inference
                     # uses.
-                    hw_weight = np.round(np.log2(np.abs(weight)))
+                    hw_weight = knp.round(knp.log2(knp.abs(weight)))
                     signs.append(sign)
                     scales.append([])
                 elif q_name == "quantized_bits" and quantizer.alpha == "auto_po2":
                     unsigned_bits = quantizer.bits - quantizer.keep_negative
-                    m = Kops.cast(pow(2.0, unsigned_bits), keras.backend.floatx())
+                    m = Kops.cast(pow(2.0, unsigned_bits), float)
                     m_i = Kops.cast(
-                        tf.pow(2.0, quantizer.integer), keras.backend.floatx()
+                        keras.ops.power(2.0, quantizer.integer), float
                     )
 
-                    assert hasattr(quantizer.scale, "numpy") or isinstance(
-                        quantizer.scale, np.ndarray
-                    ), (
+                    assert  isinstance(quantizer.scale, np.ndarray) or \
+                            isinstance(quantizer.scale, KerasTensor) or \
+                            isinstance(quantizer.scale, tf.Tensor)
+                    (
                         "The auto_po2 quantizer has to be called first in order "
                         "to know the values of scale."
                     )
                     scale = (
-                        quantizer.scale
-                        if isinstance(quantizer.scale, np.ndarray)
-                        else quantizer.scale.numpy()
+                        quantizer.scale.numpy()
+                        if isinstance(quantizer.scale, KerasTensor)
+                        else quantizer.scale
                     )
-                    scale = Kops.cast(scale, keras.backend.floatx())
+                    scale = Kops.cast(scale, float)
                     # Make sure scale is power of 2 values
-                    log2val = np.log2(scale)
-                    diff = np.round(log2val) - log2val
-                    assert np.all(diff == 0), "scale must be power of 2 values!"
+                    log2val = knp.log2(scale)
+                    diff = knp.round(log2val) - log2val
+                    assert knp.all(diff == 0), "scale must be power of 2 values!"
                     # Convert fixed point weight to integer weight, just
                     hw_weight = weight * m / m_i
                     # Because hw_weight is integer weights, set scale = scale * m_i / m
@@ -374,11 +374,14 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                     if isinstance(layer.pool_size, int):
                         pool_area = layer.pool_size * layer.pool_size
                     else:
-                        pool_area = np.prod(layer.pool_size)
+                        pool_area = knp.prod(layer.pool_size)
                 else:
                     pool_area = layer.compute_pooling_area(
                         input_shape=layer.input.shape
                     )
+
+                pool_area = keras.ops.cast(pool_area, dtype=float)
+
                 if hasattr(layer, "average_quantizer_internal") and callable(
                     layer.average_quantizer_internal
                 ):
@@ -478,7 +481,7 @@ def get_y_from_TFOpLambda(model_cfg, layer):
     Return:
       value of "y" for a TFOpLambda layer. 'y' here corresponds to how tensorflow
       stores TFOpLambda layer parameter in serialization. for example,
-      TFOpLambda(func), where func is tf.multiply(input_tensor, 3). "y" would be
+      TFOpLambda(func), where func is knp.multiply(input_tensor, 3). "y" would be
       the value 3.
     """
 
@@ -489,7 +492,7 @@ def get_y_from_TFOpLambda(model_cfg, layer):
         # TODO(lishanok): Extend support for other TFOpLambda types when needed
         if op_name == layer.name and class_name == "TFOpLambda":
             assert (
-                "tf.__operators__.add" in op_name or "tf.math.multiply" in op_name
+                "knp.multiply" in op_name
             ), f"TFOpLambda layer {op_name} not supported!"
             return layer_config["inbound_nodes"][-1][-1]["y"]
 
@@ -1306,13 +1309,13 @@ def get_model_sparsity(model, per_layer=False, allow_list=None):
                     weight_numpy = weight.numpy().ravel()
                 layer_weights.append(weight_numpy)
                 all_weights.append(weight_numpy)
-            layer_weights = np.concatenate(layer_weights)
-            layer_sparsity.append((layer.name, np.mean(layer_weights == 0)))
+            layer_weights = knp.concatenate(layer_weights)
+            layer_sparsity.append((layer.name, knp.mean(layer_weights == 0)))
 
     if len(all_weights) > 0:
         # Average the sparsity for the entire model.
-        all_weights = np.concatenate(all_weights)
-        total_sparsity = np.mean(all_weights == 0)
+        all_weights = knp.concatenate(all_weights)
+        total_sparsity = knp.mean(all_weights == 0)
     if per_layer:
         return (total_sparsity, layer_sparsity)
     else:
@@ -1345,7 +1348,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
 
     y_pred = model_debug.predict(X_test)
 
-    print("{:30} {: 8.4f} {: 8.4f}".format("input", np.min(X_test), np.max(X_test)))
+    print("{:30} {: 8.4f} {: 8.4f}".format("input", knp.min(X_test), knp.max(X_test)))
 
     for n, p in zip(output_names, y_pred):
         layer = model.get_layer(n)
@@ -1357,11 +1360,11 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
         else:
             alpha = 1.0
         print(
-            f"{n:30} {np.min(p / alpha): 8.4f} {np.max(p / alpha): 8.4f}",
+            f"{n:30} {knp.min(p / alpha): 8.4f} {knp.max(p / alpha): 8.4f}",
             end="",
         )
         if alpha != 1.0:
-            print(f" a[{np.min(alpha): 8.4f} {np.max(alpha):8.4f}]")
+            print(f" a[{knp.min(alpha): 8.4f} {knp.max(alpha):8.4f}]")
         if plot and layer.__class__.__name__ in [
             "QConv1D",
             "QConv2D",
@@ -1392,10 +1395,10 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
         for i, weights in enumerate(weights_to_examine):
             if hasattr(layer, "get_quantizers") and layer.get_quantizers()[i]:
                 # Quantize the current weight using the corresponding quantizer
-                quantized_weights = layer.get_quantizers()[i](tf.constant(weights))
+                quantized_weights = layer.get_quantizers()[i](weights)
 
                 # Evaluate the tensor to a NumPy array if necessary
-                if isinstance(quantized_weights, tf.Tensor):
+                if isinstance(quantized_weights, KerasTensor):
                     weights = quantized_weights.numpy()
                 else:
                     weights = quantized_weights
@@ -1415,7 +1418,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
                 ]:
                     alpha = get_weight_scale(layer.get_quantizers()[i], weights)
                     alpha_mask = alpha == 0.0
-                    weights = np.where(alpha_mask, weights * alpha, weights / alpha)
+                    weights = knp.where(alpha_mask, weights * alpha, weights / alpha)
 
                     if plot:
                         plt_instance.hist(weights.flatten(), bins=25)
@@ -1423,12 +1426,12 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
                         plt_instance.show()
 
             print(
-                f" ({np.min(weights): 8.4f} {np.max(weights): 8.4f})", end=""
+                f" ({knp.min(weights): 8.4f} {knp.max(weights): 8.4f})", end=""
             )
 
-        if alpha is not None and isinstance(alpha, np.ndarray):
+        if alpha is not None and isinstance(alpha, KerasTensor):
             print(
-                f" a({np.min(alpha): 10.6f} {np.max(alpha): 10.6f})", end=""
+                f" a({knp.min(alpha): 10.6f} {knp.max(alpha): 10.6f})", end=""
             )
         print("")
 
@@ -1468,7 +1471,7 @@ def quantized_model_dump(model, x_test, output_dir=None, layers_to_dump=[]):
         filename = os.path.join(output_dir, name + ".bin")
         print("writing the layer output tensor to ", filename)
         with open(filename, "w") as fid:
-            tensor_data.astype(np.float32).tofile(fid)
+            tensor_data.astype("float32").tofile(fid)
 
 
 def clone_model_and_freeze_auto_po2_scale(
@@ -1572,11 +1575,11 @@ def clone_model_and_freeze_auto_po2_scale(
                 val2 = hw_weights_1[layer_name][key]
                 if isinstance(val1, list):
                     for v1, v2 in zip(val1, val2):
-                        if not np.all(v1 == v2):
+                        if not knp.all(v1 == v2):
                             raise ValueError(
                                 f"{layer_name}/{key}: No Match! v1={v1}, v2={v2}"
                             )
-                elif not np.all(val1 == val2):
+                elif not knp.all(val1 == val2):
                     raise ValueError(
                         f"{layer_name}/{key}: No Match! val1={val1}, val2={val2}"
                     )

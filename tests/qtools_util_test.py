@@ -16,14 +16,19 @@
 """Tests for qtools_util module."""
 
 
+import keras
 import numpy as np
 import pytest
+from numpy.testing import assert_equal
 
 from qkerasV3 import quantizers
 from qkerasV3.qtools import qtools_util, quantized_operators
 from qkerasV3.qtools.quantized_operators import (
     quantizer_factory as quantizer_factory_module,
 )
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 @pytest.mark.parametrize(
@@ -84,15 +89,16 @@ def test_adjust_multiplier_for_auto_po2(
 
     multiplier = multiplier_factory.make_multiplier(weight_quantizer, input_quantizer)
 
-    np.testing.assert_equal(multiplier.output.bits, expected_bits_before_adjustment)
-    np.testing.assert_equal(
+    assert_equal(multiplier.output.bits, expected_bits_before_adjustment)
+    assert_equal(
         multiplier.output.int_bits, expected_int_bits_before_adjustment
     )
 
     qtools_util.adjust_multiplier_for_auto_po2(multiplier, qkerasV3_weight_quantizer)
     print(f"after adjustment: {multiplier.output.bits}, {multiplier.output.int_bits}")
-    np.testing.assert_equal(multiplier.output.bits, expected_bits_after_adjustment)
-    np.testing.assert_equal(
+    print(multiplier.output.bits, expected_bits_after_adjustment, multiplier.output.int_bits, expected_int_bits_after_adjustment)
+    assert_equal(multiplier.output.bits, expected_bits_after_adjustment)
+    assert_equal(
         multiplier.output.int_bits, expected_int_bits_after_adjustment
     )
 

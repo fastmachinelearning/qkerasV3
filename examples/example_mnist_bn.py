@@ -19,19 +19,17 @@
 
 
 
-import numpy as np
-import tensorflow.keras.backend as K
+import keras.backend as K
+import keras.ops.numpy as knp
+from keras import callbacks
+from keras.datasets import mnist
+from keras.layers import *
+from keras.models import Model
+from keras.optimizers import *
+from keras.utils import to_categorical
 from six.moves import zip
-from tensorflow.keras import callbacks
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import *
-from tensorflow.keras.utils import to_categorical
 
 from qkerasV3 import *
-
-np.random.seed(42)
 
 TRAIN = 1
 NB_EPOCH = 2
@@ -57,7 +55,7 @@ class LearningRateAdjuster(callbacks.Callback):
                 "BatchNormalization",
                 "QBatchNormalization",
             ]:
-                variance = np.max(layer.get_weights()[-1])
+                variance = knp.max(layer.get_weights()[-1])
                 max_variance = max(variance, max_variance)
 
         if max_variance > 32 and self.learning_rate_factor < 100:
@@ -73,8 +71,8 @@ lra = LearningRateAdjuster()
 
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-x_train = x_train.reshape(x_train.shape + (1,)).astype("float32")
-x_test = x_test.reshape(x_test.shape + (1,)).astype("float32")
+x_train = x_train.reshape(x_train.shape + (1,)).astype(float)
+x_test = x_test.reshape(x_test.shape + (1,)).astype(float)
 
 x_train /= 256.0
 x_test /= 256.0
@@ -200,16 +198,16 @@ if TRAIN:
 
     outputs = model_debug.predict(x_train)
 
-    print("{:30} {: 8.4f} {: 8.4f}".format("input", np.min(x_train), np.max(x_train)))
+    print("{:30} {: 8.4f} {: 8.4f}".format("input", knp.min(x_train), knp.max(x_train)))
 
     for n, p in zip(output_names, outputs):
-        print(f"{n:30} {np.min(p): 8.4f} {np.max(p): 8.4f}", end="")
+        print(f"{n:30} {knp.min(p): 8.4f} {knp.max(p): 8.4f}", end="")
         layer = model.get_layer(n)
         for i, weights in enumerate(layer.get_weights()):
             if layer.get_quantizers()[i]:
                 weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
             print(
-                f" ({np.min(weights): 8.4f} {np.max(weights): 8.4f})", end=""
+                f" ({knp.min(weights): 8.4f} {knp.max(weights): 8.4f})", end=""
             )
         print("")
 

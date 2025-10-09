@@ -18,9 +18,10 @@
 import os
 import tempfile
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
-import tensorflow as tf
 from keras.backend import clear_session
 from keras.layers import AveragePooling2D, GlobalAveragePooling2D, Input
 from keras.models import Model
@@ -42,6 +43,9 @@ from qkerasV3.utils import (
     quantized_model_from_json,
 )
 
+# set random seed
+keras.utils.set_random_seed(812)
+
 
 @pytest.mark.parametrize(
     (
@@ -58,7 +62,7 @@ from qkerasV3.utils import (
             "channels_last",
             quantized_bits(4, 0, 1),
             quantized_bits(4, 0, 1),
-            np.array(
+            knp.array(
                 [
                     [
                         [[0.375, 0.625, 0.375], [0.25, 0.75, 0.5]],
@@ -68,8 +72,8 @@ from qkerasV3.utils import (
                         [[0.375, 0.375, 0.5], [0.375, 0.5, 0.625]],
                         [[0.75, 0.625, 0.5], [0.5, 0.5, 0.75]],
                     ],
-                ]
-            ).astype(np.float16),
+                ], dtype="float16"
+            )
         ),
         (
             "QAveragePooling2D",
@@ -80,9 +84,7 @@ from qkerasV3.utils import (
             "channels_last",
             quantized_bits(4, 0, 1),
             quantized_bits(4, 0, 1),
-            np.array([[[[0.375, 0.625, 0.625]]], [[[0.625, 0.5, 0.625]]]]).astype(
-                np.float16
-            ),
+            knp.array([[[[0.375, 0.625, 0.625]]], [[[0.625, 0.5, 0.625]]]], dtype="float16")
         ),
         (
             "QGlobalAveragePooling2D",
@@ -93,7 +95,7 @@ from qkerasV3.utils import (
             "channels_last",
             quantized_bits(10, 0, 1),
             quantized_bits(4, 0, 1),
-            np.array([[0.5, 0.5, 0.375], [0.5, 0.5, 0.625]]).astype(np.float16),
+            knp.array([[0.5, 0.5, 0.375], [0.5, 0.5, 0.625]], dtype="float16"),
         ),
         (
             "QAveragePooling2D",
@@ -104,9 +106,7 @@ from qkerasV3.utils import (
             "channels_last",
             quantized_bits(4, 0, 1),
             quantized_bits(4, 0, 1),
-            np.array([[[[0.375, 0.625, 0.375]]], [[[0.375, 0.375, 0.5]]]]).astype(
-                np.float16
-            ),
+            knp.array([[[[0.375, 0.625, 0.375]]], [[[0.375, 0.375, 0.5]]]], dtype="float16"),
         ),
         (
             "QAveragePooling2D",
@@ -117,7 +117,7 @@ from qkerasV3.utils import (
             "channels_last",
             quantized_bits(4, 0, 1),
             quantized_bits(4, 0, 1),
-            np.array(
+            knp.array(
                 [
                     [
                         [[0.375, 0.625, 0.375], [0.375, 0.75, 0.25]],
@@ -127,8 +127,7 @@ from qkerasV3.utils import (
                         [[0.375, 0.375, 0.5], [0.25, 0.625, 0.5]],
                         [[0.625, 0.625, 0.5], [0.625, 0.625, 0.875]],
                     ],
-                ]
-            ).astype(np.float16),
+                ], dtype="float16"),
         ),
         (
             "QAveragePooling2D",
@@ -187,20 +186,20 @@ def test_q_average_pooling(
 
     if data_format == "channels_first":
         pytest.skip("channels_first is not supported on CPU with TensorFlow")
-        assert_raises(tf.errors.InvalidArgumentError, model.predict, inputs)
+        assert_raises(ValueError, model.predict, inputs)
     else:
-        p = model.predict(inputs).astype(np.float16)
+        p = model.predict(inputs).astype("float16")
         assert_allclose(p, y, rtol=1e-4)
 
         # Reloads the model to ensure saving/loading works
         json_string = model.to_json()
         clear_session()
         reload_model = quantized_model_from_json(json_string)
-        p = reload_model.predict(inputs).astype(np.float16)
+        p = reload_model.predict(inputs).astype("float16")
         assert_allclose(p, y, rtol=1e-4)
 
         # Saves the model as an h5 file using Keras's model.save()
-        fd, fname = tempfile.mkstemp(".h5")
+        fd, fname = tempfile.mkstemp(".keras")
         model.save(fname)
         del model  # Delete the existing model
 
@@ -213,7 +212,7 @@ def test_q_average_pooling(
 
         # Applys quantizer to weights
         model_save_quantized_weights(loaded_model)
-        p = loaded_model.predict(inputs).astype(np.float16)
+        p = loaded_model.predict(inputs).astype("float16")
         assert_allclose(p, y, rtol=1e-4)
 
 
@@ -341,7 +340,7 @@ def test_QAveragePooling_output():
     # is correct.
     x = np.ones(shape=(2, 6, 6, 1))
     x[0, 0, :, :] = 0
-    x = tf.constant(x)
+    x = knp.array(x, dtype="int32")
 
     y = QAveragePooling2D(
         pool_size=(3, 3),
@@ -350,7 +349,7 @@ def test_QAveragePooling_output():
         average_quantizer="quantized_bits(8, 1, 1)",
     )(x)
     y = y.numpy()
-    assert np.all(
+    assert knp.all(
         y
         == [
             [[[0.65625], [0.65625]], [[0.984375], [0.984375]]],
@@ -364,10 +363,11 @@ def test_QGlobalAveragePooling_output():
     # is correct.
     x = np.ones(shape=(2, 3, 3, 2))
     x[0, 0, 1, :] = 0
-    x = tf.constant(x)
+    x = knp.array(x, dtype=float)
+
     y = QGlobalAveragePooling2D(average_quantizer="quantized_bits(8, 1, 1)")(x)
     y = y.numpy()
-    assert np.all(y == np.array([[0.875, 0.875], [0.984375, 0.984375]]))
+    assert knp.all(y == knp.array([[0.875, 0.875], [0.984375, 0.984375]]))
 
 
 if __name__ == "__main__":

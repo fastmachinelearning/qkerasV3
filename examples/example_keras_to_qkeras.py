@@ -16,10 +16,9 @@
 """Tests automatic conversion of keras model to qkerasV3."""
 
 
-
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import Model
+from keras.datasets import mnist
+from keras.layers import *
+from keras.models import Model
 
 from qkerasV3.estimate import print_qstats
 from qkerasV3.utils import model_quantize, quantized_model_dump

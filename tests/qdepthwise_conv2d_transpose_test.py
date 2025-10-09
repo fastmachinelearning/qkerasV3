@@ -20,14 +20,18 @@ import os
 import tempfile
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
 from qkerasV3 import QDepthwiseConv2DTranspose, quantized_bits
 
+# set random seed
+keras.utils.set_random_seed(812)
+
 # Predicted output from float model.
-_FLOAT_PREDICTED_OUTPUT = np.array(
+_FLOAT_PREDICTED_OUTPUT = knp.array(
     [
         [
             [
@@ -169,7 +173,7 @@ def test_qseparable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype=float)
 
     # depthwise kernel of shape (2, 2, 3, 1)
     dw_kernel = np.array(
@@ -183,7 +187,7 @@ def test_qseparable_conv2d_transpose():
 
     model.layers[1].set_weights([dw_kernel, bias])
 
-    actual_output = model.predict(inputs).astype(np.float16)
+    actual_output = model.predict(inputs).astype("float16")
     assert_equal(output_shape[1:], (8, 8, 2))
     assert_equal(len(ws), 2)
 
@@ -205,7 +209,7 @@ def test_quantization_in_separable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype=float)
 
     # depthwise kernel of shape (2, 2, 3, 1)
     dw_kernel = np.array(
@@ -219,7 +223,7 @@ def test_quantization_in_separable_conv2d_transpose():
 
     model.layers[1].set_weights([dw_kernel, bias])
 
-    actual_output = model.predict(inputs).astype(np.float16)
+    actual_output = model.predict(inputs).astype("float16")
 
     qs = model.layers[1].get_quantizers()
     assert_equal(len(qs), 3)
@@ -227,7 +231,7 @@ def test_quantization_in_separable_conv2d_transpose():
     assert_equal(str(qs[1]), "quantized_bits(2,2,1,alpha=1.0)")
     assert_equal(str(qs[2]), "quantized_bits(10,6,1)")
 
-    expected = np.array(
+    expected = knp.array(
         [
             [
                 [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
@@ -254,7 +258,7 @@ def test_qseparable_conv2d_transpose_with_groups():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype=float)
 
     # depthwise kernel of shape (2, 2, 3, 3)
     dw_kernel = np.array(
@@ -274,7 +278,7 @@ def test_qseparable_conv2d_transpose_with_groups():
 
     model.layers[1].set_weights([dw_kernel, bias])
 
-    actual_output = model.predict(inputs).astype(np.float16)
+    actual_output = model.predict(inputs).astype("float16")
 
     predicted = _FLOAT_PREDICTED_OUTPUT * 3.0  # kernel values replicated 3 times
 

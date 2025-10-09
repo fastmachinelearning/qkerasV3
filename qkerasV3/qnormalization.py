@@ -18,7 +18,8 @@
 
 import warnings
 
-import tensorflow as tf
+import keras
+import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
@@ -203,7 +204,7 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
                 and len(v.shape) != ndims
                 and reduction_axes != list(range(ndims - 1))
             ):
-                return tf.broadcast_to(v, broadcast_shape)
+                return keras.ops.broadcast_to(v, broadcast_shape)
             return v
 
         scale, offset = _broadcast(quantized_gamma), _broadcast(quantized_beta)
@@ -219,7 +220,7 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             # Some of the computations here are not necessary when training==False
             # but not a constant. However, this makes the code simpler.
             keep_dims = len(axis) > 1
-            mean, variance = tf.nn.moments(
+            mean, variance = keras.ops.moments(
                 math_ops.cast(inputs, self.compute_dtype),
                 axes=reduction_axes,
                 keepdims=keep_dims,
@@ -249,10 +250,10 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             else:
                 quantized_variance = variance
 
-            inputs_size = tf.cond(
-                tf.equal(tf.shape(inputs)[0], 0),
-                lambda: tf.size(inputs),
-                lambda: tf.constant(-1),
+            inputs_size = keras.ops.where(
+                knp.equal(keras.ops.shape(inputs)[0], 0),
+                knp.size(inputs),
+                -1,
             )
 
             def _do_update(var, value):

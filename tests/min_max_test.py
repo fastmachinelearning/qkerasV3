@@ -15,11 +15,13 @@
 # ==============================================================================
 """Tests min/max values that are used for autorange."""
 
-
+import keras
 import pytest
 
 from qkerasV3 import *
 
+# set random seed
+keras.utils.set_random_seed(812)
 
 def test_binary():
     q = binary(alpha=1.0)

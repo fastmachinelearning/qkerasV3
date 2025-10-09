@@ -17,7 +17,7 @@
 
 import pickle
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from .random_tree import RandomTree
 
@@ -69,10 +69,10 @@ class RandomForest:
     def fit(self, dataset, verbose=False):
         """Fits random tree to model."""
         self.inputs = dataset.shape[1] - 1
-        self.bits = np.ceil(
-            np.log2(np.abs(np.amax(dataset, axis=0) - np.amin(dataset, axis=0)))
+        self.bits = knp.ceil(
+            knp.log2(knp.abs(knp.amax(dataset, axis=0) - knp.amin(dataset, axis=0)))
         ).astype(np.int32)
-        self.is_neg = (np.amin(dataset, axis=0) < 0).astype(np.int8)
+        self.is_neg = (knp.amin(dataset, axis=0) < 0).astype(np.int8)
 
         self.trees = []
 
@@ -96,7 +96,7 @@ class RandomForest:
         """Predicts output for single row."""
         result = [tree.predict_row(row) for tree in self.trees]
         if self.use_mean:
-            return int(np.round(np.mean(result)))
+            return int(knp.round(knp.mean(result)))
         else:
             return max(set(result), key=result.count)
 
@@ -105,7 +105,7 @@ class RandomForest:
 
         assert self.trees is not None
 
-        return np.array([self.predict_row(data[i]) for i in range(data.shape[0])])
+        return knp.array([self.predict_row(data[i]) for i in range(data.shape[0])])
 
     def gen_code(self, filename, func_name):
         """Generates code for model."""
@@ -126,7 +126,7 @@ class RandomForest:
 
         f = open(filename, "w")
 
-        i_bits = np.sum(self.bits[:-1])
+        i_bits = knp.sum(self.bits[:-1])
         o_bits = self.bits[-1]
         o_sign = self.is_neg[-1]
 

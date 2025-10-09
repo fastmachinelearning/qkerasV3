@@ -16,7 +16,7 @@
 """Generates expressions for random trees."""
 
 
-import numpy as np
+import keras.ops.numpy as knp
 
 
 def gen_random_tree_cc(tree):
@@ -26,8 +26,8 @@ def gen_random_tree_cc(tree):
     feature = tree.feature
     threshold = tree.threshold
 
-    node_depth = np.zeros(shape=n_nodes, dtype=np.int64)
-    is_leaves = np.zeros(shape=n_nodes, dtype=bool)
+    node_depth = knp.zeros(shape=n_nodes, dtype=np.int64)
+    is_leaves = knp.zeros(shape=n_nodes, dtype=bool)
 
     stack = [(0, -1)]
 

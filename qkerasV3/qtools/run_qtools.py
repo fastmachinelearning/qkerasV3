@@ -18,7 +18,7 @@
 
 import json
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from qkerasV3.qtools import generate_layer_data_type_map, interface, qgraph, qtools_util
 from qkerasV3.qtools.config_public import config_settings
@@ -193,8 +193,8 @@ class QTools:
                 output_shape = output_quantizer["shape"]
                 o_bits = output_quantizer["bits"]
                 return (
-                    int(np.prod(output_shape[1:]) * o_bits / 8.0),
-                    int(np.prod(output_shape[1:]) * default_float_bits / 8.0),
+                    int(knp.prod(output_shape[1:]) * o_bits / 8.0),
+                    int(knp.prod(output_shape[1:]) * default_float_bits / 8.0),
                 )
             else:
                 return (0, 0)
@@ -206,12 +206,12 @@ class QTools:
         if include_model_input_size:
             # Include model input size.
             output_bytes += (
-                np.prod(self._model.input_shape[1:])
+                knp.prod(self._model.input_shape[1:])
                 * self.source_quantizer_list[0].bits
                 / 8.0
             )
             output_bytes_float += (
-                np.prod(self._model.input_shape[1:]) * default_float_bits / 8.0
+                knp.prod(self._model.input_shape[1:]) * default_float_bits / 8.0
             )
 
         return (output_bytes, output_bytes_float)
@@ -230,9 +230,9 @@ class QTools:
                 if weight_quantizer:
                     # Calculates kernel bytes.
                     w_bits = weight_quantizer["bits"]
-                    weight_bytes += int(np.prod(layer.weights[0].shape) * w_bits / 8.0)
+                    weight_bytes += int(knp.prod(layer.weights[0].shape) * w_bits / 8.0)
                     weight_bytes_float += int(
-                        np.prod(layer.weights[0].shape) * default_float_bits / 8.0
+                        knp.prod(layer.weights[0].shape) * default_float_bits / 8.0
                     )
                     # Calculates bias bytes.
                     if hasattr(layer, "use_bias") and layer.use_bias:
@@ -245,10 +245,10 @@ class QTools:
                         ), f"{layer.name} has no bias_quantizer!"
                         b_bits = bias_quantizer["bits"]
                         weight_bytes += int(
-                            np.prod(layer.weights[1].shape) * b_bits / 8.0
+                            knp.prod(layer.weights[1].shape) * b_bits / 8.0
                         )
                         weight_bytes_float += int(
-                            np.prod(layer.weights[1].shape) * default_float_bits / 8.0
+                            knp.prod(layer.weights[1].shape) * default_float_bits / 8.0
                         )
             return (weight_bytes, weight_bytes_float)
 

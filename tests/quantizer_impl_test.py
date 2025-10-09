@@ -16,9 +16,9 @@
 """Tests for methods in quantizer_impl.py."""
 
 
-import numpy as np
+import keras
+import keras.ops.numpy as knp
 import pytest
-import tensorflow as tf
 from keras import ops as Kops
 from keras.layers import *
 from keras.models import *
@@ -27,6 +27,16 @@ from numpy.testing import assert_equal
 from qkerasV3 import *
 from qkerasV3 import quantizers
 from qkerasV3.qtools.quantized_operators import quantizer_impl
+
+# set random seed
+keras.utils.set_random_seed(812)
+
+
+def _get_min_max_po2_exponent(x):
+    """Get min and max po2 exponent of x."""
+    x = keras.ops.cast(x, dtype="float64")
+    po2_x = Kops.log(x) / keras.ops.cast(knp.log(2.0), dtype="float64")
+    return (keras.ops.amin(po2_x).numpy(), keras.ops.max(po2_x).numpy())
 
 
 # pylint: disable=invalid-name
@@ -49,11 +59,6 @@ def test_QuantizedBits():
 
 def test_QuantizedBits_ElementsPerScale():
     """Tests quantized_bits with elements_per_scale."""
-
-    def _get_min_max_po2_exponent(x):
-        """Get min and max po2 exponent of x."""
-        po2_x = Kops.log(x) / np.log(2.0)
-        return (tf.math.reduce_min(po2_x).numpy(), tf.math.reduce_max(po2_x).numpy())
 
     qkerasV3_quantizer = quantizers.quantized_bits(
         alpha="auto_po2",
@@ -81,7 +86,7 @@ def test_QuantizedBits_ElementsPerScale():
     integer_po2_scale = new_quantizer.bits - new_quantizer.keep_negative
 
     # Test for input tensors of rank 3
-    x_r3 = tf.random.uniform([1, 8, 8])
+    x_r3 = np.random.uniform(size=[1, 8, 8])
     new_quantizer(x_r3)
     x_r3_scale = new_quantizer.scale
     xq_r3_min_exp, xq_r3_max_exp = _get_min_max_po2_exponent(x_r3_scale)
@@ -91,7 +96,7 @@ def test_QuantizedBits_ElementsPerScale():
     assert xq_r3_max_exp <= 3 * integer_po2_scale
 
     # Test for input tensors of rank 4
-    x_r4 = tf.random.uniform([1, 2, 4, 8])
+    x_r4 = np.random.uniform(size=[1, 2, 4, 8])
     new_quantizer(x_r4)
     x_r4_scale = new_quantizer.scale
     xq_r4_min_exp, xq_r4_max_exp = _get_min_max_po2_exponent(x_r4_scale)
@@ -255,52 +260,52 @@ def test_ReluPowerOfTwo():
 
 def test_GetScale_PerChannelScale():
     # Rank1 tensors
-    x_r1 = tf.ones([4])
-    q_r1 = tf.ones([4])
+    x_r1 = knp.ones([4])
+    q_r1 = knp.ones([4])
     scale_r1_pcs_true = quantizers._get_scale(
         "auto", x_r1, q_r1, scale_axis=None, per_channel_scale=True
     )
     scale_r1_pcs_false = quantizers._get_scale(
         "auto", x_r1, q_r1, scale_axis=None, per_channel_scale=False
     )
-    assert_equal(tf.shape(scale_r1_pcs_true).numpy(), [4])
-    assert_equal(tf.shape(scale_r1_pcs_false).numpy(), [1])
+    assert_equal(keras.ops.shape(scale_r1_pcs_true), [4])
+    assert_equal(keras.ops.shape(scale_r1_pcs_false), [1])
 
     # Rank2 tensors
-    x_r2 = tf.ones([2, 4])
-    q_r2 = tf.ones([2, 4])
+    x_r2 = knp.ones([2, 4])
+    q_r2 = knp.ones([2, 4])
     scale_r2_pcs_true = quantizers._get_scale(
         "auto", x_r2, q_r2, scale_axis=None, per_channel_scale=True
     )
     scale_r2_pcs_false = quantizers._get_scale(
         "auto", x_r2, q_r2, scale_axis=None, per_channel_scale=False
     )
-    assert_equal(tf.shape(scale_r2_pcs_true).numpy(), [1, 4])
-    assert_equal(tf.shape(scale_r2_pcs_false).numpy(), [1, 1])
+    assert_equal(keras.ops.shape(scale_r2_pcs_true), [1, 4])
+    assert_equal(keras.ops.shape(scale_r2_pcs_false), [1, 1])
 
     # Rank3 tensors
-    x_r3 = tf.ones([3, 3, 4])
-    q_r3 = tf.ones([3, 3, 4])
+    x_r3 = knp.ones([3, 3, 4])
+    q_r3 = knp.ones([3, 3, 4])
     scale_r3_pcs_true = quantizers._get_scale(
         "auto", x_r3, q_r3, scale_axis=None, per_channel_scale=True
     )
     scale_r3_pcs_false = quantizers._get_scale(
         "auto", x_r3, q_r3, scale_axis=None, per_channel_scale=False
     )
-    assert_equal(tf.shape(scale_r3_pcs_true).numpy(), [1, 1, 4])
-    assert_equal(tf.shape(scale_r3_pcs_false).numpy(), [1, 1, 1])
+    assert_equal(keras.ops.shape(scale_r3_pcs_true), [1, 1, 4])
+    assert_equal(keras.ops.shape(scale_r3_pcs_false), [1, 1, 1])
 
     # Rank4 tensors
-    x_r4 = tf.ones([1, 1, 3, 4])
-    q_r4 = tf.ones([1, 1, 3, 4])
+    x_r4 = knp.ones([1, 1, 3, 4])
+    q_r4 = knp.ones([1, 1, 3, 4])
     scale_r4_pcs_true = quantizers._get_scale(
         "auto", x_r4, q_r4, scale_axis=None, per_channel_scale=True
     )
     scale_r4_pcs_false = quantizers._get_scale(
         "auto", x_r4, q_r4, scale_axis=None, per_channel_scale=False
     )
-    assert_equal(tf.shape(scale_r4_pcs_true).numpy(), [1, 1, 1, 4])
-    assert_equal(tf.shape(scale_r4_pcs_false).numpy(), [1, 1, 1, 1])
+    assert_equal(keras.ops.shape(scale_r4_pcs_true), [1, 1, 1, 4])
+    assert_equal(keras.ops.shape(scale_r4_pcs_false), [1, 1, 1, 1])
 
 
 def _get_num_unique_elements(input_tensor):
@@ -310,8 +315,8 @@ def _get_num_unique_elements(input_tensor):
 def test_GetScale_ElementsPerScale_Scalar_ScaleAxis_EPS():
     # Test get_scale function when elements_per_scale and scale_axis have scalar
     # values and the input x and q tensors have rank 2
-    x_r2 = tf.random.uniform([4, 8])
-    q_r2 = tf.random.uniform([4, 8])
+    x_r2 = np.random.uniform(size=[4, 8])
+    q_r2 = np.random.uniform(size=[4, 8])
     scale_r2_eps_none_ua_none = quantizers._get_scale(
         "auto", x_r2, q_r2, elements_per_scale=None, scale_axis=None
     )
@@ -322,19 +327,19 @@ def test_GetScale_ElementsPerScale_Scalar_ScaleAxis_EPS():
         "auto", x_r2, q_r2, elements_per_scale=2, scale_axis=1
     )
 
-    assert_equal(tf.shape(scale_r2_eps_none_ua_none).numpy(), [1, 8])
+    assert_equal(keras.ops.shape(scale_r2_eps_none_ua_none), [1, 8])
     assert_equal(_get_num_unique_elements(scale_r2_eps_none_ua_none), 8)
 
-    assert_equal(tf.shape(scale_r2_eps_2_ua_0).numpy(), [4, 1])
+    assert_equal(keras.ops.shape(scale_r2_eps_2_ua_0), [4, 1])
     assert_equal(_get_num_unique_elements(scale_r2_eps_2_ua_0), 2)
 
-    assert_equal(tf.shape(scale_r2_eps_2_ua_1).numpy(), [1, 8])
+    assert_equal(keras.ops.shape(scale_r2_eps_2_ua_1), [1, 8])
     assert_equal(_get_num_unique_elements(scale_r2_eps_2_ua_1), 4)
 
     # Test get_scale function when elements_per_scale and scale_axis have scalar
     # values and the input x and q tensors have rank 3
-    x_r3 = tf.random.uniform([2, 4, 8])
-    q_r3 = tf.random.uniform([2, 4, 8])
+    x_r3 = np.random.uniform(size=[2, 4, 8])
+    q_r3 = np.random.uniform(size=[2, 4, 8])
     scale_r3_eps_none_ua_none = quantizers._get_scale(
         "auto", x_r3, q_r3, elements_per_scale=None, scale_axis=None
     )
@@ -348,22 +353,22 @@ def test_GetScale_ElementsPerScale_Scalar_ScaleAxis_EPS():
         "auto", x_r3, q_r3, elements_per_scale=2, scale_axis=2
     )
 
-    assert_equal(tf.shape(scale_r3_eps_none_ua_none).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_r3_eps_none_ua_none), [1, 1, 8])
     assert_equal(_get_num_unique_elements(scale_r3_eps_none_ua_none), 8)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_0).numpy(), [2, 1, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_0), [2, 1, 1])
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_0), 1)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_1).numpy(), [1, 4, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_1), [1, 4, 1])
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_1), 2)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_2).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_2), [1, 1, 8])
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_2), 4)
 
     # Test get_scale function when elements_per_scale and scale_axis have scalar
     # values and the input x and q tensors have rank 4
-    x_r4 = tf.random.uniform([2, 4, 8, 16])
-    q_r4 = tf.random.uniform([2, 4, 8, 16])
+    x_r4 = np.random.uniform(size=[2, 4, 8, 16])
+    q_r4 = np.random.uniform(size=[2, 4, 8, 16])
     scale_r4_eps_none_ua_none = quantizers._get_scale(
         "auto", x_r4, q_r4, elements_per_scale=None, scale_axis=None
     )
@@ -380,27 +385,27 @@ def test_GetScale_ElementsPerScale_Scalar_ScaleAxis_EPS():
         "auto", x_r4, q_r4, elements_per_scale=2, scale_axis=3
     )
 
-    assert_equal(tf.shape(scale_r4_eps_none_ua_none).numpy(), [1, 1, 1, 16])
+    assert_equal(keras.ops.shape(scale_r4_eps_none_ua_none), [1, 1, 1, 16])
     assert_equal(_get_num_unique_elements(scale_r4_eps_none_ua_none), 16)
 
-    assert_equal(tf.shape(scale_r4_eps_2_ua_0).numpy(), [2, 1, 1, 1])
+    assert_equal(keras.ops.shape(scale_r4_eps_2_ua_0), [2, 1, 1, 1])
     assert_equal(_get_num_unique_elements(scale_r4_eps_2_ua_0), 1)
 
-    assert_equal(tf.shape(scale_r4_eps_2_ua_1).numpy(), [1, 4, 1, 1])
+    assert_equal(keras.ops.shape(scale_r4_eps_2_ua_1), [1, 4, 1, 1])
     assert_equal(_get_num_unique_elements(scale_r4_eps_2_ua_1), 2)
 
-    assert_equal(tf.shape(scale_r4_eps_2_ua_2).numpy(), [1, 1, 8, 1])
+    assert_equal(keras.ops.shape(scale_r4_eps_2_ua_2), [1, 1, 8, 1])
     assert_equal(_get_num_unique_elements(scale_r4_eps_2_ua_2), 4)
 
-    assert_equal(tf.shape(scale_r4_eps_2_ua_3).numpy(), [1, 1, 1, 16])
+    assert_equal(keras.ops.shape(scale_r4_eps_2_ua_3), [1, 1, 1, 16])
     assert_equal(_get_num_unique_elements(scale_r4_eps_2_ua_3), 8)
 
 
 def test_GetScale_ElementsPerScale_List_ScaleAxis_EPS():
     # Test get_scale function when elements_per_scale and scale_axis are lists of
     # rank 1 and the input x and q tensors have rank 3
-    x_r3 = tf.random.uniform([2, 4, 8])
-    q_r3 = tf.random.uniform([2, 4, 8])
+    x_r3 = np.random.uniform(size=[2, 4, 8])
+    q_r3 = np.random.uniform(size=[2, 4, 8])
 
     scale_r3_eps_none_ua_0 = quantizers._get_scale(
         "auto", x_r3, q_r3, elements_per_scale=None, scale_axis=[0]
@@ -415,22 +420,22 @@ def test_GetScale_ElementsPerScale_List_ScaleAxis_EPS():
         "auto", x_r3, q_r3, elements_per_scale=[2], scale_axis=[2]
     )
 
-    assert_equal(tf.shape(scale_r3_eps_none_ua_0).numpy(), [2, 1, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_none_ua_0), (2, 1, 1))
     assert_equal(_get_num_unique_elements(scale_r3_eps_none_ua_0), 2)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_0).numpy(), [2, 1, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_0), (2, 1, 1))
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_0), 1)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_1).numpy(), [1, 4, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_1), (1, 4, 1))
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_1), 2)
 
-    assert_equal(tf.shape(scale_r3_eps_2_ua_2).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_r3_eps_2_ua_2), (1, 1, 8))
     assert_equal(_get_num_unique_elements(scale_r3_eps_2_ua_2), 4)
 
     # Test get_scale function when elements_per_scale and scale_axis are lists of
     # rank 2 and the input x and q tensors have rank 3
-    x_r3 = tf.random.uniform([2, 4, 8])
-    q_r3 = tf.random.uniform([2, 4, 8])
+    x_r3 = np.random.uniform(size=[2, 4, 8])
+    q_r3 = np.random.uniform(size=[2, 4, 8])
 
     scale_r3_eps_none_ua_01 = quantizers._get_scale(
         "auto", x_r3, q_r3, elements_per_scale=None, scale_axis=[0, 1]
@@ -445,22 +450,22 @@ def test_GetScale_ElementsPerScale_List_ScaleAxis_EPS():
         "auto", x_r3, q_r3, elements_per_scale=[1, 1], scale_axis=[0, 2]
     )
 
-    assert_equal(tf.shape(scale_r3_eps_none_ua_01).numpy(), [2, 4, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_none_ua_01), (2, 4, 1))
     assert_equal(_get_num_unique_elements(scale_r3_eps_none_ua_01), 8)
 
-    assert_equal(tf.shape(scale_r3_eps_22_ua_01).numpy(), [2, 4, 1])
+    assert_equal(keras.ops.shape(scale_r3_eps_22_ua_01), (2, 4, 1))
     assert_equal(_get_num_unique_elements(scale_r3_eps_22_ua_01), 2)
 
-    assert_equal(tf.shape(scale_r3_eps_11_ua_12).numpy(), [1, 4, 8])
+    assert_equal(keras.ops.shape(scale_r3_eps_11_ua_12), (1, 4, 8))
     assert_equal(_get_num_unique_elements(scale_r3_eps_11_ua_12), 8)
 
-    assert_equal(tf.shape(scale_r3_eps_11_ua_02).numpy(), [2, 1, 8])
+    assert_equal(keras.ops.shape(scale_r3_eps_11_ua_02), (2, 1, 8))
     assert_equal(_get_num_unique_elements(scale_r3_eps_11_ua_02), 16)
 
     # Test get_scale function when elements_per_scale and scale_axis are lists of
     # rank 3 and the input x and q tensors have rank 4
-    x_r4 = tf.random.uniform([2, 4, 8, 16])
-    q_r4 = tf.random.uniform([2, 4, 8, 16])
+    x_r4 = np.random.uniform(size=[2, 4, 8, 16])
+    q_r4 = np.random.uniform(size=[2, 4, 8, 16])
 
     scale_r4_eps_none_ua_012 = quantizers._get_scale(
         "auto", x_r4, q_r4, elements_per_scale=None, scale_axis=[0, 1, 2]
@@ -475,30 +480,25 @@ def test_GetScale_ElementsPerScale_List_ScaleAxis_EPS():
         "auto", x_r4, q_r4, elements_per_scale=[2, 2, 1], scale_axis=[0, 1, 3]
     )
 
-    assert_equal(tf.shape(scale_r4_eps_none_ua_012).numpy(), [2, 4, 8, 1])
+    assert_equal(keras.ops.shape(scale_r4_eps_none_ua_012), (2, 4, 8, 1))
     assert_equal(_get_num_unique_elements(scale_r4_eps_none_ua_012), 64)
 
-    assert_equal(tf.shape(scale_r4_eps_221_ua_012).numpy(), [2, 4, 8, 1])
+    assert_equal(keras.ops.shape(scale_r4_eps_221_ua_012), (2, 4, 8, 1))
     assert_equal(_get_num_unique_elements(scale_r4_eps_221_ua_012), 16)
 
-    assert_equal(tf.shape(scale_r4_eps_221_ua_123).numpy(), [1, 4, 8, 16])
+    assert_equal(keras.ops.shape(scale_r4_eps_221_ua_123), (1, 4, 8, 16))
     assert_equal(_get_num_unique_elements(scale_r4_eps_221_ua_123), 128)
 
-    assert_equal(tf.shape(scale_r4_eps_221_ua_013).numpy(), [2, 4, 1, 16])
+    assert_equal(keras.ops.shape(scale_r4_eps_221_ua_013), (2, 4, 1, 16))
     assert_equal(_get_num_unique_elements(scale_r4_eps_221_ua_013), 32)
 
 
 def test_GetScale_MinPO2Exponent_MaxPO2Exponent():
     """Verify get_scale function with min and max po2_exponent clipping."""
 
-    def _get_min_max_po2_exponent(x):
-        """Get min and max po2 exponent of x."""
-        po2_x = Kops.log(x) / np.log(2.0)
-        return (tf.math.reduce_min(po2_x).numpy(), tf.math.reduce_max(po2_x).numpy())
-
     # generate small decimal numbers to verify that po2 clipping works properly
-    x = 2 ** tf.random.uniform(shape=[2, 4, 8], minval=-50, maxval=0)
-    q = 2 ** tf.random.uniform(shape=[2, 4, 8], minval=-50, maxval=0)
+    x = 2 ** np.random.uniform(size=[2, 4, 8], low=-50, high=0)
+    q = 2 ** np.random.uniform(size=[2, 4, 8], low=-50, high=0)
 
     # set various min and max po2 exponents for the scale
     scale_min_neg3_max_1 = quantizers._get_scale(
@@ -532,17 +532,17 @@ def test_GetScale_MinPO2Exponent_MaxPO2Exponent():
     )
 
     # verify that the output scales have the correct min and max ranges
-    assert_equal(tf.shape(scale_min_neg3_max_1).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_min_neg3_max_1), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg3_max_1)
     assert min_po2_exp >= -3
     assert max_po2_exp <= 1
 
-    assert_equal(tf.shape(scale_min_neg8_max_0).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_min_neg8_max_0), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg8_max_0)
     assert min_po2_exp >= -8
     assert max_po2_exp <= 0
 
-    assert_equal(tf.shape(scale_min_neg10_max_1).numpy(), [1, 1, 8])
+    assert_equal(keras.ops.shape(scale_min_neg10_max_1), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg10_max_1)
     assert min_po2_exp >= -10
     assert max_po2_exp <= 1

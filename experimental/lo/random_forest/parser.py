@@ -15,7 +15,7 @@
 # ==============================================================================
 """Parses PLA format usig ply."""
 
-import numpy as np
+import keras.ops.numpy as knp
 from ply import lex, yacc
 
 _1 = 1
@@ -199,7 +199,7 @@ def get_tokens(fn):
 def parse(fn):
     yacc.parse("".join(open(fn).readlines()))
 
-    pla.pla_i = np.array(pla.pla_i)
-    pla.pla_o = np.array(pla.pla_o)
+    pla.pla_i = knp.array(pla.pla_i)
+    pla.pla_o = knp.array(pla.pla_o)
 
     return pla

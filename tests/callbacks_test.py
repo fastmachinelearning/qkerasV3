@@ -16,9 +16,9 @@
 """Tests for callbacks."""
 
 
-import numpy as np
+import keras
+import keras.ops.numpy as knp
 import pytest
-import tensorflow as tf
 from keras import layers
 from keras.layers import *
 from keras.models import *
@@ -27,6 +27,8 @@ from numpy.testing import assert_equal
 from qkerasV3 import *
 from qkerasV3.callbacks import QNoiseScheduler
 
+# set random seed
+keras.utils.set_random_seed(812)
 
 def qconv_model():
     x = x_in = layers.Input((4, 4, 1), name="input")
@@ -45,7 +47,7 @@ def qconv_model():
 
 def test_QNoiseScheduler():
     model = qconv_model()
-    model.compile(optimizer="sgd", loss=tf.keras.losses.MeanSquaredError())
+    model.compile(optimizer="sgd", loss=keras.losses.MeanSquaredError())
     num_data = 5
     x_train = np.random.rand(num_data, 4, 4, 1)
     y_train = np.random.rand(num_data, 1)
@@ -99,9 +101,9 @@ def test_QNoiseScheduler():
         ],
     )
     qnoise_factor = [
-        np.array(d.qnoise_factor) for d in gradual_qnoise_callback_1.quantizers
+        knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_1.quantizers
     ]
-    val = 1 - np.power((10.0 - 4.0) / (10.0 - 2.0), 3)
+    val = 1 - knp.power((10.0 - 4.0) / (10.0 - 2.0), 3)
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
 
     # The number of batch does not pass the finish of 10. Exponent 2.0
@@ -120,9 +122,9 @@ def test_QNoiseScheduler():
         ],
     )
     qnoise_factor = [
-        np.array(d.qnoise_factor) for d in gradual_qnoise_callback_2.quantizers
+        knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_2.quantizers
     ]
-    val = 1 - np.power((10.0 - 4.0) / (10.0 - 2.0), 2)
+    val = 1 - knp.power((10.0 - 4.0) / (10.0 - 2.0), 2)
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
 
     # The number of batch does not pass the start of 6.
@@ -161,9 +163,9 @@ def test_QNoiseScheduler():
         ],
     )
     qnoise_factor = [
-        np.array(d.qnoise_factor) for d in gradual_qnoise_callback_4.quantizers
+        knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_4.quantizers
     ]
-    val = 1 - np.power((20.0 - (epochs * num_data - 1)) / (20.0 - 6.0), 3)
+    val = 1 - knp.power((20.0 - (epochs * num_data - 1)) / (20.0 - 6.0), 3)
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
 
     # The number of training iterations passes the number of batches of an epoch
@@ -183,10 +185,10 @@ def test_QNoiseScheduler():
         ],
     )
     qnoise_factor = [
-        np.array(d.qnoise_factor) for d in gradual_qnoise_callback_5.quantizers
+        knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_5.quantizers
     ]
     # It updates when the number of training iterations modulo update_freq is 0.
-    val = 1 - np.power(
+    val = 1 - knp.power(
         (20.0 - epochs * ((epochs * num_data - 1) // epochs)) / (20.0 - 0.0), 3
     )
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
@@ -210,9 +212,9 @@ def test_QNoiseScheduler():
         ],
     )
     qnoise_factor = [
-        np.array(d.qnoise_factor) for d in gradual_qnoise_callback_6.quantizers
+        knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_6.quantizers
     ]
-    val = 1 - np.power((5.0 - 2.0) / (5.0 - 1.0), 3)
+    val = 1 - knp.power((5.0 - 2.0) / (5.0 - 1.0), 3)
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
     assert_equal(len(gradual_qnoise_callback_6.quantizers), 3)  # Test "epoch"
 

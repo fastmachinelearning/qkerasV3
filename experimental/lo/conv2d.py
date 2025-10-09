@@ -20,9 +20,9 @@ import multiprocessing as mp
 import os
 import shutil
 
-import numpy as np
+import keras.ops.numpy as knp
 import six
-from tensorflow.keras.models import Model
+from keras.models import Model
 
 from .compress import Compressor
 from .utils import get_padding_value
@@ -291,7 +291,7 @@ def optimize_conv2d_logic(
 
     skip = min(2000, samples)
 
-    indexes = np.array(range(x_train.shape[0]))
+    indexes = knp.array(range(x_train.shape[0]))
     np.random.shuffle(indexes)
     x_train = x_train[indexes[:samples]]
 
@@ -334,9 +334,9 @@ def optimize_conv2d_logic(
     # samples.
 
     if randomize:
-        idx_height = np.random.choice(p[-1].shape[1], int(np.round(np.sqrt(randomize))))
+        idx_height = np.random.choice(p[-1].shape[1], int(knp.round(knp.sqrt(randomize))))
 
-        idx_width = np.random.choice(p[-1].shape[2], int(np.round(np.sqrt(randomize))))
+        idx_width = np.random.choice(p[-1].shape[2], int(knp.round(knp.sqrt(randomize))))
     else:
         idx_height = range(p[-1].shape[1])
         idx_width = range(p[-1].shape[2])
@@ -345,9 +345,9 @@ def optimize_conv2d_logic(
 
     print("inputs:")
     for i in range(len(x)):
-        print(i, np.min(p[i]), np.max(p[i]))
+        print(i, knp.min(p[i]), knp.max(p[i]))
     print("outputs:")
-    print(np.min(p[-1]), np.max(p[-1]))
+    print(knp.min(p[-1]), knp.max(p[-1]))
 
     # i_size and o_size are the channel sizes of the inputs and outputs
 
@@ -433,7 +433,7 @@ def optimize_conv2d_logic(
     elif output_group == 2:
         n_bits_og = 1
     else:
-        n_bits_og = int(np.ceil(np.log2(output_group)))
+        n_bits_og = int(knp.ceil(knp.log2(output_group)))
 
     # sometimes linux get very grumpy with too many files opened.
     # let's limit to 20.

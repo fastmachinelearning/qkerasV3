@@ -16,8 +16,8 @@
 # ==============================================================================
 
 import pytest
-from tensorflow.keras.layers import *  # pylint: disable=wildcard-import
-from tensorflow.keras.models import Model
+from keras.layers import *  # pylint: disable=wildcard-import
+from keras.models import Model
 
 from qkerasV3 import *  # pylint: disable=wildcard-import
 from qkerasV3.autoqkeras.forgiving_metrics import (

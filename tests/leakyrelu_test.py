@@ -15,14 +15,15 @@
 # ==============================================================================
 """Test activation from qlayers.py."""
 
-import numpy as np
+import keras
+import keras.ops.numpy as knp
 import pytest
-import tensorflow as tf
-from keras import backend as K
 from numpy.testing import assert_allclose
 
 from qkerasV3 import quantized_relu, quantized_relu_po2
 
+# set random seed
+keras.utils.set_random_seed(812)
 
 @pytest.mark.parametrize(
     "bits, integer, use_sigmoid, negative_slope, test_values, expected_values",
@@ -32,7 +33,7 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
             2,
             0,
             0.25,
-            np.array(
+            knp.array(
                 [
                     [
                         -3.0,
@@ -47,11 +48,11 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
                         6.0,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [[-0.75, -0.5, -0.25, 0.0, 2.5, 3.375, 1.5, 1.0, 0.0, 3.875]],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
         (
@@ -59,7 +60,7 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
             2,
             1,
             0.125,
-            np.array(
+            knp.array(
                 [
                     [
                         0.458069,
@@ -97,9 +98,9 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
                         2.562500,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [
                     [
                         0.5,
@@ -137,7 +138,7 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
                         2.5,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
         (
@@ -145,7 +146,7 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
             2,
             1,
             0.125,
-            np.array(
+            knp.array(
                 [
                     [
                         -0.458069,
@@ -183,9 +184,9 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
                         -2.562500,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [
                     [
                         0.0,
@@ -223,7 +224,7 @@ from qkerasV3 import quantized_relu, quantized_relu_po2
                         -0.25,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
     ],
@@ -232,7 +233,7 @@ def test_quantized_relu(
     bits, integer, use_sigmoid, negative_slope, test_values, expected_values
 ):
     """Test quantized_relu function."""
-    x = tf.constant(test_values, dtype=K.floatx())
+    x = test_values
     layer = quantized_relu(bits, integer, use_sigmoid, negative_slope)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)
@@ -244,7 +245,7 @@ def test_quantized_relu(
         (
             8,
             2**-4,
-            np.array(
+            knp.array(
                 [
                     [
                         -1.00000000e00,
@@ -269,9 +270,9 @@ def test_quantized_relu(
                         9.00000000e-01,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [
                     [
                         -0.0625,
@@ -296,13 +297,13 @@ def test_quantized_relu(
                         1.0,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
         (
             3,
             2**-4,
-            np.array(
+            knp.array(
                 [
                     [
                         -1.00000000e00,
@@ -327,9 +328,9 @@ def test_quantized_relu(
                         9.00000000e-01,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [
                     [
                         -0.0625,
@@ -354,13 +355,13 @@ def test_quantized_relu(
                         1.0,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
         (
             6,
             2**-3,
-            np.array(
+            knp.array(
                 [
                     [
                         -3.0,
@@ -375,9 +376,9 @@ def test_quantized_relu(
                         6.0,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
-            np.array(
+            knp.array(
                 [
                     [
                         -5.00000000e-01,
@@ -392,13 +393,13 @@ def test_quantized_relu(
                         8.00000000e00,
                     ]
                 ],
-                dtype=K.floatx(),
+                dtype=float,
             ),
         ),
     ],
 )
 def test_quantized_relu_po2(bits, negative_slope, test_values, expected_values):
-    x = tf.constant(test_values, dtype=K.floatx())
+    x = test_values
     layer = quantized_relu_po2(bits, negative_slope=negative_slope)
     result = layer(x).numpy()
     assert_allclose(result, expected_values, rtol=1e-5)

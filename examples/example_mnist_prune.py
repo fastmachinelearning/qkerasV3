@@ -18,11 +18,11 @@ Adapted from TF model optimization example."""
 
 import tempfile
 
-import tensorflow.keras.backend as K
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import Activation, Flatten, Input
-from tensorflow.keras.models import Model, Sequential, save_model
-from tensorflow.keras.utils import to_categorical
+import keras.backend as K
+from keras.datasets import mnist
+from keras.layers import Activation, Flatten, Input
+from keras.models import Model, Sequential, save_model
+from keras.utils import to_categorical
 from tensorflow_model_optimization.python.core.sparsity.keras import (
     prune,
     pruning_callbacks,
@@ -168,7 +168,7 @@ def train_and_save(model, x_train, y_train, x_test, y_test):
     print_model_sparsity(model)
 
     # Export and import the model. Check that accuracy persists.
-    _, keras_file = tempfile.mkstemp(".h5")
+    _, keras_file = tempfile.mkstemp(".keras")
     print("Saving model to: ", keras_file)
     save_model(model, keras_file)
 
@@ -196,8 +196,8 @@ def main():
         x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
         input_shape = (img_rows, img_cols, 1)
 
-    x_train = x_train.astype("float32")
-    x_test = x_test.astype("float32")
+    x_train = x_train.astype(float)
+    x_test = x_test.astype(float)
     x_train /= 255
     x_test /= 255
     print("x_train shape:", x_train.shape)

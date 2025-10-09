@@ -18,8 +18,8 @@
 import tempfile
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
-import tensorflow as tf
 from keras import layers
 from keras.backend import clear_session
 from keras.models import Model
@@ -43,9 +43,6 @@ from qkerasV3.utils import (
 
 # set random seed
 keras.utils.set_random_seed(812)
-
-# TODO: fix run_eagerly=True
-tf.config.run_functions_eagerly(True)
 
 
 def get_qconv2d_model(input_shape, kernel_size, kernel_quantizer=None):
@@ -236,12 +233,12 @@ def test_unfold_model():
     kernel_quantizer = "quantized_bits(4, 0, 1)"
     folding_mode = "batch_stats_folding"
     ema_freeze_delay = 10
-    kernel = np.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
-    gamma = np.array([2.0, 1.0])
-    beta = np.array([0.0, 1.0])
-    moving_mean = np.array([1.0, 1.0])
-    moving_variance = np.array([1.0, 2.0])
-    iteration = np.array(-1)
+    kernel = knp.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
+    gamma = knp.array([2.0, 1.0])
+    beta = knp.array([0.0, 1.0])
+    moving_mean = knp.array([1.0, 1.0])
+    moving_variance = knp.array([1.0, 2.0])
+    iteration = knp.array(-1)
 
     def _get_sequantial_folded_model(x_shape):
         x = x_in = layers.Input(x_shape, name="input")
@@ -388,8 +385,8 @@ def test_loading():
     model_loaded = load_qmodel(fname)
     weight1 = model_fold.layers[1].get_folded_weights()
     weight2 = model_loaded.layers[1].get_folded_weights()
-    assert_equal(np.array(weight1[0]), np.array(weight2[0]))
-    assert_equal(np.array(weight1[1]), np.array(weight2[1]))
+    assert_equal(weight1[0].numpy(), weight2[0].numpy())
+    assert_equal(weight1[1].numpy(), weight2[1].numpy())
 
     # test convert a folded model to a normal model for zpm
     # the kernel/bias weight in the normal model should be the same as the folded
@@ -397,8 +394,8 @@ def test_loading():
     normal_model = bn_folding_utils.unfold_model(model_fold)
     weight2 = normal_model.layers[1].get_weights()
 
-    assert_equal(weight1[0], weight2[0])
-    assert_equal(weight1[1], weight2[1])
+    assert_equal(weight1[0].numpy(), weight2[0])
+    assert_equal(weight1[1].numpy(), weight2[1])
 
 
 def test_same_training_and_prediction():
@@ -409,12 +406,12 @@ def test_same_training_and_prediction():
     loss_metric = 'MAE'
 
     x_shape = (2, 2, 1)
-    kernel = np.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
-    gamma = np.array([2.0, 1.0])
-    beta = np.array([0.0, 1.0])
-    moving_mean = np.array([1.0, 1.0])
-    moving_variance = np.array([1.0, 2.0])
-    iteration = np.array(-1)
+    kernel = knp.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
+    gamma = knp.array([2.0, 1.0])
+    beta = knp.array([0.0, 1.0])
+    moving_mean = knp.array([1.0, 1.0])
+    moving_variance = knp.array([1.0, 2.0])
+    iteration = knp.array(-1)
 
     x, y = generate_dataset(
         train_size=10,
@@ -485,7 +482,7 @@ def test_same_training_and_prediction():
     # check if training for long enough (after bn freezes), unfold model and fold
     # models should be different, but the two folding modes should be the same
     epochs = 5
-    iteration = np.array(8)
+    iteration = knp.array(8)
     (unfold_model, fold_model_batch) = get_models_with_one_layer(
         kernel_quantizer=None, folding_mode="batch_stats_folding", ema_freeze_delay=10
     )
@@ -598,17 +595,17 @@ def test_same_training_and_prediction():
     ema_freeze_delay = 10
 
     # weights
-    depthwise_kernel = np.array([[[[1.0]], [[0.0]]], [[[0.0]], [[1.0]]]])
-    gamma = np.array([2])
-    beta = np.array([0])
-    moving_mean = np.array([4.0])
-    moving_variance = np.array([2.0])
-    iteration = np.array(2)
-    folded_depthwise_kernel_quantized = np.array(
+    depthwise_kernel = knp.array([[[[1.0]], [[0.0]]], [[[0.0]], [[1.0]]]])
+    gamma = knp.array([2])
+    beta = knp.array([0])
+    moving_mean = knp.array([4.0])
+    moving_variance = knp.array([2.0])
+    iteration = knp.array(2)
+    folded_depthwise_kernel_quantized = knp.array(
         [[[[1.4138602]], [[0.0]]], [[[0.0]], [[1.4138602]]]]
     )
-    folded_bias_quantized = np.array([-5.655441])
-    dense_weight = np.array([[1.0, 0], [0, 0], [0, 0], [0, 0]])
+    folded_bias_quantized = knp.array([-5.655441])
+    dense_weight = knp.array([[1.0, 0], [0, 0], [0, 0], [0, 0]])
 
     # generate dataset
     x, y = generate_dataset(
@@ -666,7 +663,7 @@ def test_same_training_and_prediction():
     assert_allclose(pred1, pred2, rtol=1e-4)
 
     # after bn freezes, the two models will not reach the same
-    iteration = np.array(12)
+    iteration = knp.array(12)
     epochs = 5
     ema_freeze_delay = 10
     (model, fold_model) = _get_models(

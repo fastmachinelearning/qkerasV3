@@ -16,7 +16,7 @@
 """Fold batchnormalization with previous QDepthwiseConv2D layers."""
 
 import keras
-import tensorflow as tf
+import keras.ops.numpy as knp
 from keras import layers
 from keras import ops as Kops
 from tensorflow.python.framework import smart_cond as tf_utils
@@ -25,8 +25,6 @@ from tensorflow.python.ops import array_ops, math_ops
 from .ops_portable import bias_add_portable
 from .qconvolutional import QDepthwiseConv2D
 from .quantizers import *
-
-tf.compat.v2.enable_v2_behavior()
 
 
 @register_keras_serializable(package="qkerasV3")
@@ -175,14 +173,14 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
     def call(self, inputs, training=False):
         # default
         if training is None:
-            training = tf.constant(False)
+            training = False
 
         # Determine whether BatchNormalization layers should run in training mode.
         if (self.ema_freeze_delay is None) or (self.ema_freeze_delay < 0):
             bn_training = Kops.cast(training, dtype=bool)
         else:
             bn_training = Kops.logical_and(
-                training, tf.math.less_equal(self._iteration, self.ema_freeze_delay)
+                training, knp.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
         depthwise_kernel = self.depthwise_kernel
@@ -212,8 +210,8 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         self._iteration.assign_add(
             tf_utils.smart_cond(
                 training,
-                lambda: tf.constant(1, tf.int64),
-                lambda: tf.constant(0, tf.int64),
+                lambda: knp.array(1, dtype="int64"),
+                lambda: knp.array(0, dtype="int64"),
             )
         )
 
@@ -226,7 +224,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         reduction_axes = [i for i in range(ndims) if i not in axes]
         keep_dims = len(axes) > 1
 
-        mean, variance = tf.nn.moments(conv_outputs, reduction_axes, keepdims=keep_dims)
+        mean, variance = keras.ops.moments(conv_outputs, reduction_axes, keepdims=keep_dims)
 
         gamma = self.batchnorm.gamma
         beta = self.batchnorm.beta
@@ -236,8 +234,8 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         if self.folding_mode not in ["batch_stats_folding", "ema_stats_folding"]:
             raise ValueError(f"mode {self.folding_mode} not supported!")
 
-        mv_inv = tf.math.rsqrt(moving_variance + self.batchnorm.epsilon)
-        batch_inv = tf.math.rsqrt(variance + self.batchnorm.epsilon)
+        mv_inv = keras.ops.rsqrt(moving_variance + self.batchnorm.epsilon)
+        batch_inv = keras.ops.rsqrt(variance + self.batchnorm.epsilon)
 
         if gamma is not None:
             mv_inv *= gamma
@@ -258,7 +256,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             depthwise_kernel.shape.as_list()[2],
             depthwise_kernel.shape.as_list()[3],
         ]
-        inv = tf.reshape(inv, depthwise_weights_shape)
+        inv = knp.reshape(inv, depthwise_weights_shape)
 
         folded_depthwise_kernel = inv * depthwise_kernel
 
@@ -289,9 +287,9 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         if training is True and self.folding_mode == "ema_stats_folding":
             y_corr = tf_utils.smart_cond(
                 bn_training,
-                lambda: tf.sqrt(moving_variance + self.batchnorm.epsilon)
-                * tf.math.rsqrt(variance + self.batchnorm.epsilon),
-                lambda: tf.constant(1.0, shape=moving_variance.shape),
+                lambda: knp.sqrt(moving_variance + self.batchnorm.epsilon)
+                * keras.ops.rsqrt(variance + self.batchnorm.epsilon),
+                lambda: 1,
             )
             folded_outputs = folded_outputs * y_corr
 

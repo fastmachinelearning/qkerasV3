@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import keras
 import pytest
 from keras.layers import Activation, BatchNormalization, Conv2D, DepthwiseConv2D, Input
 from keras.models import Model
@@ -22,6 +23,8 @@ from qkerasV3.estimate import print_qstats
 from qkerasV3.quantizers import *
 from qkerasV3.utils import model_quantize
 
+# set random seed
+keras.utils.set_random_seed(812)
 
 def create_network():
     xi = Input((28, 28, 1))
@@ -86,7 +89,7 @@ def test_conversion_print_qstats():
         },
     }
     m2 = model_quantize(m2, d2, 4, enable_bn_folding=True)
-    m2(tf.random.normal((1, 28, 28, 1)))
+    m2(np.random.normal(size=(1, 28, 28, 1)))
     m2.summary()
     print_qstats(m2)
 

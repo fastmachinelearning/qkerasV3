@@ -14,7 +14,7 @@
 # limitations under the License.
 # ==============================================================================
 import keras
-import numpy as np
+import keras.ops.numpy as knp
 import tensorflow as tf
 from keras import backend as K
 
@@ -52,9 +52,9 @@ class BaseQuantizer(tf.Module):
         if use_variables:
             if hasattr(self, "qnoise_factor"):
                 self.qnoise_factor = keras.Variable(
-                    np.array(self.qnoise_factor, dtype="float32"),
+                    knp.array(self.qnoise_factor, dtype=float),
                     name=_create_variable_name("qnoise_factor", var_name=var_name),
-                    dtype="float32",
+                    dtype=float,
                     trainable=False,
                 )
         self.built = True

@@ -5,9 +5,9 @@ name: CI tests
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main, v3 ]
   pull_request:
-    branches: [ master ]
+    branches: [ main, v3 ]
 
 jobs:
   build:
@@ -15,17 +15,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v3
       with:
-        python-version: 3.7
+        python-version: 3.11
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         pip install .
-        python setup.py install 
     - name: Test with pytest
       run: |
         pytest
+    - name: Run examples
+      run: |
+        for f in examples/*.py; do python "$f"; done
+
+  run_notebooks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.11
+    - uses: yaananth/run-notebook@v2
+      env:
+        RUNNER: ${{ toJson(runner) }}
+        SECRETS: ${{ toJson(secrets) }}
+        GITHUB: ${{ toJson(github) }}
+      with:
+        notebook: "notebook/AutoQKeras.ipynb"
+        isReport: False
+        poll: True
+    - uses: yaananth/run-notebook@v2
+      env:
+        RUNNER: ${{ toJson(runner) }}
+        SECRETS: ${{ toJson(secrets) }}
+        GITHUB: ${{ toJson(github) }}
+      with:
+        notebook: "notebook/CodebookQuantization.ipynb"
+        isReport: False
+        poll: True
+    - uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: output
+        path: ${{ RUNNER.temp }}/nb-runner
+      env:
+        RUNNER: ${{ toJson(runner) }}

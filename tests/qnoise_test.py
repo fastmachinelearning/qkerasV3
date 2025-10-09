@@ -15,11 +15,16 @@
 # ==============================================================================
 """Test gradual quantization noise injection with quantizers of quantizers.py."""
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
 from qkerasV3.quantizers import quantized_bits, quantized_relu
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def test_qnoise_quantized_bits():
@@ -41,25 +46,25 @@ def test_qnoise_quantized_bits():
         use_variables=True,
     )
 
-    inputs = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
-    x = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype=np.float32)
-    xq = np.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype=np.float32)
+    inputs = knp.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
+    x = knp.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
+    xq = knp.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype="float32")
     x_xq = 0.5 * (x + xq)
 
     # no quantization
     qb.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qb(inputs)
-    assert_equal(x_q_0, x)
+    assert_equal(x_q_0.numpy(), x)
 
     # full quantization
     qb.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qb(inputs)
-    assert_equal(x_q_1, xq)
+    assert_equal(x_q_1.numpy(), xq)
 
     # mixing half and half of x and xq
     qb.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qb(inputs)
-    assert_equal(x_q_05, x_xq)
+    assert_equal(x_q_05.numpy(), x_xq)
 
 
 def test_qnoise_quantized_relu():
@@ -71,15 +76,15 @@ def test_qnoise_quantized_relu():
     use_stochastic_rounding = False
 
     # input to quantized relu
-    inputs = np.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype=np.float32)
+    inputs = knp.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype="float32")
     # float relu
-    x = np.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype=np.float32)
+    x = knp.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype="float32")
     # float relu with upper bound 1.5
-    x_ub = np.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype=np.float32)
+    x_ub = knp.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype="float32")
     # float relu with quantized clipping
-    x_clipped = np.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype=np.float32)
+    x_clipped = knp.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype="float32")
     # quantized relu
-    xq = np.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype=np.float32)
+    xq = knp.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype="float32")
 
     # mixing half and half
     x_xq = 0.5 * (x + xq)
@@ -103,17 +108,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_qc_false.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_qc_false(inputs)
-    assert_equal(x_q_0, x)
+    assert_equal(x_q_0.numpy(), x)
 
     # full quantization
     qr_qc_false.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_qc_false(inputs)
-    assert_equal(x_q_1, xq)
+    assert_equal(x_q_1.numpy(), xq)
 
     # mixing half and half
     qr_qc_false.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_qc_false(inputs)
-    assert_equal(x_q_05, x_xq)
+    assert_equal(x_q_05.numpy(), x_xq)
 
     #########################################
     # No relu upper bound
@@ -132,17 +137,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_qc_true.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_qc_true(inputs)
-    assert_equal(x_q_0, x_clipped)
+    assert_equal(x_q_0.numpy(), x_clipped)
 
     # full quantization
     qr_qc_true.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_qc_true(inputs)
-    assert_equal(x_q_1, xq)
+    assert_equal(x_q_1.numpy(), xq)
 
     # mixing half and half
     qr_qc_true.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_qc_true(inputs)
-    assert_equal(x_q_05, x_clipped_xq)
+    assert_equal(x_q_05.numpy(), x_clipped_xq)
 
     #########################################
     # Relu upper bound
@@ -161,17 +166,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_0, np.clip(x_ub, a_min=None, a_max=1.5))
+    assert_equal(x_q_0.numpy(), np.clip(x_ub, a_min=None, a_max=1.5))
 
     # full quantization
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_1, np.clip(xq, a_min=None, a_max=1.5))
+    assert_equal(x_q_1.numpy(), np.clip(xq, a_min=None, a_max=1.5))
 
     # mixing half and half
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_05, np.clip(x_ub_xq, a_min=None, a_max=1.5))
+    assert_equal(x_q_05.numpy(), np.clip(x_ub_xq, a_min=None, a_max=1.5))
 
     #########################################
     # Relu upper bound
@@ -191,17 +196,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_0, x_clipped)
+    assert_equal(x_q_0.numpy(), x_clipped)
 
     # full quantization
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_1, xq)
+    assert_equal(x_q_1.numpy(), xq)
 
     # mixing half and half
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_05, x_clipped_xq)
+    assert_equal(x_q_05.numpy(), x_clipped_xq)
 
 
 if __name__ == "__main__":

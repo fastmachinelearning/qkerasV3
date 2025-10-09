@@ -18,14 +18,14 @@
 
 import glob
 
+import keras.ops.numpy as knp
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 filenames = glob.glob("log_*.csv")
 filenames.sort()
 
-block_sizes = int(np.ceil(np.sqrt(len(filenames))))
+block_sizes = int(knp.ceil(knp.sqrt(len(filenames))))
 
 for i in range(len(filenames)):
     history = pd.read_csv(filenames[i])

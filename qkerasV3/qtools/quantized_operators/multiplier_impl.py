@@ -18,7 +18,7 @@
 
 import abc
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from qkerasV3.qtools.quantized_operators import quantizer_impl
 
@@ -228,8 +228,8 @@ class Shifter(IMultiplier):
             self.gate_bits = qbits_bits
         else:
             self.gate_factor = 1
-            b = np.sqrt(2**po2_quantizer.bits * qbits_bits)
-            self.gate_bits = b * np.log10(b)
+            b = knp.sqrt(2**po2_quantizer.bits * qbits_bits)
+            self.gate_bits = b * knp.log10(b)
 
     @staticmethod
     def implemented_as():
@@ -384,7 +384,7 @@ class FixedPointMultiplier(IMultiplier):
         self.output.is_floating_point = False
 
         self.gate_factor = 1
-        self.gate_bits = np.sqrt(self.input.bits * self.weights.bits)
+        self.gate_bits = knp.sqrt(self.input.bits * self.weights.bits)
 
     @staticmethod
     def implemented_as():

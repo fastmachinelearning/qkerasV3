@@ -18,7 +18,7 @@
 
 import os
 
-import numpy as np
+import keras.ops.numpy as knp
 
 DEBUG = int(os.environ.get("DEBUG", 0))
 PRINT_DEBUG = int(os.environ.get("PRINT_DEBUG", 0))
@@ -57,7 +57,7 @@ def gen_random_tree_regressor(
     children_right = tree.children_right
     feature = tree.feature
     threshold = tree.threshold
-    values = np.copy(tree.value)
+    values = knp.copy(tree.value)
 
     o_suffix = ""
     if DEBUG:
@@ -77,9 +77,9 @@ def gen_random_tree_regressor(
             return x
         factor = (1 << decimal_digits) * 1.0
         x = x * factor
-        return np.round(x) / factor
+        return knp.round(x) / factor
 
-    is_leaves = np.zeros(shape=n_nodes, dtype=bool)
+    is_leaves = knp.zeros(shape=n_nodes, dtype=bool)
 
     stack = [(0, -1)]
 
@@ -108,7 +108,7 @@ def gen_random_tree_regressor(
     bdd = {}
 
     def round_value_to_int(x):
-        v = hex(int(np.round(x * (1 << (o_decimal_digits)))))
+        v = hex(int(knp.round(x * (1 << (o_decimal_digits)))))
         if is_cc:
             if DEBUG:
                 return str(x)
@@ -187,9 +187,9 @@ def gen_random_tree_regressor(
 def entry_to_hex(entry, max_value, size, is_cc):
     """Converts class instance to hexa number."""
 
-    e_vector = [np.power(max_value + 1, i) for i in range(len(entry) - 1, -1, -1)]
-    entry = np.array(entry)
-    v = hex(np.sum(entry * e_vector))
+    e_vector = [knp.power(max_value + 1, i) for i in range(len(entry) - 1, -1, -1)]
+    entry = knp.array(entry)
+    v = hex(knp.sum(entry * e_vector))
 
     if is_cc:
         return v
@@ -235,7 +235,7 @@ def gen_random_tree_classifier(
 
     values = {}
 
-    is_leaves = np.zeros(shape=n_nodes, dtype=bool)
+    is_leaves = knp.zeros(shape=n_nodes, dtype=bool)
 
     stack = [(0, -1)]
 
@@ -245,7 +245,7 @@ def gen_random_tree_classifier(
 
     n_classes = len(tree.value[0].flatten())
 
-    max_bits = int(np.ceil(np.log2(max_value + 1)))
+    max_bits = int(knp.ceil(knp.log2(max_value + 1)))
 
     while stack:
         node_id, parent_depth = stack.pop()
@@ -258,8 +258,8 @@ def gen_random_tree_classifier(
             is_leaves[node_id] = True
             # get tree node output
             p_input_tuple = tree.value[node_id].flatten().astype(np.int32)
-            max_input_value = np.max(p_input_tuple)
-            min_input_value = np.min(p_input_tuple)
+            max_input_value = knp.max(p_input_tuple)
+            min_input_value = knp.min(p_input_tuple)
             # if max_value == 1, only keep top ones
             if max_value == 1:
                 input_tuple = (p_input_tuple == max_input_value).astype(np.int32)
@@ -269,11 +269,11 @@ def gen_random_tree_classifier(
             else:  # if max_value <= 3:
                 # SKLearn classifier computes probability for each entry instead of
                 # suming them all. We should do the same.
-                max_input_value = np.sum(p_input_tuple)
+                max_input_value = knp.sum(p_input_tuple)
                 min_input_value = 0
                 # Just update tree.value to number so that we can compare accuracy of
                 # quantization later.
-                tree.value[node_id] = np.round(
+                tree.value[node_id] = knp.round(
                     max_value
                     * (tree.value[node_id] - min_input_value)
                     / (max_input_value - min_input_value)
@@ -299,7 +299,7 @@ def gen_random_tree_classifier(
     # t_bits: entry type
     # l_bits: table line type
     if use_rom:
-        t_bits = int(np.ceil(np.log2(len(values_rom))))
+        t_bits = int(knp.ceil(knp.log2(len(values_rom))))
         l_bits = max_bits * n_classes
     else:
         t_bits = max_bits * n_classes
@@ -498,11 +498,11 @@ def gen_random_forest(
             if is_top_level:
                 header.append("#pragma hls_design top")
             header.append(
-                f"void {name}(int in[{np.sum(bits)}], int &out)"
+                f"void {name}(int in[{knp.sum(bits)}], int &out)"
                 + " {"
             )
         else:
-            n_bits = int(np.ceil(np.log2(len(o_list))))
+            n_bits = int(knp.ceil(knp.log2(len(o_list))))
             header = header + [
                 f"static inline ac_int<{o_bits},{o_is_neg}> round_even(ac_fixed<{n_bits + o_bits + decimal_digits},{n_bits + o_bits + o_is_neg},{o_is_neg}> x)"
                 + " {",
@@ -524,12 +524,12 @@ def gen_random_forest(
             if is_top_level:
                 header.append("#pragma hls_design top")
             header.append(
-                f"void {name}(ac_int<{np.sum(bits)},0> in, ac_int<{o_bits},{o_is_neg}> &out)"
+                f"void {name}(ac_int<{knp.sum(bits)},0> in, ac_int<{o_bits},{o_is_neg}> &out)"
                 + " {"
             )
     else:
-        n_bits = int(np.ceil(np.log2(len(o_list))))
-        i_decl = f"  input [{np.sum(bits) - 1}:0] in;"
+        n_bits = int(knp.ceil(knp.log2(len(o_list))))
+        i_decl = f"  input [{knp.sum(bits) - 1}:0] in;"
         o_sign = "signed " if o_is_neg else ""
         o_decl = "  output " + o_sign + f"[{o_bits - 1}:0] out;"
         header = [
@@ -559,7 +559,7 @@ def gen_random_forest(
             "  endfunction",
         ]
 
-    all_bits = np.sum(bits)
+    all_bits = knp.sum(bits)
     sum_i = 0
     for i in range(bits.shape[0]):
         if is_cc:
@@ -583,7 +583,7 @@ def gen_random_forest(
     footer = []
 
     if is_regressor:
-        n_bits = int(np.ceil(np.log2(len(o_list))))
+        n_bits = int(knp.ceil(knp.log2(len(o_list))))
         assert 1 << n_bits == len(o_list)
 
         if is_cc:
@@ -645,8 +645,8 @@ def gen_random_forest(
 
         if is_cc:
             n_classes = 1 << o_bits
-            max_bits = int(np.ceil(np.log2(max_value + 1)))
-            log2_o_list = int(np.ceil(np.log2(len(o_list))))
+            max_bits = int(knp.ceil(knp.log2(max_value + 1)))
+            log2_o_list = int(knp.ceil(knp.log2(len(o_list))))
             if DEBUG:
                 log2_o_type = "int"
             else:
@@ -693,8 +693,8 @@ def gen_random_forest(
             footer += ["}"]
         else:
             n_classes = 1 << o_bits
-            max_bits = int(np.ceil(np.log2(max_value + 1)))
-            log2_o_list = int(np.ceil(np.log2(len(o_list))))
+            max_bits = int(knp.ceil(knp.log2(max_value + 1)))
+            log2_o_list = int(knp.ceil(knp.log2(len(o_list))))
             log2_o_type = f"wire [{log2_o_list + max_bits}:0]"
             footer = []
             for i in range(n_classes):
@@ -733,7 +733,7 @@ def gen_random_forest(
 def gen_testbench_sv(rf, name, bits, is_neg, o_bits, o_is_neg, x, y, p, code):
     code.append("module tb;")
     x_0, x_1 = x.shape
-    x_0_log2 = int(np.ceil(np.log2(x_0)))
+    x_0_log2 = int(knp.ceil(knp.log2(x_0)))
     code.append(f"reg [{x_1 - 1}:0] x_rom[{x_0 - 1}:0];")
     code.append(f'initial $readmemb("x.rom", x_rom, 0, {x_0 - 1});')
     with open("x.rom", "w") as f:

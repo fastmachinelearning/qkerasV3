@@ -16,7 +16,7 @@
 
 
 import keras
-import tensorflow as tf
+import keras.ops.numpy as knp
 from keras import layers
 from keras.saving import register_keras_serializable
 from tensorflow.python.eager import context
@@ -216,7 +216,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
     def compute_final_output_shape(
         self, input_shape, kernel_size, strides, is_depthwise=True
     ):
-        input_shape = tf.TensorShape(input_shape).as_list()
+        input_shape = keras.ops.shape(input_shape).as_list()
         # By using list(), output_shape is a copy of input_shape, instead of a
         # reference to input_shape.
         output_shape = list(input_shape)
@@ -253,7 +253,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
             stride=stride_w,
             dilation=self.dilation_rate[1],
         )
-        return tf.TensorShape(output_shape)
+        return keras.ops.shape(output_shape)
 
     def conv_transpose_op(
         self,
@@ -283,7 +283,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
             quantized_kernel = kernel_weights
 
         # Split the input channels into groups.
-        x = tf.split(inputs, self._input_shape[-1], axis=-1)
+        x = knp.split(inputs, self._input_shape[-1], axis=-1)
 
         if is_depthwise:
             # For depthwise convolution, since CPU doesn't support grouped
@@ -302,7 +302,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
             ]
 
             # Concat the channels.
-            outputs = tf.concat(outputs, axis=-1)
+            outputs = keras.ops.concatenate(outputs, axis=-1)
 
         else:
             outputs = keras.ops.conv_transpose(

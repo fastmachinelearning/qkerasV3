@@ -15,7 +15,7 @@
 # ==============================================================================
 
 import keras
-import numpy as np
+import keras.ops.numpy as knp
 from keras import constraints, layers
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
@@ -85,7 +85,10 @@ class QAveragePooling2D(layers.AveragePooling2D):
             if isinstance(self.pool_size, int):
                 pool_area = self.pool_size * self.pool_size
             else:
-                pool_area = np.prod(self.pool_size)
+                pool_area = knp.prod(self.pool_size)
+
+            inputs = keras.ops.cast(inputs, dtype=float)
+            pool_area = keras.ops.cast(pool_area, dtype=float)
 
             # Calculates the pooling average of x*pool_area
             x = super(QAveragePooling2D, self).call(inputs * pool_area)
@@ -93,7 +96,7 @@ class QAveragePooling2D(layers.AveragePooling2D):
             # Quantizes the multiplication factor.
             mult_factor = 1.0 / pool_area
             q_mult_factor = self.average_quantizer_internal(mult_factor)
-            q_mult_factor = Kops.cast(q_mult_factor, dtype=keras.backend.floatx())
+            q_mult_factor = Kops.cast(q_mult_factor, dtype=float)
 
             # Computes pooling average.
             x = x * q_mult_factor

@@ -856,7 +856,7 @@ def test_stochastic_binary():
     np.random.seed(42)
     tf.random.set_seed(42)
 
-    x = np.random.uniform(-0.01, 0.01, size=10).astype(np.float32)
+    x = np.random.uniform(-0.01, 0.01, size=10).astype("float32")
     x = np.sort(x)
     x = np.expand_dims(x, axis=1)
 
@@ -873,13 +873,13 @@ def test_stochastic_binary():
         ts += scale
         ty += y / scale
 
-    result = (ty / n).astype(np.float32)
+    result = (ty / n).astype("float32")
     result = np.squeeze(result)
     scale = np.squeeze(np.array([ts / n]))
 
     expected = np.array(
         [-1.0, -1.0, -1.0, -0.852, 0.782, 0.768, 0.97, 0.978, 1.0, 1.0],
-        dtype=np.float32,
+        dtype="float32",
     )
     expected_scale = np.array([0.003906])
 
@@ -929,7 +929,7 @@ def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
                     0.874,
                     0.975,
                 ]
-            ).astype(np.float32),
+            ).astype("float32"),
             np.array(
                 [
                     0.008427,
@@ -943,7 +943,7 @@ def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
                     0.006853,
                     0.008282,
                 ]
-            ).astype(np.float32),
+            ).astype("float32"),
         ),
         (
             0.01,
@@ -962,7 +962,7 @@ def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
                     0.83,
                     0.986,
                 ]
-            ).astype(np.float32),
+            ).astype("float32"),
             np.array(
                 [
                     0.007812,
@@ -976,7 +976,7 @@ def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
                     0.007812,
                     0.007812,
                 ]
-            ).astype(np.float32),
+            ).astype("float32"),
         ),
     ],
 )
@@ -992,9 +992,9 @@ def test_stochastic_ternary(bound, alpha, temperature, expected_values, expected
     s = stochastic_ternary(alpha=alpha, temperature=temperature)
 
     y = s(x, training=True).numpy()
-    scale = s.scale.numpy().astype(np.float32)[0]
+    scale = s.scale.numpy().astype("float32")[0]
 
-    result = (y / scale).mean(axis=0).astype(np.float32)
+    result = (y / scale).mean(axis=0).astype("float32")
 
     assert_allclose(result, expected_values, atol=0.1)
     assert_allclose(scale, expected_scale, rtol=0.1)

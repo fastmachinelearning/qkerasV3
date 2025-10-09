@@ -18,16 +18,14 @@
 
 import argparse
 
-import numpy as np
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import Activation, Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
+from keras.datasets import mnist
+from keras.layers import Activation, Input
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
 from qkerasV3 import QActivation, QDense, print_qstats, quantized_bits, ternary
 
-np.random.seed(42)
 OPTIMIZER = Adam()
 NB_EPOCH = 1
 BATCH_SIZE = 32
@@ -85,8 +83,8 @@ def UseNetwork(weights_f, load_weights=False):
 
     x_train_ = x_train_.reshape(60000, RESHAPED)
     x_test_ = x_test_.reshape(10000, RESHAPED)
-    x_train_ = x_train_.astype("float32")
-    x_test_ = x_test_.astype("float32")
+    x_train_ = x_train_.astype(float)
+    x_test_ = x_test_.astype(float)
 
     x_train_ /= 255
     x_test_ /= 255

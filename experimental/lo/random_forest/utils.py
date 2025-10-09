@@ -17,7 +17,7 @@
 
 from csv import reader
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from .parser import _0, _1, parse
 
@@ -82,7 +82,7 @@ def load_csv(filename):
 
     # converts output to int or float
     str_column_to_number(dataset, len(dataset[0]) - 1)
-    dataset = np.array(dataset)
+    dataset = knp.array(dataset)
 
     return dataset
 
@@ -99,7 +99,7 @@ def load_pla(filename):
             )
         ]
         dataset.append(i_s + o_s)
-    dataset = np.array(dataset)
+    dataset = knp.array(dataset)
     return dataset
 
 

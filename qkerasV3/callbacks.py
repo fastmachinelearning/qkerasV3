@@ -21,7 +21,7 @@ import threading
 import time
 
 import keras
-import numpy as np
+import keras.ops.numpy as knp
 
 _current = threading.local()
 _current.writer = None
@@ -128,7 +128,7 @@ class QNoiseScheduler(keras.callbacks.Callback):
         self.use_ste = use_ste
         self.quantizers = None
         self.summary_writer = create_file_writer(log_dir) if log_dir else None
-        self.num_iters = np.array(0, dtype="int64")
+        self.num_iters = knp.array(0, dtype="int64")
 
     def calculate_qnoise_factor(self, freq):
         """Returns calculated qnoise_factor based on the current step (epoch) and
@@ -144,7 +144,7 @@ class QNoiseScheduler(keras.callbacks.Callback):
             qnoise_factor = 0.0
         elif freq <= self.finish and self.start != self.finish:
             val = float(self.finish - freq) / float(self.finish - self.start)
-            qnoise_factor = 1.0 - np.power(val, self.exponent)
+            qnoise_factor = 1.0 - knp.power(val, self.exponent)
         else:
             qnoise_factor = 1.0
 

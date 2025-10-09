@@ -36,9 +36,9 @@ import sys
 import warnings
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
 import six
-import tensorflow as tf
 from keras import activations, constraints, initializers, layers, regularizers
 from keras import backend as K
 from keras import ops as Kops
@@ -59,8 +59,8 @@ def get_auto_range_constraint_initializer(quantizer, constraint, initializer):
 
     Arguments:
      quantizer: A quantizer class in quantizers.py.
-     constraint: A tf.keras constraint.
-     initializer: A tf.keras initializer.
+     constraint: A keras constraint.
+     initializer: A keras initializer.
 
     Returns:
       a tuple (constraint, initializer), where
@@ -106,29 +106,29 @@ class QInitializer(initializers.Initializer):
     def __call__(self, shape, dtype=None):
         x = self.initializer(shape, dtype)
 
-        max_x = np.max(abs(x))
-        std_x = np.std(x)
+        max_x = knp.max(abs(x))
+        std_x = knp.std(x)
         delta = self.quantizer.max() * 2**-self.quantizer.bits
 
         # delta is the minimum resolution of the number system.
         # we want to make sure we have enough values.
         if delta > std_x and hasattr(self.initializer, "scale"):
             q = self.quantizer(x)
-            max_q = np.max(abs(q))
+            max_q = knp.max(abs(q))
             scale = 1.0
             if max_q == 0.0:
-                xx = np.mean(x * x)
-                scale = self.quantizer.max() / np.sqrt(xx)
+                xx = knp.mean(x * x)
+                scale = self.quantizer.max() / knp.sqrt(xx)
             else:
-                qx = np.sum(q * x)
-                qq = np.sum(q * q)
+                qx = knp.sum(q * x)
+                qq = knp.sum(q * q)
 
                 scale = qq / qx
 
             self.initializer.scale *= max(scale, 1)
             x = self.initializer(shape, dtype)
 
-        return np.clip(x, -self.quantizer.max(), self.quantizer.max())
+        return knp.clip(x, -self.quantizer.max(), self.quantizer.max())
 
     def get_config(self):
         return {
@@ -246,9 +246,9 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
           activation: Str. The activation quantizer type to use for this activation
             layer, such as 'quantized_relu'. Should be a string with no params.
           total_bits: Int. The total bits that can be used by the quantizer
-          current_step: tf.Variable specifying the current step in training.
+          current_step: Variable specifying the current step in training.
             You can find this by passing model.optimizer.iterations
-            (see tf.keras.optimizers.Optimizer.iterations). If set to None, the
+            (see keras.optimizers.Optimizer.iterations). If set to None, the
             layer will attempt to estimate the current step itself, but please note
             that this number may not always match the optimizer step.
           symmetric: Bool. If to enforce symmetry about the origin in the quantized
@@ -301,7 +301,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
                 "[WARNING] QAdaptiveActivation is disconnected from the optimizer "
                 "current step, which may lead to incorrect training. If you wish to"
                 " resume training, set this layer's self.step to the optimizer's "
-                "tf.Variable current step",
+                "Variable current step",
                 file=sys.stderr,
             )
         self.quantization_delay = quantization_delay
@@ -365,11 +365,11 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
 
     def build(self, input_shape):
         if self.will_ema_freeze:
-            self.ema_freeze_delay = tf.constant(self.ema_freeze_delay, dtype=tf.int64)
+            self.ema_freeze_delay = knp.array(self.ema_freeze_delay, dtype=np.int64)
 
-        self.ema_decay = tf.constant(self.ema_decay, dtype=tf.float32)
-        self.is_estimating_step_count = tf.constant(
-            self.is_estimating_step_count, dtype=tf.bool
+        self.ema_decay = knp.array(self.ema_decay, dtype="float32")
+        self.is_estimating_step_count = knp.array(
+            self.is_estimating_step_count, dtype=bool
         )
 
         # Calculate the number of channels
@@ -380,19 +380,19 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
                 if isinstance(input_shape, tuple)
                 else input_shape.as_list()
             )
-            num_channels = tf.constant(
-                input_shape_list[channel_index], shape=(1), dtype=tf.int64
+            num_channels = knp.array(
+                input_shape_list[channel_index], dtype=np.int64
             )
         else:
-            num_channels = tf.constant(1, shape=(1), dtype=tf.int64)
+            num_channels = knp.array(1, dtype=np.int64)
 
         # Initialize the moving mins and max
         if self.ema_min is None or self.ema_max is None:
             self.ema_min = keras.Variable(
-                np.zeros(num_channels), name="ema_min", trainable=False
+                knp.zeros(num_channels), name="ema_min", trainable=False
             )
             self.ema_max = keras.Variable(
-                np.zeros(num_channels), name="ema_max", trainable=False
+                knp.zeros(num_channels), name="ema_max", trainable=False
             )
 
         # Determine the parameters for the quantizer
@@ -400,7 +400,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
 
         # Set up the initial integer bits and quantizer params
         self.quantizer.integer = keras.Variable(
-            np.zeros(num_channels, dtype="int32"),
+            knp.zeros(num_channels, dtype="int32"),
             name="quantizer_integer_bits",
             trainable=False,
         )
@@ -416,7 +416,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
         self.quantizer.alpha = 1.0  # Setting alpha to 1.0 allows the integer bits
         # to serve as the scale
         self.quantizer.symmetric = self.symmetric
-        self.quantization_delay = tf.constant(self.quantization_delay, dtype=tf.int64)
+        self.quantization_delay = knp.array(self.quantization_delay, dtype=np.int64)
 
     def call(self, inputs, training=False):
         x = inputs
@@ -425,10 +425,10 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
 
         # Update the step count if the optimizer step count is unknown
         self.step.assign_add(
-            tf.cond(
+            keras.ops.where(
                 Kops.logical_and(self.is_estimating_step_count, training),
-                lambda: tf.constant(1, tf.int64),
-                lambda: tf.constant(0, tf.int64),
+                1,
+                0,
             )
         )
 
@@ -438,16 +438,16 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             # quantization noise to use. At training start, we want no quantization,
             # so qnoise_factor = 0.0. After quantization_delay steps, we want normal
             # quantization, so qnoise_factor = 1.0.
-            qnoise_factor = tf.cond(
-                tf.greater_equal(self.step, self.quantization_delay),
-                lambda: tf.constant(1.0),
-                lambda: tf.constant(0.0),
+            qnoise_factor = keras.ops.where(
+                knp.greater_equal(self.step, self.quantization_delay),
+                1.0,
+                0.0,
             )
             self.quantizer.update_qnoise_factor(qnoise_factor)
             qx = self.quantizer(x)
 
         else:  # If not training, we always want to use full quantization
-            self.quantizer.update_qnoise_factor(tf.constant(1.0))
+            self.quantizer.update_qnoise_factor(knp.array(1.0))
             qx = self.quantizer(x)
 
         # Calculate the axis along where to find the min and max EMAs
@@ -464,34 +464,34 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             axis = [0]
 
         # Determine if freezing the EMA
-        is_ema_training = tf.constant(training, dtype=tf.bool)
+        is_ema_training = knp.array(training, dtype=bool)
         if self.will_ema_freeze:
-            is_ema_training = tf.cond(
-                tf.greater(self.step, self.ema_freeze_delay),
-                lambda: tf.constant(False),
-                lambda: tf.constant(True),
+            is_ema_training = keras.ops.where(
+                knp.greater(self.step, self.ema_freeze_delay),
+                False,
+                True,
             )
 
         def update_branch():
             """Update the moving average when is_ema_training is True."""
 
             # Set the qnoise factor to 0 to update the EMA using the unquantized input
-            prev_qnoise_factor = tf.identity(self.quantizer.qnoise_factor)
-            self.quantizer.update_qnoise_factor(tf.constant(0.0))
+            prev_qnoise_factor = knp.identity(self.quantizer.qnoise_factor)
+            self.quantizer.update_qnoise_factor(0.0)
 
             # Update the EMA
             act_x = self.quantizer(x)  # act_x is the input after the activation
             # function, but before the quantizer. This is
             # done by using a qnoise_factor of 0
-            new_min = tf.squeeze(Kops.min(act_x, axis=axis, keepdims=True))
+            new_min = knp.squeeze(Kops.min(act_x, axis=axis, keepdims=True))
             self.ema_min.assign(
-                keras.ops.cast(self.ema_min * self.ema_decay, dtype="float32") + \
-                keras.ops.cast(new_min * (1.0 - self.ema_decay), dtype="float32")
+                keras.ops.cast(self.ema_min * self.ema_decay, dtype=float) + \
+                keras.ops.cast(new_min * (1.0 - self.ema_decay), dtype=float)
             )
-            new_max = tf.squeeze(Kops.max(act_x, axis=axis, keepdims=True))
+            new_max = knp.squeeze(Kops.max(act_x, axis=axis, keepdims=True))
             self.ema_max.assign(
-                keras.ops.cast(self.ema_max * self.ema_decay, dtype="float32") + \
-                keras.ops.cast(new_max * (1.0 - self.ema_decay), dtype="float32")
+                keras.ops.cast(self.ema_max * self.ema_decay, dtype=float) + \
+                keras.ops.cast(new_max * (1.0 - self.ema_decay), dtype=float)
             )
 
             # Reset the qnoise factor to the previous value
@@ -529,9 +529,9 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             "total_bits": self.total_bits,
             "current_step": self.step.numpy(),
             "symmetric": self.symmetric,
-            "quantization_delay": np.array(self.quantization_delay),
-            "ema_freeze_delay": np.array(self.ema_freeze_delay),
-            "ema_decay": np.array(self.ema_decay),
+            "quantization_delay": knp.array(self.quantization_delay),
+            "ema_freeze_delay": knp.array(self.ema_freeze_delay),
+            "ema_decay": knp.array(self.ema_decay),
             "per_channel": self.per_channel,
             "po2_rounding": self.po2_rounding,
             "relu_neg_slope": self.relu_neg_slope,
@@ -540,7 +540,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
         return dict(list(base_config.items()) + list(config.items()))
 
     def get_quantization_config(self):
-        self.quantizer.integer_bits = np.array(self.quantizer)
+        self.quantizer.integer_bits = knp.array(self.quantizer)
         return str(self.quantizer)
 
     def compute_output_shape(self, input_shape):

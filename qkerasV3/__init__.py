@@ -19,6 +19,9 @@
 # refactored and removed.
 import tensorflow as tf
 
+# TODO: convert framework running in graphmode only
+tf.config.run_functions_eagerly(True)
+
 from .b2t import *  # pylint: disable=wildcard-import
 from .estimate import *  # pylint: disable=wildcard-import
 from .qconv2d_batchnorm import QConv2DBatchnorm
@@ -38,7 +41,5 @@ from .qseparable_conv2d_transpose import QSeparableConv2DTranspose
 from .quantizers import *  # pylint: disable=wildcard-import
 from .registry import *  # pylint: disable=wildcard-import
 from .safe_eval import *  # pylint: disable=wildcard-import
-
-assert tf.executing_eagerly(), "qkerasV3 requires TF with eager execution mode on"
 
 __version__ = "1.0.0"

@@ -22,8 +22,8 @@ in actual ASIC implementation using ACE metric and actual MAC gates data points.
 
 import io
 
+import keras.ops.numpy as knp
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
@@ -36,7 +36,7 @@ MemoryGatesPerBit = {
 
 
 # Previously calculated 3D polynomial coefficients with relative MAE<5%.
-MAC_POLY3D_PARAMS = np.array([7.70469119, 13.76199652, -92.15756665])
+MAC_POLY3D_PARAMS = knp.array([7.70469119, 13.76199652, -92.15756665])
 
 
 # MAC area data points generated from go/mac_vs_area.
@@ -122,15 +122,15 @@ def gen_mac_gate_model(do_plot=False):
         indicating the uncertainties of the params.
     """
     # acc bits, 1st index
-    abit = np.array([24, 32, 40, 48])
+    abit = knp.array([24, 32, 40, 48])
     abit = np.repeat(abit, 54)
 
     # weight bits, 2nd index
-    wbit = np.array([1, 2, 4, 8, 12, 16])
+    wbit = knp.array([1, 2, 4, 8, 12, 16])
     wbit = np.tile(np.repeat(wbit, 9), 4)
 
     # input bits, 3rd index
-    xbit = np.array([1, 2, 4, 8, 10, 12, 16, 24, 32])
+    xbit = knp.array([1, 2, 4, 8, 10, 12, 16, 24, 32])
     xbit = np.tile(xbit, 24)
 
     # Record all mac area data points associated with each accumulator bitwidth
@@ -166,12 +166,12 @@ def gen_mac_gate_model(do_plot=False):
     )
 
     # Compute one standard deviation errors on the parameters.
-    parameter_std_deviation = np.sqrt(np.diag(covariance))
+    parameter_std_deviation = knp.sqrt(np.diag(covariance))
 
     # Calculate the mean absolute error between prediction and given data.
     mac_predict = mac_gates_polynomial_3d((xbit, wbit, abit), *params)
-    mae = np.mean(np.abs(mac_predict - mac_arrs))
-    mae_predict = mae / np.mean(mac_arrs)
+    mae = knp.mean(knp.abs(mac_predict - mac_arrs))
+    mae_predict = mae / knp.mean(mac_arrs)
 
     if do_plot:
         # Plot all raw data points

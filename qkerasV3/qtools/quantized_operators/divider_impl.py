@@ -18,7 +18,7 @@
 
 import abc
 
-import numpy as np
+import keras.ops.numpy as knp
 
 
 class IDividerImpl(abc.ABC):
@@ -101,8 +101,8 @@ class Shifter(IDividerImpl):
         else:
             # programmable shifter, similar to sum gate
             self.gate_factor = 1
-            b = np.sqrt(2**po2_quantizer.bits * qbits_bits)
-            self.gate_bits = b * np.log10(b)
+            b = knp.sqrt(2**po2_quantizer.bits * qbits_bits)
+            self.gate_bits = b * knp.log10(b)
 
     @staticmethod
     def implemented_as():

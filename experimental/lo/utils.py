@@ -15,7 +15,7 @@
 # ==============================================================================
 """Computes padding and quantization dictionary values."""
 
-import numpy as np
+import keras.ops.numpy as knp
 
 
 def get_padding_value(padding, kernel):
@@ -100,7 +100,7 @@ def get_quantized_po2_dict(
             o_dict[v] = b_str
 
     for b in range(1, 1 << (bits - sign - 1)):
-        v = np.power(2.0, -b)
+        v = knp.power(2.0, -b)
         if mode == "bin":
             b_sign = "0" if sign else ""
             b_str = b_sign + bin((-b) & ((1 << (bits - sign + 1)) - 1))[3:]
@@ -109,7 +109,7 @@ def get_quantized_po2_dict(
         o_dict[v] = b_str
 
         if b <= max_exp:
-            v = np.power(2.0, b)
+            v = knp.power(2.0, b)
             if mode == "bin":
                 b_str = bin(b)[2:]
                 b_str = b_sign + "0" * (bits - sign - len(b_str)) + b_str
@@ -118,7 +118,7 @@ def get_quantized_po2_dict(
             o_dict[v] = b_str
 
         if sign:
-            v = -np.power(2.0, -b)
+            v = -knp.power(2.0, -b)
             if mode == "bin":
                 b_sign = "1" if sign else ""
                 b_str = b_sign + bin((-b) & ((1 << (bits - sign + 1)) - 1))[3:]
@@ -127,7 +127,7 @@ def get_quantized_po2_dict(
             o_dict[v] = b_str
 
             if b <= max_exp:
-                v = -np.power(2.0, b)
+                v = -knp.power(2.0, b)
                 if mode == "bin":
                     b_str = bin(b)[2:]
                     b_str = b_sign + "0" * (bits - sign - len(b_str)) + b_str
@@ -136,7 +136,7 @@ def get_quantized_po2_dict(
                 o_dict[v] = b_str
 
     b = 1 << (bits - sign - 1)
-    v = np.power(2.0, -b)
+    v = knp.power(2.0, -b)
     if mode == "bin":
         b_sign = "0" if sign else ""
         b_str = b_sign + bin((-b) & ((1 << (bits - sign + 1)) - 1))[3:]
@@ -147,7 +147,7 @@ def get_quantized_po2_dict(
     smaller_mask = b_str
 
     if sign:
-        v = -np.power(2.0, -b)
+        v = -knp.power(2.0, -b)
         if mode == "bin":
             b_sign = "1" if sign else ""
             b_str = b_sign + bin((-b) & ((1 << (bits - sign + 1)) - 1))[3:]

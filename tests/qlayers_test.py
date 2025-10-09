@@ -19,15 +19,19 @@
 import os
 import tempfile
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
-from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal
 
 from qkerasV3 import QActivation, QDense
 from qkerasV3.utils import load_qmodel
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def qdense_util(
@@ -56,12 +60,12 @@ def qdense_util(
                 "kernel_initializer": "glorot_uniform",
                 "bias_initializer": "zeros",
             },
-            np.array([[1, 1, 1, 1]], dtype=K.floatx()),
-            np.array(
-                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=K.floatx()
+            knp.array([[1, 1, 1, 1]], dtype=float),
+            knp.array(
+                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=float
             ),  # weight_data
-            np.array([0, 0], dtype=K.floatx()),  # bias
-            np.array([[40, 80]], dtype=K.floatx()),
+            knp.array([0, 0], dtype=float),  # bias
+            knp.array([[40, 80]], dtype=float),
         ),  # expected_output
         (
             {
@@ -72,12 +76,12 @@ def qdense_util(
                 "kernel_quantizer": "quantized_bits(2,0,alpha=1.0)",
                 "bias_quantizer": "quantized_bits(2,0)",
             },
-            np.array([[1, 1, 1, 1]], dtype=K.floatx()),
-            np.array(
-                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=K.floatx()
+            knp.array([[1, 1, 1, 1]], dtype=float),
+            knp.array(
+                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=float
             ),  # weight_data
-            np.array([0, 0], dtype=K.floatx()),  # bias
-            np.array([[2, 2]], dtype=K.floatx()),
+            knp.array([0, 0], dtype=float),  # bias
+            knp.array([[2, 2]], dtype=float),
         ),  # expected_output
     ],
 )
@@ -111,7 +115,7 @@ def test_qactivation_loads():
     model.set_weights([w_k, w_b])
 
     # Save the model as an h5 file.
-    fd, fname = tempfile.mkstemp(".h5")
+    fd, fname = tempfile.mkstemp(".keras")
     model.save(fname)
 
     # Load the model.

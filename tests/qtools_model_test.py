@@ -18,7 +18,7 @@
 import json
 
 import keras
-import numpy as np
+import keras.ops.numpy as knp
 import pytest
 
 from qkerasV3 import (
@@ -39,6 +39,9 @@ from qkerasV3.qtools.quantized_operators import (
     quantizer_impl,
 )
 from qkerasV3.utils import model_save_quantized_weights
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def qdense_model_fork():
@@ -226,7 +229,7 @@ def qbn_model_inference():
     model.compile(loss="mse", run_eagerly=True)
     model.get_layer("qconv2d_1").set_weights(
         [
-            np.array(
+            knp.array(
                 [
                     [[[0.11, -0.5, -0.14, -0.41]], [[-0.4, 0.9, 0.6, -1.0]]],
                     [[[-0.35, 1.0, 0.54, 0.17]], [[0.39, -0.2, -0.41, -0.7]]],
@@ -235,15 +238,15 @@ def qbn_model_inference():
         ]
     )
     model.get_layer("qbn_2").set_weights(
-        [np.array([0.0, 0, 0, 0.0]), np.array([1, 1, 1, 1])]
+        [knp.array([0.0, 0, 0, 0.0]), knp.array([1, 1, 1, 1])]
     )
     model.get_layer("qconv2d_3").set_weights(
         [
-            np.array([[[[1.2, -1.5], [10.0, 1.3], [-0.7, 1.2], [1.7, 1.5]]]]),
-            np.array([0.7, 0.8]),
+            knp.array([[[[1.2, -1.5], [10.0, 1.3], [-0.7, 1.2], [1.7, 1.5]]]]),
+            knp.array([0.7, 0.8]),
         ]
     )
-    model.get_layer("qbn_4").set_weights([np.array([0, 0]), np.array([0.3, 16.8])])
+    model.get_layer("qbn_4").set_weights([knp.array([0, 0]), knp.array([0.3, 16.8])])
 
     hw_weight_dict = model_save_quantized_weights(model)
     return (hw_weight_dict, model)
@@ -963,10 +966,10 @@ def test_auto_po2():
         )
     )
     model.compile(loss="mse", run_eagerly=True)
-    model.layers[1].quantizers[0].scale = np.array(
+    model.layers[1].quantizers[0].scale = knp.array(
         [[[[0.0625, 0.0625, 0.0625, 0.0625, 0.03125]]]]
     )
-    model.layers[4].quantizers[0].scale = np.array([[0.5, 0.5, 1, 0.5, 0.25]])
+    model.layers[4].quantizers[0].scale = knp.array([[0.5, 0.5, 1, 0.5, 0.25]])
     input_quantizers = [
         quantizers.quantized_bits(bits=8, integer=0, keep_negative=False)
     ]

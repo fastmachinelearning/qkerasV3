@@ -16,7 +16,7 @@
 
 
 import keras
-import tensorflow as tf
+import keras.ops.numpy as knp
 from keras import layers
 from keras.saving import register_keras_serializable
 from tensorflow.python.eager import context
@@ -197,7 +197,6 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         self.built = True
 
     def compute_final_output_shape(self, input_shape, kernel_size, strides):
-        input_shape = tf.TensorShape(input_shape).as_list()
         # By using list(), output_shape is a copy of input_shape, instead of a
         # reference to input_shape.
         output_shape = list(input_shape)
@@ -230,7 +229,7 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
             stride=stride_w,
             dilation=self.dilation_rate[1],
         )
-        return tf.TensorShape(output_shape)
+        return output_shape
 
     def conv_transpose_op(
         self,
@@ -264,7 +263,7 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         num_output_groups = num_input_channels // self.group_size
 
         # Split the input channels into groups.
-        x = tf.split(inputs, num_output_groups, axis=-1)
+        x = knp.split(inputs, num_output_groups, axis=-1)
 
         # For depthwise convolution, since CPU doesn't support grouped
         # convolution, we run convolution on each slice of inputs and concat
@@ -287,7 +286,7 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         ]
 
         # Concat the channels.
-        outputs = tf.concat(outputs, axis=-1)
+        outputs = keras.ops.concatenate(outputs, axis=-1)
 
         if not context.executing_eagerly():
             # Infer the static output shape:

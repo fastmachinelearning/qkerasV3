@@ -19,10 +19,13 @@
 import os
 import tempfile
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from keras import layers
 from keras.models import *
+from numpy.testing import assert_array_equal
 
 from qkerasV3 import *
 from qkerasV3.utils import (
@@ -34,6 +37,9 @@ from qkerasV3.utils import (
     load_qmodel,
     model_quantize,
 )
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def create_quantized_network():
@@ -96,7 +102,7 @@ def test_get_model_sparsity():
     for true_sparsity in sparsity_levels:
         qmodel = set_network_sparsity(qmodel, true_sparsity)
         calc_sparsity = get_model_sparsity(qmodel)
-        assert np.abs(calc_sparsity - true_sparsity) < 0.01
+        assert knp.abs(calc_sparsity - true_sparsity) < 0.01
 
 
 def test_get_po2_model_sparsity():
@@ -114,7 +120,7 @@ def test_get_po2_model_sparsity():
     for set_sparsity in sparsity_levels:
         qmodel = set_network_sparsity(qmodel, set_sparsity)
         calc_sparsity = get_model_sparsity(qmodel)
-        assert np.abs(calc_sparsity - 0) < 0.01
+        assert knp.abs(calc_sparsity - 0) < 0.01
 
 
 def test_convert_to_folded_model():
@@ -217,17 +223,17 @@ def test_find_bn_fusing_layer_pair():
 
     conv_layer.set_weights(
         [
-            np.array(
+            knp.array(
                 [[[[0.5, 0.75]], [[1.5, -0.625]]], [[[-0.875, 1.25]], [[-1.25, -2.5]]]]
             )
         ]
     )
     bn_layer.set_weights(
         [
-            np.array([1.0, 0.25]),
-            np.array([0.5, 1.0]),
-            np.array([0.5, 2.5]),
-            np.array([1.5, 1.0]),
+            knp.array([1.0, 0.25]),
+            knp.array([0.5, 1.0]),
+            knp.array([0.5, 2.5]),
+            knp.array([1.5, 1.0]),
         ]
     )
     saved_weights = {}
@@ -237,8 +243,8 @@ def test_find_bn_fusing_layer_pair():
     d = saved_weights[conv_layer.name]
     assert d["enable_bn_fusing"]
     assert d["fused_bn_layer_name"] == "bn1"
-    assert np.all(d["bn_inv"] == np.array([0.8125, 0.25]))
-    assert np.all(d["fused_bias"] == np.array([0.09375, 0.65625]))
+    assert knp.all(d["bn_inv"] == knp.array([0.8125, 0.25]))
+    assert knp.all(d["fused_bias"] == knp.array([0.09375, 0.65625]))
 
 
 def create_test_model_for_scale_freezing(bias_quantizer):
@@ -330,10 +336,10 @@ def create_test_model_for_scale_freezing(bias_quantizer):
         ]
 
         bn_w = [
-            np.array([0.28, 1.33, 2.27, 3.36]),
-            np.array([0.31, 0.1, 0.03, 4.26]),
-            np.array([0.89, -0.21, 1.97, 2.06]),
-            np.array([1.2, 0.9, 13.2, 10.9]),
+            knp.array([0.28, 1.33, 2.27, 3.36]),
+            knp.array([0.31, 0.1, 0.03, 4.26]),
+            knp.array([0.89, -0.21, 1.97, 2.06]),
+            knp.array([1.2, 0.9, 13.2, 10.9]),
         ]
 
         dense_w = np.array([0.13, 0.66, 0.21, 0.23, 1.07, -0.79, 1.83, 1.81])
@@ -359,9 +365,9 @@ def test_clone_model_and_freeze_auto_po2_scale():
     )
 
     # Check if the new model's weights and scales are derived properly.
-    np.testing.assert_array_equal(
+    assert_array_equal(
         new_hw["conv"]["weights"][0],
-        np.array(
+        knp.array(
             [
                 [[[0.5, 6, 0, 0.5]], [[1, 0, 0.5, 3.5]]],
                 [[[-2.0, 3.0, 3.5, -0.5]], [[-3.5, 1.0, -3.5, 3.5]]],
@@ -369,17 +375,17 @@ def test_clone_model_and_freeze_auto_po2_scale():
         ),
     )
 
-    np.testing.assert_array_equal(
-        new_hw["conv"]["scales"][0], np.array([[[[0.25, 0.5, 0.25, 0.25]]]])
+    assert_array_equal(
+        new_hw["conv"]["scales"][0], knp.array([[[[0.25, 0.5, 0.25, 0.25]]]])
     )
 
-    np.testing.assert_array_equal(
+    assert_array_equal(
         new_hw["dw_conv"]["weights"][0].numpy().flatten(),
-        np.array([0.0, 14, 8, 4, 0, 6, -2, 4, -2, -42, 46, -4, -42, 2, -8, 12]),
+        knp.array([0.0, 14, 8, 4, 0, 6, -2, 4, -2, -42, 46, -4, -42, 2, -8, 12]),
     )
 
-    np.testing.assert_array_equal(
-        new_hw["dense"]["scales"][0], np.array([[0.25, 0.25]])
+    assert_array_equal(
+        new_hw["dense"]["scales"][0], knp.array([[0.25, 0.25]])
     )
 
 
@@ -409,4 +415,5 @@ def test_clone_model_and_freeze_auto_po2_scale_error():
 
 
 if __name__ == "__main__":
+    test_get_model_sparsity()
     pytest.main([__file__])

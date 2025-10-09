@@ -36,21 +36,22 @@ Example usages:
 import abc
 import re
 
+import keras
 import keras.backend as K
-import numpy as np
+import keras.ops.numpy as knp
 import tensorflow as tf
 from keras import ops as Kops
+from keras.layers import Layer
 from six.moves import range
-from tensorflow.keras.layers import Layer
 
 
 def _update_ema_variable(variable, new_val, ema_decay, is_initialized, should_update):
-    """Updates exponentially moving average (EMA) of a tf.Variable.
+    """Updates exponentially moving average (EMA) of a keras.Variable.
 
       This function directly updates the variable.
 
     Args:
-      variable: A tf.Variable to be updated.
+      variable: A keras.Variable to be updated.
       new_val: A tensor with a new value to update 'variable'. Its shape is same
         as 'variable'.
       ema_decay: A scalar python float or tensor. EMA decay factor.
@@ -59,12 +60,12 @@ def _update_ema_variable(variable, new_val, ema_decay, is_initialized, should_up
       should_update: A scalar python bool or tensor indicating whether to update
         'variable' or not.
     """
-    if not tf.is_tensor(should_update):
-        should_update = tf.convert_to_tensor(should_update)
+    if not keras.ops.is_tensor(should_update):
+        should_update = Kops.convert_to_tensor(should_update)
 
     val_to_update = ema_decay * variable + (1.0 - ema_decay) * new_val
-    val_to_update = tf.cond(is_initialized, lambda: val_to_update, lambda: new_val)
-    val_to_update = tf.cond(should_update, lambda: val_to_update, lambda: variable)
+    val_to_update = keras.ops.where(is_initialized, val_to_update, new_val)
+    val_to_update = keras.ops.where(should_update, val_to_update, variable)
     variable.assign(val_to_update)
 
 
@@ -114,34 +115,34 @@ def _get_msqe_scale(x, q, scale_axis=None, per_channel_scale=True, msqe_weight=N
     # in different tensorflow version (e.g., 2.4)
     # x.shape is a tuple which doesn't have as_list() method
     try:
-        x_shape = x.shape.as_list()
+        x_shape = x.shape
     except AttributeError:
         x_shape = list(x.shape)
 
     len_axis = len(x_shape)
 
     if msqe_weight is not None:
-        sqrt_msqe_weight = tf.math.sqrt(msqe_weight)
-        x = tf.math.multiply(x, sqrt_msqe_weight)
-        q = tf.math.multiply(q, sqrt_msqe_weight)
+        sqrt_msqe_weight = knp.sqrt(msqe_weight)
+        x = knp.multiply(x, sqrt_msqe_weight)
+        q = knp.multiply(q, sqrt_msqe_weight)
 
     if not per_channel_scale:
         qx = K.mean(q * x, keepdims=True)
         qq = K.mean(q * q, keepdims=True)
     elif len_axis > 1:
         axis = _get_scaling_axis(scale_axis, len_axis)
-        qx = K.mean(tf.math.multiply(q, x), axis=axis, keepdims=True)
-        qq = K.mean(tf.math.multiply(q, q), axis=axis, keepdims=True)
+        qx = K.mean(knp.multiply(q, x), axis=axis, keepdims=True)
+        qq = K.mean(knp.multiply(q, q), axis=axis, keepdims=True)
     else:
         # No summing (averaging) along the channel axis to get per-channel
         # scales.
-        qx = tf.math.multiply(q, x)
-        qq = tf.math.multiply(q, q)
+        qx = knp.multiply(q, x)
+        qq = knp.multiply(q, q)
 
     scale = qx / (qq + K.epsilon())
 
     # Rounds the exponent to the nearest integer for power-of-2 scale.
-    return K.pow(2.0, tf.math.rint(K.log(scale + K.epsilon()) / np.log(2.0)))
+    return K.pow(2.0, tf.math.rint(K.log(scale + K.epsilon()) / knp.log(2.0)))
 
 
 class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
@@ -166,7 +167,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
       use_sqrt_of_msqe_weight: Bool, whether to use square root of MSQE weight.
       use_outlier_mask_msqe_weight: Bool, whether to apply outlier mask.
       use_stable_scale_exponent: Bool, whether to use exponentially moving
-        averaged ("stable") scale exponent or not. Note: there is a tf.Variable
+        averaged ("stable") scale exponent or not. Note: there is a keras.Variable
           (self.switch_to_stable_scale) that controls when to apply the stable
           scale exponent (i.e., if use_stable_scale_exponent is true and
           self.switch_to_stable_scale is false, the stable scale exponent is
@@ -237,7 +238,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
     def build(self, input_shape):
         """Creates and initializes variables."""
         # Number of quantization levels.
-        levels = tf.math.pow(2.0, Kops.cast(self.bits, dtype=tf.float32)) - 1
+        levels = Kops.power(2.0, Kops.cast(self.bits, dtype=float)) - 1
 
         # Sets the number of quantization levels for the negative and positive
         # ranges.
@@ -261,36 +262,21 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
 
         self.scaled_axes = self._get_scaled_axes(self.scale_axis, input_shape)
 
-        if self.per_channel_scale:
-            scale_exponent_shape = tf.TensorShape(
-                [
-                    input_shape[i] if i == self.scale_axis else 1
-                    for i in range(len(input_shape))
-                ]
-            )
-        else:
-            scale_exponent_shape = [1 for i in range(len(input_shape))]
-
         # Creates the scale exponent variable to be learned.
-        self.scale_exponent = tf.Variable(
-            lambda: tf.constant(
-                init_scale_exponent, shape=scale_exponent_shape, dtype=tf.float32
-            ),
-            trainable=self.is_gradient_based,
-            synchronization=tf.VariableSynchronization.ON_READ,
-            aggregation=tf.compat.v1.VariableAggregation.MEAN,
+        self.scale_exponent = self.add_weight(
             name="scale_exponent",
+            shape=(),
+            initializer=keras.initializers.Constant(self.init_scale_exponent),
+            trainable=self.is_gradient_based
         )
 
         # "self.scale" is not a trainable variable which gets assigned not learned.
-        self.scale = tf.Variable(
-            lambda: tf.constant(
-                init_scale, shape=scale_exponent_shape, dtype=tf.float32
-            ),
-            trainable=False,
-            synchronization=tf.VariableSynchronization.ON_READ,
-            aggregation=tf.compat.v1.VariableAggregation.MEAN,
+        self.scale = self.add_weight(
             name="scale",
+            shape=(),  # or tuple(np.shape(self._init_scale)) if it’s not a scalar
+            dtype=float,
+            initializer=keras.initializers.Constant(self._init_scale),
+            trainable=False,
         )
 
         self.reduce_axes = [
@@ -300,35 +286,34 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         ]
 
         if self.use_second_moments_msqe_opt:
-            msqe_weight_shape = tf.TensorShape(
+            msqe_weight_shape = keras.ops.shape(
                 [1 if s is None else s for s in input_shape]
             )
-            self.msqe_weight = tf.Variable(
-                lambda: tf.ones(shape=msqe_weight_shape),
+            self.msqe_weight = keras.Variable(
+                lambda: knp.ones(shape=msqe_weight_shape),
                 trainable=False,
-                dtype=tf.float32,
+                dtype=float,
                 name="msqe_weight",
             )
 
         if self.use_stable_scale_exponent:
-            self.stable_scale_exponent = tf.Variable(
-                lambda: tf.zeros_like(self.scale_exponent),
-                dtype=tf.float32,
-                trainable=False,
-                synchronization=tf.VariableSynchronization.ON_READ,
-                aggregation=tf.compat.v1.VariableAggregation.MEAN,
-                name="stable_scale_exponent",
+            self.stable_scale_exponent = self.add_weight(
+              name="stable_scale_exponent",
+              shape=self.scale_exponent.shape,
+              dtype=self.scale_exponent.dtype,
+              initializer="zeros",
+              trainable=False,
             )
-            self.switch_to_stable_scale = tf.Variable(
+            self.switch_to_stable_scale = keras.Variable(
                 False, trainable=False, name="switch_to_stable_scale"
             )
-            self.should_update_stable_scale_exponent = tf.Variable(
+            self.should_update_stable_scale_exponent = keras.Variable(
                 False, trainable=False, name="should_update_stable_scale_exponent"
             )
 
         # Inidicator variable for initializing variables (e.g, the scale exponent
         # etc.).
-        self.is_initialized = tf.Variable(False, trainable=False, name="is_initialized")
+        self.is_initialized = keras.Variable(False, trainable=False, name="is_initialized")
 
     def call(self, inputs, msqe_weight=None):
         """Returns a fake quantized tensor of 'inputs'.
@@ -347,7 +332,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         """
         if not self.keep_negative:
             # Quantize only positive values (e.g. relu activation).
-            inputs = tf.keras.activations.relu(inputs)
+            inputs = keras.activations.relu(inputs)
 
         if self.use_second_moments_msqe_opt:
             return self._update_second_moments_msqe_weight(
@@ -392,7 +377,6 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
 
         return inputs_quant
 
-    @tf.custom_gradient
     def _update_second_moments_msqe_weight(self, input_quantized, inputs):
         """Updates the second moments of the gradients respect to the inputs.
 
@@ -424,7 +408,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
                 self.is_initialized,
                 should_update=True,
             )
-            return upstream_grad, tf.zeros_like(inputs)
+            return upstream_grad, knp.zeros_like(inputs)
 
         return input_quantized, grad
 
@@ -504,7 +488,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
 
         if self.use_sqrt_of_msqe_weight:
             # To use square rooted msqe_weight
-            msqe_weight = tf.math.sqrt(msqe_weight)
+            msqe_weight = knp.sqrt(msqe_weight)
 
         if self.use_outlier_mask_msqe_weight:
             # Returns the outlier mask modulated msqe_weight
@@ -541,8 +525,8 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
             scale, should_update, self.is_initialized
         )
         # Use the stable scale only when self.switch_to_stable_scale is set True.
-        scale = tf.cond(
-            self.switch_to_stable_scale, lambda: stable_scale, lambda: scale
+        scale = keras.ops.where(
+            self.switch_to_stable_scale, stable_scale, scale
         )
         return scale
 
@@ -570,7 +554,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
             is_initialized=is_initialized,
             should_update=should_update,
         )
-        return tf.math.pow(2.0, tf.math.rint(self.stable_scale_exponent))
+        return Kops.power(2.0, tf.math.rint(self.stable_scale_exponent))
 
     def _initialize_scale_exponent(self, inputs):
         """Initializes the scale exponent only once.
@@ -582,10 +566,10 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
           inputs: A tensor, where the initial scale exponent is based on.
         """
         update_cond = Kops.logical_and(not self.is_initialized, self.init_scale is None)
-        scale_exponent_to_init = tf.cond(
+        scale_exponent_to_init = keras.ops.where(
             update_cond,
-            lambda: tf.stop_gradient(self._get_init_scale_exponent(inputs)),
-            lambda: self.scale_exponent,
+            keras.ops.stop_gradient(self._get_init_scale_exponent(inputs)),
+            self.scale_exponent,
         )
         self.scale_exponent.assign(scale_exponent_to_init)
 
@@ -603,10 +587,10 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         """
         inputs_rounded = tf.math.rint(inputs / scale)
         clip_error_mask = Kops.logical_and(
-            tf.less_equal(inputs_rounded, self.qp),
-            tf.greater_equal(inputs_rounded, -self.qn),
+            knp.less_equal(inputs_rounded, self.qp),
+            knp.greater_equal(inputs_rounded, -self.qn),
         )
-        return Kops.cast(clip_error_mask, tf.float32)
+        return Kops.cast(clip_error_mask, float)
 
     def _get_scale_axis(self, input_shape):
         """Returns the scaling axis based on the input shape.
@@ -659,7 +643,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         Returns:
           A tensor through a straight-through estimator.
         """
-        return inputs + tf.stop_gradient(-inputs + tf.math.rint(inputs))
+        return inputs + keras.ops.stop_gradient(-inputs + tf.math.rint(inputs))
 
     def _simple_quantize(self, inputs, scale, should_return_q=False):
         """Returns quantized inputs without a straight-through estimator (STE).
@@ -689,7 +673,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         Returns:
           A tensor (power-of-2 constrained scaling factor).
         """
-        return tf.math.pow(2.0, self._get_po2_scale_exponent(scale))
+        return Kops.power(2.0, self._get_po2_scale_exponent(scale))
 
     def _get_po2_scale_exponent(self, scale):
         """Returns power-of-2 constrained scale exponent.
@@ -701,7 +685,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
           A tensor constrained to be in integer values.
         """
         scale_exponent = Kops.log(scale + K.epsilon()) / Kops.log(2.0)
-        return tf.round(scale_exponent)
+        return knp.round(scale_exponent)
 
     def _calculate_msqe(self, x, xq, reduce_axes=None, msqe_weight=None):
         """Returns the mean squared quantization error (MSQE).
@@ -719,7 +703,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         """
         if reduce_axes is None:
             reduce_axes = self.reduce_axes
-        msqe = tf.math.pow(x - xq, 2.0)
+        msqe = Kops.power(x - xq, 2.0)
         if msqe_weight is not None:
             msqe *= msqe_weight
         return Kops.sum(msqe, axis=reduce_axes, keepdims=True)
@@ -771,7 +755,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         if reduce_axes is None:
             reduce_axes = self.reduce_axes
 
-        best_scale = tf.identity(scale)
+        best_scale = knp.identity(scale)
         xq, q = self._simple_quantize(inputs, best_scale, should_return_q=True)
         best_msqe = self._calculate_msqe(inputs, xq, reduce_axes, msqe_weight)
 
@@ -788,8 +772,8 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
             new_msqe = self._calculate_msqe(inputs, xq, reduce_axes, msqe_weight)
 
             # Update the best scale and the best msqe
-            best_scale = tf.where(new_msqe < best_msqe, new_scale, best_scale)
-            best_msqe = tf.where(new_msqe < best_msqe, new_msqe, best_msqe)
+            best_scale = knp.where(new_msqe < best_msqe, new_scale, best_scale)
+            best_msqe = knp.where(new_msqe < best_msqe, new_msqe, best_msqe)
 
         if should_return_msqe:
             return best_scale, best_msqe
@@ -823,7 +807,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         if reduce_axes is None:
             reduce_axes = self.reduce_axes
 
-        best_scale = tf.identity(scale)
+        best_scale = knp.identity(scale)
         xq = self._simple_quantize(inputs, best_scale)
         best_msqe = self._calculate_msqe(inputs, xq, reduce_axes, msqe_weight)
         best_scale_exponent = self._get_po2_scale_exponent(best_scale)
@@ -833,12 +817,12 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         po2_exponent_offsets = [i for i in range(-end_range + 1, end_range) if i != 0]
         for exp_offset in po2_exponent_offsets:
             # Optimize scale
-            new_scale = tf.math.pow(2.0, best_scale_exponent + exp_offset)
+            new_scale = Kops.power(2.0, best_scale_exponent + exp_offset)
             xq = self._simple_quantize(inputs, new_scale)
             new_msqe = self._calculate_msqe(inputs, xq, reduce_axes, msqe_weight)
             # Update the best scale and msqe
-            best_scale = tf.where(new_msqe < best_msqe, new_scale, best_scale)
-            best_msqe = tf.where(new_msqe < best_msqe, new_msqe, best_msqe)
+            best_scale = knp.where(new_msqe < best_msqe, new_scale, best_scale)
+            best_msqe = knp.where(new_msqe < best_msqe, new_msqe, best_msqe)
 
         if should_return_msqe:
             return best_scale, best_msqe
@@ -949,7 +933,7 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
       use_sqrt_of_msqe_weight: Bool, whether to use square root of MSQE weight.
       use_outlier_mask_msqe_weight: Bool, whether to apply outlier mask.
       use_stable_scale_exponent: Bool, whether to use exponentially moving
-        averaged ("stable") scale exponent or not. Note: there is a tf.Variable
+        averaged ("stable") scale exponent or not. Note: there is a keras.Variable
           (self.switch_to_stable_scale) that controls when to apply the stable
           scale exponent (i.e., if use_stable_scale_exponent is true and
           self.switch_to_stable_scale is false, the stable scale exponent is
@@ -1016,7 +1000,7 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
         bits = re.sub(
             ptn,
             repl,
-            str(self.bits.numpy() if isinstance(self.bits, tf.Variable) else self.bits),
+            str(self.bits.numpy() if isinstance(self.bits, keras.Variable) else self.bits),
         )
 
         flags = []
@@ -1045,7 +1029,7 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
         super().build(input_shape)
 
         if self.use_po2_scale_msqe_round:
-            self.switch_to_msqe_round = tf.Variable(
+            self.switch_to_msqe_round = keras.Variable(
                 True, trainable=False, name="switch_to_msqe_round"
             )
 
@@ -1058,13 +1042,13 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
         Returns:
           A tensor of initial scale exponent values.
         """
-        std = tf.math.reduce_std(inputs, axis=self.reduce_axes, keepdims=True)
+        std = Kops.std(inputs, axis=self.reduce_axes, keepdims=True)
         # Uses 3 sigma percentile to get scale
-        scale = 3.0 * std / Kops.cast(self.qp, dtype=tf.float32)
+        scale = 3.0 * std / Kops.cast(self.qp, dtype=float)
 
         # Prevents zero scale values for inputs with all zeros (e.g., bias).
         if self.min_init_scale is not None:
-            scale = tf.math.maximum(scale, self.min_init_scale)
+            scale = knp.max(scale, self.min_init_scale)
 
         # Returns scale exponent
         return Kops.log(scale) / Kops.log(2.0)
@@ -1084,11 +1068,11 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
         """
         # Calculates the output (unconstrained) dynamic range of the quantizer (i.e.
         # , self.scale_exponent is not power-of-2 constrained.).
-        outlier_threshold = tf.math.pow(2.0, self.scale_exponent) * (self.qp + 0.5)
-        return tf.where(
+        outlier_threshold = Kops.power(2.0, self.scale_exponent) * (self.qp + 0.5)
+        return knp.where(
             abs(inputs) <= outlier_threshold,
-            tf.ones_like(inputs, dtype=tf.float32),
-            tf.zeros_like(inputs, dtype=tf.float32),
+            knp.ones_like(inputs, dtype=float),
+            knp.zeros_like(inputs, dtype=float),
         )
 
     def _get_scale(self, inputs=None, reduce_axes=None, msqe_weight=None):
@@ -1106,7 +1090,7 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
           A tensor of power-of-2 scaling factors.
         """
         if self.use_po2_scale_ceil:
-            scale_exponent = tf.math.ceil(self.scale_exponent)
+            scale_exponent = knp.ceil(self.scale_exponent)
         else:
             scale_exponent = tf.math.rint(self.scale_exponent)
 
@@ -1121,17 +1105,17 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
 
             # Control when to use MSQE rounding. Note: self.switch_to_msqe_round is
             # set to true by default.
-            scale_exponent = tf.cond(
+            scale_exponent = keras.ops.where(
                 self.switch_to_msqe_round,
-                lambda: scale_exponent_msqe,
-                lambda: scale_exponent,
+                scale_exponent_msqe,
+                scale_exponent,
             )
 
         # Apply STE
-        scale_exponent = self.scale_exponent + tf.stop_gradient(
+        scale_exponent = self.scale_exponent + keras.ops.stop_gradient(
             scale_exponent - self.scale_exponent
         )
-        return tf.math.pow(2.0, scale_exponent)
+        return Kops.power(2.0, scale_exponent)
 
     def msqe_round(self, inputs, scale_exponent, reduce_axes=None, msqe_weight=None):
         """Returns MSQE-wise optimum power-of-2 scale exponents.
@@ -1156,24 +1140,24 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
             msqe_weight = self._get_msqe_weight(inputs)
 
         # floor
-        scale_exponent_floor = tf.math.floor(scale_exponent)
+        scale_exponent_floor = knp.floor(scale_exponent)
         msqe_floor = self._calculate_msqe_inputs(
             inputs=inputs,
-            scale=tf.math.pow(2.0, scale_exponent_floor),
+            scale=Kops.power(2.0, scale_exponent_floor),
             reduce_axes=reduce_axes,
             msqe_weight=msqe_weight,
         )
 
         # ceil
-        scale_exponent_ceil = tf.math.ceil(scale_exponent)
+        scale_exponent_ceil = knp.ceil(scale_exponent)
         msqe_ceil = self._calculate_msqe_inputs(
             inputs=inputs,
-            scale=tf.math.pow(2.0, scale_exponent_ceil),
+            scale=Kops.power(2.0, scale_exponent_ceil),
             reduce_axes=reduce_axes,
             msqe_weight=msqe_weight,
         )
 
-        return tf.where(
+        return knp.where(
             msqe_floor < msqe_ceil, scale_exponent_floor, scale_exponent_ceil
         )
 
@@ -1222,7 +1206,7 @@ class quantized_bits_msqe_po2(BaseQuantizerPO2):  # pylint: disable=invalid-name
       use_sqrt_of_msqe_weight: Bool, whether to use square root of MSQE weight.
       use_outlier_mask_msqe_weight: Bool, whether to apply outlier mask.
       use_stable_scale_exponent: Bool, whether to use exponentially moving
-        averaged ("stable") scale exponent or not. Note: there is a tf.Variable
+        averaged ("stable") scale exponent or not. Note: there is a keras.Variable
           (self.switch_to_stable_scale) that controls when to apply the stable
           scale exponent (i.e., if use_stable_scale_exponent is true and
           self.switch_to_stable_scale is false, the stable scale exponent is
@@ -1282,7 +1266,7 @@ class quantized_bits_msqe_po2(BaseQuantizerPO2):  # pylint: disable=invalid-name
         bits = re.sub(
             ptn,
             repl,
-            str(self.bits.numpy() if isinstance(self.bits, tf.Variable) else self.bits),
+            str(self.bits.numpy() if isinstance(self.bits, keras.Variable) else self.bits),
         )
 
         flags = []
@@ -1317,7 +1301,7 @@ class quantized_bits_msqe_po2(BaseQuantizerPO2):  # pylint: disable=invalid-name
           A tensor of initial scale exponent values.
         """
         scale = K.max(abs(inputs), axis=self.scaled_axes, keepdims=True) / Kops.cast(
-            self.qp, dtype=tf.float32
+            self.qp, dtype=float
         )
         return self._get_po2_scale_exponent(scale)
 
@@ -1333,12 +1317,12 @@ class quantized_bits_msqe_po2(BaseQuantizerPO2):  # pylint: disable=invalid-name
           A tensor to mask out the outliers of the inputs. Its shape is same as
           'inputs' and its dtype is `float32`.
         """
-        std = tf.math.reduce_std(inputs, axis=self.reduce_axes, keepdims=True)
+        std = Kops.std(inputs, axis=self.reduce_axes, keepdims=True)
         outlier_threshold = self.outlier_mask_sigma * std
-        return tf.where(
+        return knp.where(
             abs(inputs) <= outlier_threshold,
-            tf.ones_like(inputs),
-            tf.zeros_like(inputs),
+            knp.ones_like(inputs),
+            knp.zeros_like(inputs),
         )
 
     def _get_scale(self, inputs=None, reduce_axes=None, msqe_weight=None):
@@ -1366,7 +1350,7 @@ class quantized_bits_msqe_po2(BaseQuantizerPO2):  # pylint: disable=invalid-name
 
         scale, _ = self._optimize_msqe_scale(
             inputs,
-            tf.math.pow(2.0, tf.round(self.scale_exponent)),
+            Kops.power(2.0, knp.round(self.scale_exponent)),
             reduce_axes=reduce_axes,
             msqe_weight=msqe_weight,
             num_lls_iters=self.num_lls_iters,

@@ -16,7 +16,7 @@
 # ==============================================================================
 """Implements forgiving factor metrics bit model size in bits."""
 
-import numpy as np
+import keras.ops.numpy as knp
 import six
 
 from qkerasV3 import get_quantizer
@@ -58,7 +58,7 @@ class ForgivingFactorBits(ForgivingFactor):
         # value, we actually only need to take care of the shape.
         if layer.__class__.__name__ in ["Dense", "Conv2D", "Conv1D", "DepthwiseConv2D"]:
             for w in layer.get_weights():
-                parameter_size += t_size * np.prod(w.shape)
+                parameter_size += t_size * knp.prod(w.shape)
         elif layer.__class__.__name__ in [
             "QDense",
             "QConv2D",
@@ -70,25 +70,25 @@ class ForgivingFactorBits(ForgivingFactor):
                     bits = layer.get_quantizers()[i].bits
                 else:
                     bits = t_size
-                parameter_size += bits * np.prod(w.shape)
+                parameter_size += bits * knp.prod(w.shape)
         elif layer.__class__.__name__ in ["BatchNormalization"]:
             # scale
             index = -1
-            parameter_size += t_size * np.prod(layer.get_weights()[index].shape)
+            parameter_size += t_size * knp.prod(layer.get_weights()[index].shape)
             # center (bias)
             if layer.center:
                 index = int(bool(layer.scale))
-                parameter_size += t_size * np.prod(layer.get_weights()[index].shape)
+                parameter_size += t_size * knp.prod(layer.get_weights()[index].shape)
         elif layer.__class__.__name__ in ["QBatchNormalization"]:
             # scale
             index = -1
             bits = 6
-            parameter_size += bits * np.prod(layer.get_weights()[index].shape)
+            parameter_size += bits * knp.prod(layer.get_weights()[index].shape)
             # center (bias)
             if layer.center:
                 bits = 5
                 index = int(bool(layer.scale))
-                parameter_size += bits * np.prod(layer.get_weights()[index].shape)
+                parameter_size += bits * knp.prod(layer.get_weights()[index].shape)
         return parameter_size
 
     def _act_size(self, layer):
@@ -96,7 +96,7 @@ class ForgivingFactorBits(ForgivingFactor):
         i_size = self.input_bits
         o_size = self.output_bits
         t_size = self.ref_bits
-        output_size = np.prod(layer.output.shape[1:])
+        output_size = knp.prod(layer.output.shape[1:])
         # we compute activation sizes for inputs and outputs
         if layer.__class__.__name__ in ["InputLayer"]:
             return i_size * output_size
@@ -141,7 +141,7 @@ class ForgivingFactorBits(ForgivingFactor):
                     else:
                         bits = t_size
 
-                return bits * np.prod(layer.output.shape[1:])
+                return bits * knp.prod(layer.output.shape[1:])
         elif layer.__class__.__name__ in ["QActivation", "Activation"]:
             if isinstance(layer.activation, six.string_types):
                 is_linear = layer.activation == "linear"
@@ -243,15 +243,15 @@ class ForgivingFactorBits(ForgivingFactor):
             )
         )
 
-        a_percentage = np.round(
+        a_percentage = knp.round(
             100.0 * (self.total_a_bits - self.ref_a) / self.ref_a, 2
         )
-        p_percentage = np.round(
+        p_percentage = knp.round(
             100.0 * (self.total_p_bits - self.ref_p) / self.ref_p, 2
         )
         ref_total = self.ref_a + self.ref_p
         trial_total = self.total_a_bits + self.total_p_bits
-        total_percentage = np.round(100.0 * (trial_total - ref_total) / ref_total, 2)
+        total_percentage = knp.round(100.0 * (trial_total - ref_total) / ref_total, 2)
 
         print(
 

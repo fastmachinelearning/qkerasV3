@@ -16,7 +16,7 @@
 """Quantized Recurrent layers."""
 
 
-import tensorflow as tf
+import keras
 from keras import activations, constraints, initializers, layers, regularizers
 from keras import backend as K
 from keras.saving import register_keras_serializable
@@ -286,7 +286,7 @@ class QSimpleRNN(layers.RNN, PrunableLayer):
             **kwargs,
         )
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [keras.layers.InputSpec(ndim=3)]
 
     def call(self, inputs, mask=None, training=False, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
@@ -805,7 +805,7 @@ class QLSTM(layers.RNN, PrunableLayer):
             **kwargs,
         )
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [keras.layers.InputSpec(ndim=3)]
 
     def call(self, inputs, mask=None, training=False, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)
@@ -1363,7 +1363,7 @@ class QGRU(layers.RNN, PrunableLayer):
             **kwargs,
         )
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [tf.keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [keras.layers.InputSpec(ndim=3)]
 
     def call(self, inputs, mask=None, training=False, initial_state=None):
         self._maybe_reset_cell_dropout_mask(self.cell)

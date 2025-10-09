@@ -16,12 +16,16 @@
 """Test activation from qlayers.py."""
 
 
+import keras
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
 from qkerasV3 import quantized_bits
 from qkerasV3.codebook import weight_compression
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 @pytest.mark.parametrize(

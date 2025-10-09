@@ -20,11 +20,15 @@ import os
 import tempfile
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
 from qkerasV3 import QSeparableConv2DTranspose, quantized_bits
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def create_model():
@@ -85,21 +89,21 @@ def test_qseparable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype=float)
 
-    k = np.ones((2, 2, 1, 1))
+    k = knp.ones((2, 2, 1, 1))
     dw_kernel = keras.layers.Concatenate(axis=-1)([k, 1 + k, 2 + k])
 
-    k = np.ones((1, 1, 1, 3))
+    k = knp.ones((1, 1, 1, 3))
     pt_kernel = keras.layers.Concatenate(axis=-2)([k, 1 + k])
 
-    bias = np.zeros((2,))
+    bias = knp.zeros((2,))
 
     model.layers[1].set_weights([dw_kernel, pt_kernel, bias])
 
-    actual_output = model.predict(inputs).astype(np.float16)
+    actual_output = model.predict(inputs).astype("float16")
 
-    predicted = np.array(
+    predicted = knp.array(
         [
             [
                 [
@@ -210,19 +214,19 @@ def test_quantization_in_separable_conv2d_transpose():
 
     x = np.array([[0, 0, 0, 0], [1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3]])
     inputs = np.concatenate([x, x, x], axis=-1)
-    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype="float32")
+    inputs = np.array(inputs.reshape((1, 4, 4, -1)), dtype=float)
 
-    k = np.ones((2, 2, 1, 1))
+    k = knp.ones((2, 2, 1, 1))
     dw_kernel = keras.layers.Concatenate(axis=-1)([k, 1 + k, 2 + k])
 
-    k = np.ones((1, 1, 1, 3))
+    k = knp.ones((1, 1, 1, 3))
     pt_kernel = keras.layers.Concatenate(axis=-2)([k, 1 + k])
 
-    bias = np.ones((2,))
+    bias = knp.ones((2,))
 
     model.layers[1].set_weights([dw_kernel, pt_kernel, bias])
 
-    actual_output = model.predict(inputs).astype(np.float16)
+    actual_output = model.predict(inputs).astype("float16")
 
     qs = model.layers[1].get_quantizers()
     assert_equal(len(qs), 5)
@@ -232,7 +236,7 @@ def test_quantization_in_separable_conv2d_transpose():
     assert_equal(str(qs[3]), "quantized_bits(10,6,1)")
     assert_equal(str(qs[4]), "quantized_bits(5,3,1)")
 
-    expected = np.array(
+    expected = knp.array(
         [
             [
                 [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],

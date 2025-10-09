@@ -18,6 +18,7 @@ import re
 from typing import Any
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
 import six
 import tensorflow as tf
@@ -189,7 +190,7 @@ def _get_unrolled_shape(
         shape[axis] = shape[axis] // factor
         shape.insert(axis + 1, factor)
 
-    unrolled_shape = input_shape.copy()
+    unrolled_shape = list(input_shape)
 
     if isinstance(unroll_factor, int) and isinstance(unroll_axis, int):
         unrolled_scale_axis = unroll_axis
@@ -387,9 +388,13 @@ def _get_scale_mean(
       A tuple of two tensors representing the mean of x and its quantized format
       along the specified scaling axis/axes.
     """
+    # cast input to float64
+    x = keras.ops.cast(x, dtype="float64")
+    q = keras.ops.cast(q, dtype="float64")
+
     if elements_per_scale is not None:
         # Get the input shape
-        x_shape = x.shape.as_list()
+        x_shape = x.shape
 
         scale_axis, elements_per_scale = _validate_axis_and_eps(
             x_shape, scale_axis, elements_per_scale
@@ -425,8 +430,8 @@ def _get_scale_mean(
     else:
         len_axis = len(x.shape)
         axis = _get_scaling_axis(scale_axis, len_axis)
-        qx = tf.reduce_mean(tf.math.multiply(x, q), axis=axis, keepdims=True)
-        qq = tf.reduce_mean(tf.math.multiply(q, q), axis=axis, keepdims=True)
+        qx = knp.mean(x * q, axis=axis, keepdims=True)
+        qq = knp.mean(q * q, axis=axis, keepdims=True)
     return qx, qq
 
 
@@ -481,7 +486,7 @@ def _get_least_squares_scale(
         # in different tensorflow version (e.g., 2.4)
         # x.shape is a tuple which doesn't have as_list() method
         try:
-            x_shape = x.shape.as_list()
+            x_shape = x.shape
         except AttributeError:
             x_shape = list(x.shape)
 
@@ -515,6 +520,10 @@ def _get_least_squares_scale(
         scale = alpha
     else:
         scale = float(alpha)
+
+    # TODO: remove the cast here
+    scale = Kops.cast(scale, K.floatx())
+
     return scale
 
 
@@ -1410,6 +1419,9 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                 # Calculate the scale.
                 scale = (Kops.max(abs(x), axis=axis, keepdims=True) * 2) / levels
 
+                # TODO: remove the cast here
+                scale = Kops.cast(scale, K.floatx())
+
                 # If alpha is "auto_po2", then get the "best" po2 scale
                 if "po2" in self.alpha:
                     scale = tf.pow(
@@ -1419,7 +1431,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                         ),
                     )
                     for idx in range(5):
-                        v = tf.floor(tf.abs(x) / scale + 0.5)
+                        v = knp.floor(knp.abs(x) / scale + 0.5)
                         mask = v < levels / 2
                         z = tf.sign(x) * tf.where(mask, v, tf.ones_like(v) * levels / 2)
                         scale = _get_least_squares_scale(
@@ -1470,6 +1482,9 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
 
         else:
             scale = self.alpha
+
+        # TODO: remove the cast here
+        scale = Kops.cast(scale, K.floatx())
 
         # quantized_bits with "1" bit becomes a binary implementation.
         if unsigned_bits > 0:
@@ -1541,7 +1556,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         assert self.keep_negative
         assert self.alpha is None or self.alpha == 1.0
 
-        x = np.asarray(range(2**self.bits), dtype=np.float32)
+        x = np.asarray(range(2**self.bits), dtype="float32")
         p_and_n = np.where(
             x >= 2 ** (self.bits - 1),
             (x - 2 ** (self.bits - 1)) - 2 ** (self.bits - 1),
@@ -1674,6 +1689,12 @@ class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         # if we use non stochastic binary to compute alpha,
         # this function seems to behave better
         scale = _get_least_squares_scale(self.alpha, x, q_non_stochastic)
+
+        # TODO: remove the cast here
+        scale = Kops.cast(scale, dtype=K.floatx())
+        q = Kops.cast(q, dtype=K.floatx())
+        x = Kops.cast(x, dtype=K.floatx())
+
         self.scale = scale
         return x + tf.stop_gradient(-x + scale * q)
 
@@ -1806,6 +1827,12 @@ class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
 
             for _ in range(self.number_of_unrolls):
                 thres = scale / 2.0
+
+                # TODO: remove the cast here
+                scale = Kops.cast(scale, dtype=K.floatx())
+                x = Kops.cast(x, dtype=K.floatx())
+                thres = Kops.cast(thres, dtype=K.floatx())
+
                 # once we scale the number precision == 0.33 works
                 # well for Uniform and Normal distribution of input
                 v = scale * _round_through(
@@ -1813,19 +1840,24 @@ class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
                     use_stochastic_rounding=self.use_stochastic_rounding,
                     precision=1.0 / 3.0,
                 )
-                q = Kops.cast(tf.abs(v) >= thres, K.floatx()) * tf.sign(x)
+                q = Kops.cast(knp.abs(v) >= thres, K.floatx()) * Kops.cast(knp.sign(x), K.floatx())
                 scale = _get_least_squares_scale(self.alpha, x, q)
         else:
             if self.threshold is None:
                 thres = self.default_threshold
             else:
                 thres = self.threshold
-            q = Kops.cast(tf.abs(x) >= thres, K.floatx()) * tf.sign(x)
+            q = Kops.cast(knp.abs(x) >= thres, K.floatx()) * Kops.cast(knp.sign(x), K.floatx())
 
         # ternary ranges from -1 to +1, so we use tanh(x) to be a differentiable
         # version of that.
         if self.alpha is None:
             x = Kact.tanh(x)
+
+        # TODO: remove the cast here
+        scale = Kops.cast(scale, dtype=K.floatx())
+        q = Kops.cast(q, dtype=K.floatx())
+        x = Kops.cast(x, dtype=K.floatx())
 
         self.scale = scale
         return x + tf.stop_gradient(-x + scale * q)
@@ -1925,7 +1957,7 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
         return "stochastic_ternary(" + ",".join(flags) + ")"
 
     def __call__(self, x, training=False):
-        def stochastic_output():
+        def stochastic_output(x):
             # right now we only accept alpha = "auto" or "auto_po2"
             assert isinstance(self.alpha, str)
             assert self.alpha in ["auto", "auto_po2"]
@@ -1985,11 +2017,17 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
             q1 += 1.0 - tf.abs(q1)
 
             q = (q0 + q1) / 2.0
+
+            # TODO: remove the cast here
+            scale = Kops.cast(scale, dtype=K.floatx())
+            q = Kops.cast(q, dtype=K.floatx())
+            x = Kops.cast(x, dtype=K.floatx())
+
             self.scale = scale
             return x + tf.stop_gradient(-x + scale * q)
 
         if training:
-            return stochastic_output()
+            return stochastic_output(x)
         else:
             return ternary.__call__(self, x)
 
@@ -2203,6 +2241,12 @@ class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             min_po2_exponent=self.min_po2_exponent,
             max_po2_exponent=self.max_po2_exponent,
         )
+
+        # TODO: remove the cast here
+        scale = Kops.cast(scale, dtype=K.floatx())
+        k_sign = Kops.cast(k_sign, dtype=K.floatx())
+        x = Kops.cast(x, dtype=K.floatx())
+
         return x + tf.stop_gradient(-x + self.scale * k_sign)
 
     def _set_trainable_parameter(self):
@@ -2281,7 +2325,7 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
         return "stochastic_binary(" + ",".join(flags) + ")"
 
     def __call__(self, x, training=False):
-        def stochastic_output():
+        def stochastic_output(x):
             if isinstance(self.alpha, six.string_types):
                 assert self.alpha in ["auto", "auto_po2"]
                 len_axis = len(x.shape)
@@ -2307,11 +2351,17 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
             q_non_stochastic = tf.sign(x)
             q_non_stochastic += 1.0 - tf.abs(q_non_stochastic)
             scale = _get_least_squares_scale(self.alpha, x, q_non_stochastic)
+
+            # TODO: remove the cast here
+            scale = Kops.cast(scale, dtype=K.floatx())
+            q = Kops.cast(q, dtype=K.floatx())
+            x = Kops.cast(x, dtype=K.floatx())
+
             self.scale = scale
             return x + tf.stop_gradient(-x + scale * q)
 
         if training:
-            return stochastic_output()
+            return stochastic_output(x)
         else:
             return binary.__call__(self, x)
 

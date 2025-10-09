@@ -16,16 +16,16 @@
 # ==============================================================================
 """Implements forgiving factor metrics."""
 
-import numpy as np
+import keras.ops.numpy as knp
 
 
 class ForgivingFactor:
     """Base class. Should never be invoked."""
 
     def __init__(self, delta_p, delta_n, rate):
-        self.delta_p = np.float32(delta_p) / 100.0
-        self.delta_n = np.float32(delta_n) / 100.0
-        self.rate = np.float32(rate)
+        self.delta_p = delta_p / 100.0
+        self.delta_n = delta_n / 100.0
+        self.rate = rate
 
     def get_reference(self, model):
         """Computes reference size of model."""
@@ -38,10 +38,10 @@ class ForgivingFactor:
         raise Exception("class not implemented.")
 
     def delta(self):
-        return np.where(
+        return knp.where(
             self.trial_size < self.reference_size,
             self.delta_p
-            * (np.log(self.reference_size / self.trial_size) / np.log(self.rate)),
+            * (knp.log(self.reference_size / self.trial_size) / knp.log(self.rate)),
             self.delta_n
-            * (np.log(self.reference_size / self.trial_size) / np.log(self.rate)),
+            * (knp.log(self.reference_size / self.trial_size) / knp.log(self.rate)),
         )

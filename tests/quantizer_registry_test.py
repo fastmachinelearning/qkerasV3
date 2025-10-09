@@ -15,10 +15,14 @@
 # ==============================================================================
 """Unit tests for qkerasV3 quantizer registry."""
 
-import numpy as np
+import keras
 import pytest
+from numpy.testing import assert_equal
 
 from qkerasV3 import quantizer_registry
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 @pytest.mark.parametrize(
@@ -43,7 +47,7 @@ from qkerasV3 import quantizer_registry
 def test_lookup(quantizer_name):
     quantizer = quantizer_registry.lookup_quantizer(quantizer_name)
     is_class_instance = isinstance(quantizer, type)
-    np.testing.assert_equal(is_class_instance, True)
+    assert_equal(is_class_instance, True)
 
 
 if __name__ == "__main__":

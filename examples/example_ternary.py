@@ -14,8 +14,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import matplotlib
 import numpy as np
+import keras.ops.numpy as knp
+import matplotlib
 from absl import app, flags
 
 matplotlib.use("TkAgg")
@@ -45,7 +46,7 @@ def _stochastic_rounding(x, precision, resolution, delta):
     scale_2_delta = scale_delta_right - scale_delta_left
     scale_x = x * scale
     fraction = scale_x - scale_delta_left
-    # print(precision, scale, x[0], np.floor(scale_x[0]), scale_x[0], fraction[0])
+    # print(precision, scale, x[0], knp.floor(scale_x[0]), scale_x[0], fraction[0])
 
     # we use uniform distribution
     random_selector = np.random.uniform(0, 1, size=x.shape) * scale_2_delta
@@ -53,21 +54,21 @@ def _stochastic_rounding(x, precision, resolution, delta):
     # print(precision, scale, x[0], delta_left[0], delta_right[0])
     # print('x', scale_x[0], fraction[0], random_selector[0], scale_2_delta[0])
     # rounddown = fraction < random_selector
-    result = np.where(
+    result = knp.where(
         fraction < random_selector, scale_delta_left / scale, scale_delta_right / scale
     )
     return result
 
 
 def _ternary(x, sto=False):
-    m = np.amax(np.abs(x), keepdims=True)
+    m = knp.amax(knp.abs(x), keepdims=True)
     scale = 2 * m / 3.0
     thres = scale / 2.0
     ratio = 0.1
 
     if sto:
-        sign_bit = np.sign(x)
-        x = np.abs(x)
+        sign_bit = knp.sign(x)
+        x = knp.abs(x)
         prec = x / scale
         x = (
             sign_bit
@@ -80,21 +81,21 @@ def _ternary(x, sto=False):
             )
         )
         # prec + prec *ratio)
-        # mm = np.amax(np.abs(x), keepdims=True)
-    return np.where(np.abs(x) < thres, np.zeros_like(x), np.sign(x))
+        # mm = knp.amax(knp.abs(x), keepdims=True)
+    return knp.where(knp.abs(x) < thres, knp.zeros_like(x), knp.sign(x))
 
 
 def main(argv):
     if len(argv) > 1:
         raise app.UsageError("Too many command-line arguments.")
 
-    # x = np.arange(-3.0, 3.0, 0.01)
+    # x = knp.arange(-3.0, 3.0, 0.01)
     # x = np.random.uniform(-0.01, 0.01, size=1000)
     x = np.random.uniform(-10.0, 10.0, size=1000)
     # x = np.random.uniform(-1, 1, size=1000)
-    x = np.sort(x)
-    tr = np.zeros_like(x)
-    t = np.zeros_like(x)
+    x = knp.sort(x)
+    tr = knp.zeros_like(x)
+    t = knp.zeros_like(x)
     iter_count = 500
     for _ in range(iter_count):
         y = _ternary(x)

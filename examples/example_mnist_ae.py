@@ -17,17 +17,14 @@
 
 
 
-import numpy as np
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import *
-from tensorflow.keras.layers import Activation, Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
+from keras.datasets import mnist
+from keras.layers import *
+from keras.layers import Activation, Input
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
 from qkerasV3 import *
-
-np.random.seed(42)
 
 NB_EPOCH = 10
 BATCH_SIZE = 64
@@ -42,8 +39,8 @@ train = 1
 
 RESHAPED = 784
 
-x_train = x_train.astype("float32")
-x_test = x_test.astype("float32")
+x_train = x_train.astype(float)
+x_test = x_test.astype(float)
 
 x_train = x_train[..., np.newaxis]
 x_test = x_test[..., np.newaxis]

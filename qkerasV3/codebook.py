@@ -16,6 +16,7 @@
 """Clustering based quantizers"""
 
 
+import keras.ops.numpy as knp
 import numpy as np
 from keras import Model, layers
 from sklearn.cluster import KMeans
@@ -36,7 +37,7 @@ def create_in_out_table(km, quantizer):
         indexes
     """
     in_table = km.cluster_centers_.flatten()
-    qrange = quantizer.range().reshape(-1, 1).astype(np.float32)
+    qrange = quantizer.range().reshape(-1, 1).astype("float32")
     out_table = km.predict(qrange).ravel()
     return in_table, out_table
 
@@ -147,11 +148,12 @@ def weight_compression(weights, bits, axis=0, quantizer=None):
 
     for i, w in tqdm(enumerate(np.split(weights, weights.shape[axis], axis))):
         original_shape = w.shape
-        w = w.ravel()
+        w = np.ascontiguousarray(w.ravel(), dtype=np.float64)
         km = KMeans(n)
         km.fit(w.reshape(-1, 1))
         if quantizer:
-            km.cluster_centers_ = quantizer(km.cluster_centers_).numpy()
+            q_output = np.ascontiguousarray(quantizer(km.cluster_centers_).numpy(), dtype=np.float64)
+            km.cluster_centers_ = q_output
         km.cluster_centers_.sort(axis=0)
 
         km_models[i] = km
@@ -159,7 +161,7 @@ def weight_compression(weights, bits, axis=0, quantizer=None):
         preds = km.predict(w.reshape(-1, 1))
         index_table.append(preds.reshape(original_shape))
 
-    index_table = np.concatenate(index_table, axis)
+    index_table = knp.concatenate(index_table, axis)
     return index_table, codebook_table
 
 

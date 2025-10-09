@@ -19,8 +19,11 @@
 import copy
 import sys
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
 import tensorflow as tf
+from keras import KerasTensor
 from keras import backend as K
 
 from qkerasV3.qtools import quantized_operators
@@ -127,7 +130,7 @@ def get_operation_count(layer, input_shape):
     operation_count = 0
 
     if is_merge_layers(layer) or is_shape_alternation_layers(layer):
-        operation_count = np.prod(input_shape[1:])
+        operation_count = knp.prod(input_shape[1:])
 
     elif layer.__class__.__name__ in [
         "AveragePooling2D",
@@ -140,7 +143,7 @@ def get_operation_count(layer, input_shape):
             pool_size = layer.pool_size
         else:
             pool_size = input_shape[1:-1]
-        add_ops = np.prod(pool_size)
+        add_ops = knp.prod(pool_size)
 
         output_shape = layer.compute_output_shape(input_shape)
         channels_o = output_shape[-1]
@@ -151,13 +154,13 @@ def get_operation_count(layer, input_shape):
     elif "UpSampling" in layer.__class__.__name__:
         # UpSampling1D/2D/3D
         output_shape = layer.compute_output_shape(input_shape)
-        operation_count = np.prod(output_shape[1:])
+        operation_count = knp.prod(output_shape[1:])
 
     elif (
         "Activation" in layer.__class__.__name__
         or "BatchNormalization" in layer.__class__.__name__
     ):
-        operation_count = np.prod(input_shape[1:])
+        operation_count = knp.prod(input_shape[1:])
 
     elif layer.__class__.__name__ in [
         "QConv2D",
@@ -216,17 +219,17 @@ def get_operation_count(layer, input_shape):
         # Note: asserts have been changed to sum(*shape > 1) <= 1 to avoid the case
         # when the dense layer has an output with shape (None, 1), which results in
         # sum(oshape > 1) = 0.
-        ishape = np.array([i for i in input_shape if i is not None])
-        assert sum(ishape > 1) <= 1, (
+        ishape = knp.array([i for i in input_shape if i is not None])
+        assert knp.sum(ishape > 1) <= 1, (
             "Input Tensor shape in %s has " "multiple >1 size dims"
         ) % layer.name
-        size_i = np.max(ishape)
+        size_i = knp.max(ishape)
 
-        oshape = np.array([i for i in output_shape if i is not None])
-        assert sum(oshape > 1) <= 1, (
+        oshape = knp.array([i for i in output_shape if i is not None])
+        assert knp.sum(oshape > 1) <= 1, (
             "Output Tensor shape in %s has " + "multiple >1 size dims"
         ) % layer.name
-        size_o = np.max(oshape)
+        size_o = knp.max(oshape)
 
         operation_count = size_i * size_o
 
@@ -261,10 +264,12 @@ def get_weights(layer, model_weights_already_quantized=True):
 
 def get_scale_from_quantized_bits_with_auto_po2(quantizer):
     """Get scale from quantized_bits with alpha=auto_po2."""
-    if hasattr(quantizer.scale, "numpy"):
-        return quantizer.scale.numpy()
-    elif isinstance(quantizer.scale, np.ndarray):
+    if isinstance(quantizer.scale, np.ndarray):
         return quantizer.scale
+    elif isinstance(quantizer.scale, KerasTensor):
+        return quantizer.scale
+    elif isinstance(quantizer.scale, tf.Tensor):
+        return quantizer.scale.numpy()
     else:
         return None
 
@@ -292,12 +297,12 @@ def adjust_multiplier_for_auto_po2(multiplier, qkerasV3_weight_quantizer):
         int_bits = output_quantizer.int_bits
         scale = get_scale_from_quantized_bits_with_auto_po2(qkerasV3_weight_quantizer)
         if scale is not None:
-            if isinstance(scale, np.ndarray):
-                scale = np.squeeze(scale)
-                max_shift = int(np.log2(np.max(scale)))
-                min_shift = int(np.log2(np.min(scale)))
+            if isinstance(scale, KerasTensor) or isinstance(scale, np.ndarray):
+                scale = knp.squeeze(scale)
+                max_shift = int(knp.log2(knp.max(scale)))
+                min_shift = int(knp.log2(knp.min(scale)))
             elif isinstance(scale, float):
-                max_shift = int(np.log2(scale))
+                max_shift = int(knp.log2(scale))
                 min_shift = max_shift
             else:
                 raise ValueError(
@@ -379,7 +384,7 @@ def find_divisors(num):
     return [i for i in range(1, num + 1) if num % i == 0]
 
 
-def get_layer_info(layer: tf.keras.layers.Layer, attr_name: str):
+def get_layer_info(layer: keras.layers.Layer, attr_name: str):
     layer_type = layer.__class__.__name__
     supported_layer_types = [
         "QDense",
@@ -422,6 +427,6 @@ def get_layer_info(layer: tf.keras.layers.Layer, attr_name: str):
     return layer_dict.get(attr_name, None)
 
 
-def is_upsampled(layer: tf.keras.layers.Layer):
+def is_upsampled(layer: keras.layers.Layer):
     # Evaluate if a given layer is doing upsampling.
     return "UpSampling" in layer.__class__.__name__

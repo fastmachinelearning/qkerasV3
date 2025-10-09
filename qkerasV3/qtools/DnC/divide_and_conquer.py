@@ -29,8 +29,8 @@ import enum
 import logging
 from typing import Any
 
+import keras
 import numpy as np
-import tensorflow as tf
 
 from qkerasV3 import base_quantizer, quantizers
 from qkerasV3.qtools import generate_layer_data_type_map, qgraph, qtools_util
@@ -49,7 +49,7 @@ class DivideConquerGraph:
 
     def __init__(
         self,
-        model: tf.keras.Model,
+        model: keras.Model,
         source_quantizers: base_quantizer.BaseQuantizer = None,
     ):
         self._model = model
@@ -81,7 +81,7 @@ class DivideConquerGraph:
         # Map layer index to the layer object.
         return self._graph._node[idx]["layer"][0]
 
-    def layer_to_idx(self, layer: tf.keras.layers.Layer):
+    def layer_to_idx(self, layer: keras.layers.Layer):
         # Map a layer object to index.
         return self._layer_to_idx_dict.get(layer, None)
 
@@ -89,7 +89,7 @@ class DivideConquerGraph:
         # Get the source node of the graph.
         return qgraph.SOURCE
 
-    def is_first_node(self, node: int | tf.keras.layers.Layer):
+    def is_first_node(self, node: int | keras.layers.Layer):
         # Find whether a given node is the first node of the graph.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
@@ -99,25 +99,25 @@ class DivideConquerGraph:
         # Find the last node of the graph.
         return qgraph.SINK
 
-    def is_last_node(self, node: int | tf.keras.layers.Layer):
+    def is_last_node(self, node: int | keras.layers.Layer):
         # Find whether a given node is the last node of the graph.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return idx == qgraph.SINK
 
-    def get_prev_nodes(self, node: int | tf.keras.layers.Layer):
+    def get_prev_nodes(self, node: int | keras.layers.Layer):
         # Find the predecessor nodes in the graph of the given node.
         # Node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return list(self._graph.predecessors(idx))
 
-    def get_next_nodes(self, node: int | tf.keras.layers.Layer):
+    def get_next_nodes(self, node: int | keras.layers.Layer):
         # Find the successor nodes in the graph of the given node.
         # node could be either index value or layer object.
         idx = node if isinstance(node, int) else self.layer_to_idx(node)
         return list(self._graph.successors(idx))
 
-    def get_layer_quantizer_bitwidth(self, node: int | tf.keras.layers.Layer):
+    def get_layer_quantizer_bitwidth(self, node: int | keras.layers.Layer):
         """Find various quantizer bitwidth of the current layer."""
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
@@ -163,7 +163,7 @@ class DivideConquerGraph:
                 "output_bits": 0,
             }
 
-    def get_layer_mac_count(self, node: int | tf.keras.layers.Layer):
+    def get_layer_mac_count(self, node: int | keras.layers.Layer):
         """Find the number of multiplier ops in the current layer."""
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
@@ -173,7 +173,7 @@ class DivideConquerGraph:
             else 0
         )
 
-    def get_layer_shapes(self, node: int | tf.keras.layers.Layer):
+    def get_layer_shapes(self, node: int | keras.layers.Layer):
         layer = self.idx_to_layer(node) if isinstance(node, int) else node
 
         # Multiple inputs with merge layers.
@@ -235,7 +235,7 @@ class Choice:
 
 
 def get_valid_unrolls(
-    layer: tf.keras.layers.Layer, cout_unroll: int, target_pe_throughput: float
+    layer: keras.layers.Layer, cout_unroll: int, target_pe_throughput: float
 ):
     """Get valid unroll values where resulting throughput>=Target throughput."""
 
@@ -927,7 +927,7 @@ def calc_hw_params(
 
 
 def estimate_model_cost(
-    model: tf.keras.Model,
+    model: keras.Model,
     input_quantizer_bits: int = 8,
     target_OutElementPerClk: int = 10,
     target_out_throughput: float = 1.0,

@@ -15,10 +15,10 @@
 # ==============================================================================
 """QOctave example."""
 
+from keras import initializers
 from keras import ops as Kops
-from tensorflow.keras import initializers
-from tensorflow.keras.layers import Activation, Input, UpSampling2D
-from tensorflow.keras.models import Model
+from keras.layers import Activation, Input, UpSampling2D
+from keras.models import Model
 
 from qkerasV3 import *  # pylint: disable=wildcard-import
 
@@ -164,9 +164,9 @@ def create_model():
 
 @keras.saving.register_keras_serializable()
 def customLoss(y_true, y_pred):
-    log1 = 1.5 * y_true * Kops.log(y_pred + 1e-9) * tf.pow(1 - y_pred, 2)
-    log0 = 0.5 * (1 - y_true) * Kops.log((1 - y_pred) + 1e-9) * tf.pow(y_pred, 2)
-    return -Kops.sum(tf.mean(log0 + log1, axis=0))
+    log1 = 1.5 * y_true * Kops.log(y_pred + 1e-9) * keras.ops.power(1 - y_pred, 2)
+    log0 = 0.5 * (1 - y_true) * Kops.log((1 - y_pred) + 1e-9) * keras.ops.power(y_pred, 2)
+    return -Kops.sum(keras.ops.mean(log0 + log1, axis=0))
 
 
 if __name__ == "__main__":

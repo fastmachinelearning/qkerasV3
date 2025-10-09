@@ -17,9 +17,9 @@
 
 import tempfile
 
-import numpy as np
+import keras
+import keras.ops.numpy as knp
 import pytest
-import tensorflow as tf
 from keras.layers import Activation, BatchNormalization, Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
@@ -28,6 +28,9 @@ from sklearn.datasets import load_iris
 from sklearn.preprocessing import MinMaxScaler
 
 from qkerasV3.autoqkeras import AutoQKerasScheduler
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def dense_model():
@@ -52,8 +55,6 @@ def dense_model():
 
 def test_autoqkeras():
     """Tests Autoqkeras scheduler."""
-    np.random.seed(42)
-    tf.random.set_seed(42)
 
     x_train, y_train = load_iris(return_X_y=True)
 
@@ -61,7 +62,7 @@ def test_autoqkeras():
     scaler.fit(x_train)
     x_train = scaler.transform(x_train)
 
-    nb_classes = np.max(y_train) + 1
+    nb_classes = knp.max(y_train) + 1
     y_train = to_categorical(y_train, nb_classes)
 
     quantization_config = {

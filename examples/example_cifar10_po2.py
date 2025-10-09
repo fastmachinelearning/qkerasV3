@@ -18,17 +18,14 @@
 
 import os
 
-import numpy as np
-import tensorflow.keras.backend as K
-from tensorflow.keras.datasets import cifar10
-from tensorflow.keras.layers import *
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import *
-from tensorflow.keras.utils import to_categorical
+import keras.ops.numpy as knp
+from keras.datasets import cifar10
+from keras.layers import *
+from keras.models import Model
+from keras.optimizers import *
+from keras.utils import to_categorical
 
 from qkerasV3 import *
-
-np.random.seed(42)
 
 NB_EPOCH = 50
 BATCH_SIZE = 64
@@ -39,8 +36,8 @@ VALIDATION_SPLIT = 0.1
 
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
-x_train = x_train.astype("float32")
-x_test = x_test.astype("float32")
+x_train = x_train.astype(float)
+x_test = x_test.astype(float)
 
 x_train /= 255.0
 x_test /= 255.0
@@ -132,15 +129,15 @@ if int(os.environ.get("TRAIN", 0)):
 
     outputs = model_debug.predict(x_train)
 
-    print("{:30} {: 8.4f} {: 8.4f}".format("input", np.min(x_train), np.max(x_train)))
+    print("{:30} {: 8.4f} {: 8.4f}".format("input", knp.min(x_train), knp.max(x_train)))
 
     for n, p in zip(output_names, outputs):
-        print(f"{n:30} {np.min(p): 8.4f} {np.max(p): 8.4f}", end="")
+        print(f"{n:30} {knp.min(p): 8.4f} {knp.max(p): 8.4f}", end="")
         layer = model.get_layer(n)
         for i, weights in enumerate(layer.get_weights()):
-            weights = K.eval(layer.get_quantizers()[i](K.constant(weights)))
+            weights = layer.get_quantizers()[i](weights)
             print(
-                f" ({np.min(weights): 8.4f} {np.max(weights): 8.4f})", end=""
+                f" ({knp.min(weights): 8.4f} {knp.max(weights): 8.4f})", end=""
             )
             print("")
 

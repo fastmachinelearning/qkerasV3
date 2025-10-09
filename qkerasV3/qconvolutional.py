@@ -17,8 +17,7 @@
 import warnings
 
 import keras
-import numpy as np
-import tensorflow as tf
+import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
@@ -316,7 +315,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
                     f" rank {len(shape)}"
                 )
             h, w = shape[0], shape[1]
-            self._mask = np.reshape(
+            self._mask = knp.reshape(
                 mask, (h, w, 1, 1)
             )  # Extend the dimension to be 4D.
         else:
@@ -351,7 +350,6 @@ class QConv2D(layers.Conv2D, PrunableLayer):
             dilation_rate=self.dilation_rate,
         )
 
-    @tf.function(jit_compile=True, reduce_retracing=True)
     def _jit_compiled_convolution_op(self, inputs, kernel):
         return self.convolution_op(inputs, kernel)
 
@@ -375,7 +373,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
         # details.
         if self.groups > 1:
             outputs = self._jit_compiled_convolution_op(
-                inputs, tf.convert_to_tensor(quantized_kernel)
+                inputs, keras.ops.convert_to_tensor(quantized_kernel)
             )
         else:
             outputs = self.convolution_op(inputs, quantized_kernel)
@@ -400,7 +398,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
             "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
             "kernel_range": self.kernel_range,
             "bias_range": self.bias_range,
-            "mask": self._mask.tolist() if self._mask is not None else None,
+            "mask": self._mask.numpy().tolist() if self._mask is not None else None,
         }
         base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
@@ -409,7 +407,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
     def from_config(cls, config):
         mask = config.get("mask")
         if mask is not None:
-            mask = np.array(mask)
+            mask = knp.array(mask)
         config["mask"] = mask
         return cls(**config)
 

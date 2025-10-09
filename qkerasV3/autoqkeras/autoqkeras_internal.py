@@ -22,8 +22,9 @@ import json
 import os
 import re
 
+import keras
+import keras.ops.numpy as knp
 import keras_tuner as kt
-import numpy as np
 import six
 import tensorflow as tf
 from keras import backend as K
@@ -441,7 +442,8 @@ class AutoQKHyperModel(HyperModel):
                     bits = layer.get_quantizers()[0].bits
                 else:
                     bits = 8
-                fanin.append(np.prod(weights.shape[:-1]) * (8.0 - bits) / 8.0)
+                bits = keras.ops.cast(bits, float)
+                fanin.append(knp.prod(keras.ops.cast(weights.shape[:-1], float)) * (8.0 - bits) / 8.0)
 
             if layer.__class__.__name__ in REGISTERED_LAYERS:
                 # difference between depthwise and the rest is just the name
@@ -457,6 +459,7 @@ class AutoQKHyperModel(HyperModel):
 
                 # sample kernel quantizer.
                 (kernel_quantizer, bits) = kernel_quantizer_dict[layer.name]
+                bits = keras.ops.cast(bits, float)
 
                 if not kernel_quantizer:
                     continue
@@ -465,7 +468,7 @@ class AutoQKHyperModel(HyperModel):
 
                 if bits < 8:
                     weights = layer.get_weights()[0]
-                    fanin.append(np.prod(weights.shape[:-1]) * (8.0 - bits) / 8.0)
+                    fanin.append(knp.prod(keras.ops.cast(weights.shape[:-1], float)) * (8.0 - bits) / 8.0)
 
                 # we only want to do that if we are going to quantize layer
                 if (
@@ -768,7 +771,7 @@ class AutoQKHyperModel(HyperModel):
 
 
 @register_keras_serializable(package="qkerasV3")
-class AdjustedScore(tf.keras.metrics.Metric):
+class AdjustedScore(keras.metrics.Metric):
     def __init__(
         self, delta=0.0, metric_name="accuracy", name="adjusted_score", **kwargs
     ):
@@ -813,7 +816,7 @@ class AdjustedScore(tf.keras.metrics.Metric):
 
 
 @register_keras_serializable(package="qkerasV3")
-class TrialMetric(tf.keras.metrics.Metric):
+class TrialMetric(keras.metrics.Metric):
     def __init__(self, trial_size=0.0, name="trial", **kwargs):
         super().__init__(name=name, **kwargs)
         self.trial_size = trial_size
@@ -822,7 +825,7 @@ class TrialMetric(tf.keras.metrics.Metric):
         pass  # stateless
 
     def result(self):
-        return Kops.cast(self.trial_size, K.floatx())
+        return Kops.cast(self.trial_size, float)
 
     def get_config(self):
         config = super().get_config()
@@ -1018,7 +1021,7 @@ class AutoQKeras:
             return False
 
         for callback in callbacks:
-            if isinstance(callback, tf.keras.callbacks.EarlyStopping):
+            if isinstance(callback, keras.callbacks.EarlyStopping):
                 return True
         return False
 
@@ -1090,7 +1093,7 @@ class AutoQKeras:
 
         if not self._has_earlystopping(callbacks):
             callbacks = callbacks + [
-                tf.keras.callbacks.EarlyStopping(
+                keras.callbacks.EarlyStopping(
                     "val_loss", patience=min(20, epochs // 5)
                 )
             ]
@@ -1245,14 +1248,14 @@ class AutoQKerasScheduler:
             strategy = self.tuner_kwargs.get("distribution_strategy", None)
             if strategy:
                 with strategy.scope():
-                    self.model = tf.keras.models.load_model(
+                    self.model = keras.models.load_model(
                         os.path.join(
                             self.output_dir, "model_block_" + str(self.next_block - 1)
                         ),
                         custom_objects=self.custom_objects,
                     )
             else:
-                self.model = tf.keras.models.load_model(
+                self.model = keras.models.load_model(
                     os.path.join(
                         self.output_dir, "model_block_" + str(self.next_block - 1)
                     ),

@@ -93,7 +93,7 @@ class QScaleShift(keras.layers.Layer, PrunableLayer):
         self.weight = self.add_weight(
             name="weight",
             shape=(1, 1),
-            dtype="float32",
+            dtype=float,
             initializer=self.weight_initializer,
             regularizer=self.weight_regularizer,
             trainable=True,
@@ -103,7 +103,7 @@ class QScaleShift(keras.layers.Layer, PrunableLayer):
             self.bias = self.add_weight(
                 name="bias",
                 shape=(1, 1),
-                dtype="float32",
+                dtype=float,
                 initializer=self.bias_initializer,
                 regularizer=self.bias_regularizer,
                 trainable=True,

@@ -19,7 +19,9 @@
 import abc
 import math
 
+import keras.ops.numpy as knp
 import numpy as np
+from keras import KerasTensor
 
 from qkerasV3 import quantizers
 
@@ -27,9 +29,9 @@ FLOATINGPOINT_BITS = 32
 
 
 def get_np_value(val):
-    if hasattr(val, "numpy"):
+    if isinstance(val, np.ndarray):
         val = val.numpy()
-        if isinstance(val, np.ndarray) and len(val) == 1:
+        if isinstance(val, KerasTensor) and len(val) == 1:
             return val[0]
         else:
             return val
@@ -54,7 +56,7 @@ def get_exp(quantizer):
         if quantizer.max_val_po2 <= 0:
             max_exp = 0
         else:
-            max_exp = math.ceil(np.log2(quantizer.max_val_po2))
+            max_exp = math.ceil(knp.log2(quantizer.max_val_po2))
             max_exp = min(max_exp, max_exp_orig)
 
     # if max_exp<0. no need to expand int_bits
@@ -468,10 +470,10 @@ class PowerOfTwo(IQuantizer):
             # number to represent 0
             non_sign_bits = self.bits - sign_bit
         else:
-            exp_value = np.log2(val)
+            exp_value = knp.log2(val)
 
             # exp_value should be integer
-            if abs(np.round(exp_value) - exp_value) > 0:
+            if abs(knp.round(exp_value) - exp_value) > 0:
                 raise ValueError(f"ERROR: {val} is not a po2 value!")
 
             exp_value = int(exp_value)
@@ -484,10 +486,10 @@ class PowerOfTwo(IQuantizer):
             elif exp_value > 0:
                 # e.g., 16 needs 5 bits + 1 exp sign bit,
                 # 15 needs 4 bits + 1 exp sign bit
-                non_sign_bits = math.floor(np.log2(exp_value)) + 1 + 1
+                non_sign_bits = math.floor(knp.log2(exp_value)) + 1 + 1
             else:
                 # e.g., -16 needs 4 bits + 1 exp sign bit
-                non_sign_bits = math.ceil(np.log2(abs(exp_value))) + 1
+                non_sign_bits = math.ceil(knp.log2(abs(exp_value))) + 1
 
         return (sign_bit, non_sign_bits)
 

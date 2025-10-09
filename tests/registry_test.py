@@ -15,10 +15,14 @@
 # ==============================================================================
 """Unit tests for registry."""
 
+import keras
 import pytest
 from numpy.testing import assert_equal, assert_raises
 
 from qkerasV3 import registry
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def sample_function(arg):

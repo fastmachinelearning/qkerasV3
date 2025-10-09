@@ -13,12 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import keras
 import pytest
 from keras.layers import *
 from keras.models import *
 
 from qkerasV3 import *
 from qkerasV3.utils import model_quantize
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def create_network():

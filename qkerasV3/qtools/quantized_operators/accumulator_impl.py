@@ -18,7 +18,7 @@
 
 import abc
 
-import numpy as np
+import keras.ops.numpy as knp
 from absl import logging
 
 from qkerasV3.qtools.quantized_operators import multiplier_impl, quantizer_impl
@@ -85,13 +85,13 @@ class FixedPointAccumulator(IAccumulator):
             )
 
         kernel_shape_excluding_output_dim = kernel_shape[:-1]
-        kernel_add_ops = np.prod(kernel_shape_excluding_output_dim)
+        kernel_add_ops = knp.prod(kernel_shape_excluding_output_dim)
 
         # bias are associate with filters; each filter adds 1 bias
         bias_add = 1 if use_bias else 0
 
         add_ops = kernel_add_ops + bias_add
-        self.log_add_ops = int(np.ceil(np.log2(add_ops)))
+        self.log_add_ops = int(knp.ceil(knp.log2(add_ops)))
 
         self.multiplier = multiplier
         self.output = quantizer_impl.QuantizedBits()

@@ -16,7 +16,7 @@
 """Implements Random Forest for quantized netlist."""
 
 
-import numpy as np
+import keras.ops.numpy as knp
 
 
 class RandomTree:
@@ -27,7 +27,7 @@ class RandomTree:
 
     def split_into_groups(self, index, value, dataset):
         mask_l = dataset[:, index] < value
-        mask_r = np.logical_not(mask_l)
+        mask_r = knp.logical_not(mask_l)
         left = dataset[mask_l, ...]
         right = dataset[mask_r, ...]
         return left, right
@@ -45,10 +45,10 @@ class RandomTree:
             score = 0.0
             # score the group based on the score for each class
             for class_val in classes:
-                p = np.array(
-                    [np.sum(group[:, -1] == class_val) / size for class_val in classes]
+                p = knp.array(
+                    [knp.sum(group[:, -1] == class_val) / size for class_val in classes]
                 )
-                score += np.sum(np.power(p, 2))
+                score += knp.sum(knp.power(p, 2))
 
             # weight the group score by its relative size
             gini += (1.0 - score) * (size / n_instances)
@@ -121,18 +121,18 @@ class RandomTree:
             self.split_node(node["right"], depth + 1)
 
     def create_mask(self, dataset):
-        self.mask = np.amin(dataset, axis=0) != np.amax(dataset, axis=0)
+        self.mask = knp.amin(dataset, axis=0) != knp.amax(dataset, axis=0)
 
     def fit(self, dataset, mask_stuck_at_values=False):
         if mask_stuck_at_values:
             self.create_mask(dataset)
         else:
-            self.mask = np.ones(dataset.shape[1])
+            self.mask = knp.ones(dataset.shape[1])
 
-        self.probs = self.mask[:-1].astype(np.float32) / np.sum(self.mask[:-1])
+        self.probs = self.mask[:-1].astype("float32") / knp.sum(self.mask[:-1])
 
         if not self.n_features:
-            self.n_features = int(np.sqrt(dataset.shape[1] - 1))
+            self.n_features = int(knp.sqrt(dataset.shape[1] - 1))
 
         self.root = self.select_best_split(dataset)
         self.split_node(self.root, 1)
@@ -152,7 +152,7 @@ class RandomTree:
         return self.predict_internal(self.root, row)
 
     def predict(self, data):
-        return np.array(self.predict_row(data[i]) for i in range(data.shape[0]))
+        return knp.array(self.predict_row(data[i]) for i in range(data.shape[0]))
 
     def gen_code_internal(self, node, var_dict, n_offset):
         # traverse left

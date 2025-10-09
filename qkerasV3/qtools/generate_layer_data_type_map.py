@@ -19,8 +19,8 @@ import collections
 import copy
 import sys
 
+import keras.ops.numpy as knp
 import networkx as nx
-import numpy as np
 
 from qkerasV3.qtools import qgraph, qtools_util, quantized_operators
 from qkerasV3.qtools.quantized_operators import adder_factory
@@ -327,7 +327,7 @@ def generate_layer_data_type_map(
                 max_id = 0
                 for idx, item in enumerate(input_qe_list):
                     shape = item[1]["shape"]
-                    size = np.prod(shape[1:])
+                    size = knp.prod(shape[1:])
                     if size > maxsize:
                         maxsize = size
                         max_id = idx

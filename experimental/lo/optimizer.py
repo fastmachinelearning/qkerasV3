@@ -25,7 +25,7 @@ import sys
 import time
 import warnings
 
-import numpy as np
+import keras.ops.numpy as knp
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from .compress import Compressor
@@ -126,7 +126,7 @@ def mp_rf_optimizer_func(fn_tuple):
 
     if sample_size and train.shape[0] >= 10000:
         sample_size = int(sample_size)
-        np.random.seed(42)
+
         idx = np.random.choice(train.shape[0], train.shape[0], replace=False)
 
         x = train[idx[sample_size:], 0:-1]
@@ -148,15 +148,15 @@ def mp_rf_optimizer_func(fn_tuple):
 
     func_name = fn_split[0]
 
-    bits = np.ceil(np.log2(np.abs(np.amax(x, axis=0) - np.amin(x, axis=0) + 1))).astype(
+    bits = knp.ceil(knp.log2(knp.abs(knp.amax(x, axis=0) - knp.amin(x, axis=0) + 1))).astype(
         np.int32
     )
-    is_neg = (np.amin(x, axis=0) < 0).astype(np.int8)
+    is_neg = (knp.amin(x, axis=0) < 0).astype(np.int8)
 
-    o_bits = np.ceil(
-        np.log2(np.abs(np.amax(y, axis=0) - np.amin(y, axis=0) + 1))
+    o_bits = knp.ceil(
+        knp.log2(knp.abs(knp.amax(y, axis=0) - knp.amin(y, axis=0) + 1))
     ).astype(np.int32)
-    o_is_neg = (np.amin(y, axis=0) < 0).astype(np.int8)
+    o_is_neg = (knp.amin(y, axis=0) < 0).astype(np.int8)
 
     rf.bits = bits
     rf.is_neg = is_neg
@@ -177,15 +177,15 @@ def mp_rf_optimizer_func(fn_tuple):
 
     open(cv_file, "w").write("\n".join(code))
 
-    p = 1.0 * np.round(rf.predict(x_test))
+    p = 1.0 * knp.round(rf.predict(x_test))
 
-    dy = np.max(train[:, -1]) - np.min(train[:, -1])
+    dy = knp.max(train[:, -1]) - knp.min(train[:, -1])
 
-    error = np.sum(np.abs(y_test - p)) / (1.0 * p.shape[0] * dy)
-    score = np.sum(y_test == p) / p.shape[0]
+    error = knp.sum(knp.abs(y_test - p)) / (1.0 * p.shape[0] * dy)
+    score = knp.sum(y_test == p) / p.shape[0]
 
-    print("y:", np.max(y_test), y_test[0:30].astype(np.int32))
-    print("p:", np.max(p), p[0:30].astype(np.int32))
+    print("y:", knp.max(y_test), y_test[0:30].astype(np.int32))
+    print("p:", knp.max(p), p[0:30].astype(np.int32))
 
     print(
         f"... model {func_name} with score of {100.0 * score:.2f}% and error of {100.0 * error:.2f}%"
@@ -332,14 +332,14 @@ def run_rf_optimizer(files, flags, file_suffix="cc"):
 
     if file_suffix == "v":
         f.write("module " + module_name + "(")
-        f.write("input [" + str(np.sum(rf.bits) - 1) + ":0] in, ")
+        f.write("input [" + str(knp.sum(rf.bits) - 1) + ":0] in, ")
         o_sign = " signed " if rf.o_is_neg else ""
         f.write(
             "output " + o_sign + "[" + str(len(modules) * rf.o_bits - 1) + ":0] out);\n"
         )
     else:
         f.write("void " + module_name + "(")
-        f.write("ac_int<" + str(np.sum(rf.bits)) + ",false> in, ")
+        f.write("ac_int<" + str(knp.sum(rf.bits)) + ",false> in, ")
         f.write(
             "ac_int<"
             + str(len(modules) * rf.o_bits)

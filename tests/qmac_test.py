@@ -19,15 +19,18 @@
 import os
 import tempfile
 
-import numpy as np
+import keras
+import keras.ops.numpy as knp
 import pytest
-from keras import backend as K
 from keras.layers import Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal
 
 from qkerasV3 import QScaleShift
 from qkerasV3.utils import load_qmodel
+
+# set random seed
+keras.utils.set_random_seed(812)
 
 
 def create_qmac_model(layer_cls, kwargs=None, input_data=None, weight_data=None):
@@ -49,10 +52,10 @@ def create_qmac_model(layer_cls, kwargs=None, input_data=None, weight_data=None)
                 "bias_quantizer": "quantized_bits(8,2,alpha=1.0)",
                 "activation": "quantized_bits(8,4,alpha=1.0)",
             },
-            np.array([[1, 1], [2, 2]], dtype=K.floatx()),
-            np.array([[1.0]]),
-            np.array([[4.0]]),
-            np.array([[5, 5], [6, 6]], dtype=K.floatx()),
+            knp.array([[1, 1], [2, 2]], dtype=float),
+            knp.array([[1.0]]),
+            knp.array([[4.0]]),
+            knp.array([[5, 5], [6, 6]], dtype=float),
         ),
     ],
 )
@@ -68,7 +71,7 @@ def test_qmac(layer_kwargs, input_data, weight_data, bias_data, expected_output)
     assert_allclose(actual_output, expected_output, rtol=1e-4)
 
     # Test model loading and saving.
-    fd, fname = tempfile.mkstemp(".h5")
+    fd, fname = tempfile.mkstemp(".keras")
     model.save(fname)
 
     # Load the model.

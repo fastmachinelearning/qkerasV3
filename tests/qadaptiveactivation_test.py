@@ -19,6 +19,7 @@
 import itertools
 
 import keras
+import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -55,7 +56,7 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     unquantized_out = model(input_val, training=True).numpy()
     assert kwargs["current_step"].numpy() == 0, err
     if kwargs["activation"] == "quantized_relu":
-        assert_allclose(unquantized_out, np.maximum(input_val, 0))
+        assert_allclose(unquantized_out, knp.maximum(input_val, 0))
     elif kwargs["activation"] == "quantized_bits":
         assert_allclose(unquantized_out, input_val)
     else:
@@ -63,11 +64,11 @@ def run_qadaptiveactivation_test(input_val, kwargs):
 
     # Check EMAs
     if kwargs["per_channel"]:
-        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2)))
-        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2)))
+        assert_allclose(model.layers[0].ema_min.numpy(), knp.min(input_val, axis=(0, 1, 2)))
+        assert_allclose(model.layers[0].ema_max.numpy(), knp.max(input_val, axis=(0, 1, 2)))
     else:
-        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2, 3)))
-        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2, 3)))
+        assert_allclose(model.layers[0].ema_min.numpy(), knp.min(input_val, axis=(0, 1, 2, 3)))
+        assert_allclose(model.layers[0].ema_max.numpy(), knp.max(input_val, axis=(0, 1, 2, 3)))
 
     # Check quantizer
     quant = model.layers[0].quantizer
@@ -99,9 +100,9 @@ def run_qadaptiveactivation_test(input_val, kwargs):
 
     # Check quantized output
     # To set qnoise_factor to 1.0 explicitly.
-    qnoise_factor = np.array(quant.qnoise_factor)
+    qnoise_factor = knp.array(quant.qnoise_factor)
     quant.update_qnoise_factor(1.0)
-    expected_qout = np.copy(quant(input_val))
+    expected_qout = knp.copy(quant(input_val))
     # Revert qnoise_factor to its original value.
     quant.update_qnoise_factor(qnoise_factor)
     qout = model(input_val, training=True).numpy()
@@ -155,7 +156,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
 
         # Check the steps match
         if estimate_step_count:
-            assert np.equal(q_act.step.numpy(), i)
+            assert knp.equal(q_act.step.numpy(), i)
 
         # Calculate expected values
         if i <= ema_freeze_delay:
@@ -171,7 +172,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
         )
 
         # Check results
-        assert np.abs(exp_ema_max - q_act.ema_max.numpy()[0]) < 0.0001
+        assert knp.abs(exp_ema_max - q_act.ema_max.numpy()[0]) < 0.0001
 
         assert np.isclose(exp_int_bits.numpy(), q_act.quantizer.integer.numpy())
         if not estimate_step_count:

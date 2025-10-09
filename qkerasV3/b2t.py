@@ -75,7 +75,7 @@ def BinaryToThermometer(
     # just make sure we are processing floats so that we can compute fractional
     # values
 
-    x = x.astype(np.float32)
+    x = x.astype("float32")
 
     # the number of ranges are equal to the span of the original values
     # divided by the number of target classes.

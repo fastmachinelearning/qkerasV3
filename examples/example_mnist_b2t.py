@@ -18,17 +18,15 @@
 
 import os
 
-import numpy as np
-from tensorflow.keras.datasets import mnist
-from tensorflow.keras.layers import *
-from tensorflow.keras.layers import Activation, Flatten, Input
-from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.utils import to_categorical
+import keras.ops.numpy as knp
+from keras.datasets import mnist
+from keras.layers import *
+from keras.layers import Activation, Flatten, Input
+from keras.models import Model
+from keras.optimizers import Adam
+from keras.utils import to_categorical
 
 from qkerasV3 import *
-
-np.random.seed(42)
 
 NB_EPOCH = 20
 BATCH_SIZE = 32
@@ -45,8 +43,8 @@ T_WITH_RESIDUE = 0
 
 RESHAPED = 784
 
-x_train = x_train.astype("float32")
-x_test = x_test.astype("float32")
+x_train = x_train.astype(float)
+x_test = x_test.astype(float)
 
 x_train = x_train[..., np.newaxis]
 x_test = x_test[..., np.newaxis]
@@ -75,7 +73,7 @@ x = x_in = Input(x_train.shape[1:-1] + (T_CLASSES,), name="input")
 # Number is represented as 1.bbb, where number of bits of bbb is
 # log2(256/T_CLASSES) if T_WITH_RESIDUE == 1
 
-bits = (T_WITH_RESIDUE == 1) * int(np.ceil(np.log2(256 / T_CLASSES))) + (T_CLASSES > 1)
+bits = (T_WITH_RESIDUE == 1) * int(knp.ceil(knp.log2(256 / T_CLASSES))) + (T_CLASSES > 1)
 
 print(f"Input quantizer: quantized_relu({bits},{int(T_CLASSES > 1)})")
 x = QActivation(f"quantized_relu({bits},{int(T_CLASSES > 1)})")(x)
@@ -184,14 +182,14 @@ if int(os.environ.get("TRAIN", 0)):
 
     outputs = model_debug.predict(x)
 
-    print("{:30} {: 8.4f} {: 8.4f}".format("input", np.min(x), np.max(x)))
+    print("{:30} {: 8.4f} {: 8.4f}".format("input", knp.min(x), knp.max(x)))
     for n, p in zip(output_names, outputs):
-        print(f"{n:30} {np.min(p): 8.4f} {np.max(p): 8.4f}", end="")
+        print(f"{n:30} {knp.min(p): 8.4f} {knp.max(p): 8.4f}", end="")
         layer = model.get_layer(n)
         for i, weights in enumerate(layer.get_weights()):
-            weights = tf.eval(layer.get_quantizers()[i](tf.constant(weights)))
+            weights = layer.get_quantizers()[i](weights)
             print(
-                f" ({np.min(weights): 8.4f} {np.max(weights): 8.4f})", end=""
+                f" ({knp.min(weights): 8.4f} {knp.max(weights): 8.4f})", end=""
             )
         print("")
 

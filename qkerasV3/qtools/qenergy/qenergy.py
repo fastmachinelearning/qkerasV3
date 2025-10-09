@@ -16,7 +16,10 @@
 """Calculate energy consumption of a given quantized model."""
 
 
+import keras
+import keras.ops.numpy as knp
 import numpy as np
+import tensorflow as tf
 
 from qkerasV3.qtools import qtools_util
 from qkerasV3.qtools.generate_layer_data_type_map import KERAS_LAYERS, qkerasV3_LAYERS
@@ -61,6 +64,42 @@ OP = {
 }
 
 
+def to_scalar(x):
+    # Python scalar
+    if isinstance(x, (int, float, bool)):
+        return x
+
+    # NumPy scalar
+    if isinstance(x, np.generic):
+        return x.item()
+
+    # NumPy array
+    if isinstance(x, np.ndarray):
+        if x.size != 1:
+            raise ValueError(f"NumPy array has {x.size} elements, not 1")
+        return x.item()
+
+    # TensorFlow tensor
+    if tf is not None and isinstance(x, tf.Tensor):
+        if tf.size(x) != 1:
+            raise ValueError(f"TensorFlow tensor has {tf.size(x)} elements, not 1")
+        return x.numpy().item()
+
+    # Keras backend tensor (immutable KerasTensor, JAX, Torch, TF eager…)
+    if ops.is_tensor(x):
+        # Convert to NumPy via keras.ops
+        arr = ops.convert_to_numpy(x)
+        if arr.size != 1:
+            raise ValueError(f"Keras tensor has {arr.size} elements, not 1")
+        return arr.item()
+
+    # Generic sequence wrapper (list/tuple) of length 1
+    if hasattr(x, "__len__") and len(x) == 1:
+        return to_scalar(x[0])
+
+    raise TypeError(f"Unsupported type {type(x)}")
+
+
 def get_op_type(quantizer):
     assert isinstance(quantizer, IQuantizer)
 
@@ -92,8 +131,8 @@ def memory_read_energy(
     if is_tensor:
         tensor_shape = tensor_shape[1:]
 
-    total_bits = np.prod(tensor_shape) * quantizer_bits
-    total_bits_log2 = np.log2(max(total_bits, min_sram_size))
+    total_bits = keras.ops.cast(knp.prod(tensor_shape) * quantizer_bits, float)
+    total_bits_log2 = knp.log2(max(total_bits, min_sram_size))
 
     if mode == "dram":
         # load input from dram; wx_sizes[1]-> input x quantizer bits
@@ -102,17 +141,17 @@ def memory_read_energy(
         if rd_wr_on_io:
             # write input to sram
             # total_bits * sqrt(data_size/2^18)*0.3125
-            # bits1 = total_bits * OP["sram"]["mul_factor"](np.prod(tensor_shape))
+            # bits1 = total_bits * OP["sram"]["mul_factor"](knp.prod(tensor_shape))
             # energy_mem += OP["sram"]["wr"](bits1)
-            energy_mem += np.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"][
+            energy_mem += knp.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"][
                 "wr"
             ](total_bits_log2)
     elif mode == "sram":
         # read input from sram
         # total_bits * sqrt(data_size/2^18)*0.3125
-        # bits1 = total_bits * OP["sram"]["mul_factor"](np.prod(tensor_shape))
+        # bits1 = total_bits * OP["sram"]["mul_factor"](knp.prod(tensor_shape))
         # energy_mem += OP["sram"]["rd"](bits1)
-        energy_mem += np.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"]["rd"](
+        energy_mem += knp.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"]["rd"](
             total_bits_log2
         )
 
@@ -193,17 +232,17 @@ def memory_write_energy(
 
     tensor_shape = tensor_shape[1:]
 
-    total_bits = np.prod(tensor_shape) * quantizer_bits
-    total_bits_log2 = np.log2(max(total_bits, min_sram_size))
+    total_bits = keras.ops.cast(knp.prod(tensor_shape) * quantizer_bits, float)
+    total_bits_log2 = knp.log2(max(total_bits, min_sram_size))
 
     if mode == "dram":
         # load input from dram; wx_sizes[1]-> input x quantizer bits
         if rd_wr_on_io:
             # read input from sram
             # total_bits * sqrt(data_size/2^18)*0.3125
-            # bits1 = total_bits * OP["sram"]["mul_factor"](np.prod(tensor_shape))
+            # bits1 = total_bits * OP["sram"]["mul_factor"](knp.prod(tensor_shape))
             # energy_mem += OP["sram"]["rd"](bits1)
-            energy_mem += np.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"][
+            energy_mem += knp.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"][
                 "rd"
             ](total_bits_log2)
         # write output to dram
@@ -212,13 +251,13 @@ def memory_write_energy(
     elif mode == "sram":
         # write to sram
         # total_bits * sqrt(data_size/2^18)*0.3125
-        # bits1 = total_bits * OP["sram"]["mul_factor"](np.prod(tensor_shape))
+        # bits1 = total_bits * OP["sram"]["mul_factor"](knp.prod(tensor_shape))
         # energy_mem +=  OP["sram"]["wr"](bits1)
-        energy_mem += np.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"]["wr"](
+        energy_mem += knp.ceil(total_bits * OP["sram"]["mul_factor"]) * OP["sram"]["wr"](
             total_bits_log2
         )
 
-    return energy_mem
+    return energy_mem.numpy().ravel()[0]
 
 
 def energy_estimate(
@@ -370,6 +409,11 @@ def energy_estimate(
 
         else:
             pass
+
+        input_rd_energy = to_scalar(input_rd_energy)
+        output_wr_energy = to_scalar(output_wr_energy)
+        parameter_rd_energy = to_scalar(parameter_rd_energy)
+        energy_op = to_scalar(energy_op)
 
         result[layer.name] = {
             "class_name": layer.__class__.__name__,

@@ -16,9 +16,9 @@
 # ==============================================================================
 """Extracts sample dataset from tfds."""
 
-import numpy as np
+import keras.ops.numpy as knp
 import tensorflow_datasets as tfds
-from tensorflow.keras.utils import to_categorical
+from keras.utils import to_categorical
 
 
 def get_data(dataset_name, fast=False):
@@ -27,10 +27,10 @@ def get_data(dataset_name, fast=False):
     ds_test = tfds.load(name=dataset_name, split="test", batch_size=-1)
 
     dataset = tfds.as_numpy(ds_train)
-    x_train, y_train = dataset["image"].astype(np.float32), dataset["label"]
+    x_train, y_train = dataset["image"].astype("float32"), dataset["label"]
 
     dataset = tfds.as_numpy(ds_test)
-    x_test, y_test = dataset["image"].astype(np.float32), dataset["label"]
+    x_test, y_test = dataset["image"].astype("float32"), dataset["label"]
 
     if len(x_train.shape) == 3:
         x_train = x_train.reshape(x_train.shape + (1,))
@@ -39,12 +39,12 @@ def get_data(dataset_name, fast=False):
     x_train /= 256.0
     x_test /= 256.0
 
-    x_mean = np.mean(x_train, axis=0)
+    x_mean = knp.mean(x_train, axis=0)
 
     x_train -= x_mean
     x_test -= x_mean
 
-    nb_classes = np.max(y_train) + 1
+    nb_classes = knp.max(y_train) + 1
     y_train = to_categorical(y_train, nb_classes)
     y_test = to_categorical(y_test, nb_classes)
 
@@ -52,9 +52,9 @@ def get_data(dataset_name, fast=False):
     print(x_test.shape[0], "test samples")
 
     if fast:
-        i_train = np.arange(x_train.shape[0])
+        i_train = knp.arange(x_train.shape[0])
         np.random.shuffle(i_train)
-        i_test = np.arange(x_test.shape[0])
+        i_test = knp.arange(x_test.shape[0])
         np.random.shuffle(i_test)
 
         s_x_train = x_train[i_train[0:fast]]

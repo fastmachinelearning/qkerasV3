@@ -19,7 +19,7 @@
 import copy
 import math
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from qkerasV3.qtools.quantized_operators import (
     adder_factory,
@@ -64,7 +64,7 @@ class QBNFactory:
         stddev_quantizer = copy.deepcopy(variance_quantizer)
         if stddev_quantizer.is_po2:
             if variance_quantizer.max_val_po2 >= 0:
-                stddev_quantizer.max_val_po2 = np.round(
+                stddev_quantizer.max_val_po2 = knp.round(
                     math.sqrt(variance_quantizer.max_val_po2)
                 )
             else:

@@ -17,10 +17,9 @@
 
 import logging
 
+import keras
 import numpy as np
 import pytest
-import tensorflow as tf
-from keras import backend as K
 from numpy.testing import assert_allclose, assert_equal
 
 from qkerasV3 import binary, get_weight_scale, ternary
@@ -30,17 +29,18 @@ from qkerasV3.quantizers import _get_integer_bits
 #   - alpha = m/2.0 for binary
 #   - alpha = (m+d)/2.0 for ternary
 
+# set random seed
+keras.utils.set_random_seed(812)
 
 def test_binary_auto():
     """Test binary auto scale quantizer."""
 
-    np.random.seed(42)
     N = 1000000
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-        x_tensor = tf.convert_to_tensor(x)
+        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = binary(alpha="auto")
         q = quantizer(x_tensor).numpy()
@@ -55,13 +55,12 @@ def test_binary_auto():
 def test_binary_auto_po2():
     """Test binary auto_po2 scale quantizer."""
 
-    np.random.seed(42)
     N = 1000000
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-        x_tensor = tf.convert_to_tensor(x)
+        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer_ref = binary(alpha="auto")
         quantizer = binary(alpha="auto_po2")
@@ -80,13 +79,13 @@ def test_binary_auto_po2():
 def test_ternary_auto():
     """Test ternary auto scale quantizer."""
 
-    np.random.seed(42)
+
     N = 1000000
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-        x_tensor = tf.convert_to_tensor(x)
+        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = ternary(alpha="auto")
         q = quantizer(x_tensor).numpy()
@@ -100,13 +99,12 @@ def test_ternary_auto():
 def test_ternary_auto_po2():
     """Test ternary auto_po2 scale quantizer."""
 
-    np.random.seed(42)
     N = 1000000
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(K.floatx())
-        x_tensor = tf.convert_to_tensor(x)
+        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer_ref = ternary(alpha="auto")
         quantizer = ternary(alpha="auto_po2")
@@ -190,7 +188,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([2, 2, 2, 3, 2, 3, 3, 4, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 4, 4, 4]),
     )
 
@@ -207,7 +205,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([2, 2, 2, 2, 1, 2, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 4]),
     )
 
@@ -224,7 +222,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([2, 3, 3, 3, 2, 3, 3, 3, 3, 0, 0, 1, 0, 1, 1, 1, 2, 2, 3, 3, 3]),
     )
 
@@ -241,7 +239,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([2, 2, 2, 2, 1, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 3]),
     )
 
@@ -258,7 +256,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([3, 3, 3, 3, 2, 3, 3, 3, 3, 0, 0, 1, 0, 1, 1, 1, 2, 2, 3, 3, 3]),
     )
 
@@ -275,7 +273,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits,
+        integer_bits.numpy(),
         np.array([2, 2, 2, 2, 1, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 3]),
     )
 

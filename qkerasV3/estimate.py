@@ -27,7 +27,7 @@
 
 from collections import defaultdict
 
-import numpy as np
+import keras.ops.numpy as knp
 from absl import logging
 from keras import Model, layers
 
@@ -92,16 +92,16 @@ def analyze_accumulator(in_model, x, verbose=False):
             if layer.use_bias:
                 b = weights[1]
             else:
-                b = np.zeros((k.shape[-1],), dtype=np.float32)
+                b = knp.zeros((k.shape[-1],), dtype="float32")
 
             all_bits = []
             nbits = []
             for i in range(k.shape[1]):
                 # compute sum of positive weights
-                npp = np.sum(k[..., i] * (k[..., i] > 0)) + (b[i] > 0) * b[i]
+                npp = knp.sum(k[..., i] * (k[..., i] > 0)) + (b[i] > 0) * b[i]
 
                 # compute sum of negative weights
-                nnn = np.sum(k[..., i] * (k[..., i] < 0)) + (b[i] < 0) * b[i]
+                nnn = knp.sum(k[..., i] * (k[..., i] < 0)) + (b[i] < 0) * b[i]
 
                 # largest value is
                 #   npp * largest positive - nnn * largest_negative or
@@ -120,16 +120,16 @@ def analyze_accumulator(in_model, x, verbose=False):
 
                 all_bits.append((n1, n0))
 
-            max_bits = int(np.ceil(np.log2(max(nbits))))
+            max_bits = int(knp.ceil(knp.log2(max(nbits))))
             acc_sizes[layer.name] = max_bits
 
             if verbose:
                 print()
                 print(layer.name, "- input range:", x[layer.name])
-                print("  max value:", np.amax(k))
-                print("  min value:", np.amin(k))
-                print("  most positive sum:", np.amax(np.array(all_bits)[:, 0]))
-                print("  most negative sum:", -np.amax(np.array(all_bits)[:, 1]))
+                print("  max value:", knp.amax(k))
+                print("  min value:", knp.amin(k))
+                print("  most positive sum:", knp.amax(knp.array(all_bits)[:, 0]))
+                print("  most negative sum:", -knp.amax(knp.array(all_bits)[:, 1]))
                 print("  number of bits:", max_bits)
 
     if verbose:
@@ -186,9 +186,9 @@ def analyze_accumulator_from_sample(
         acc_sizes = {}
 
         for name, value in zip(layer_names, values):
-            max_value = np.amax(np.abs(value))
+            max_value = knp.amax(knp.abs(value))
             if max_value != 0:
-                acc_sizes[name] = int(np.ceil(np.log2(max_value)))
+                acc_sizes[name] = int(knp.ceil(knp.log2(max_value)))
             else:
                 acc_sizes[name] = 0
 
@@ -219,7 +219,7 @@ def analyze_accumulator_from_sample(
     x_dict = {}
 
     for name, value in zip(layer_names, values):
-        x_dict[name] = (np.amin(value), np.amax(value))
+        x_dict[name] = (knp.amin(value), knp.amax(value))
 
     return analyze_accumulator(model, x_dict, verbose)
 
@@ -579,13 +579,13 @@ def extract_model_operations(in_model):
             # will be the batch size, the second and third shape dimension will be the
             # spatial sizes (should both be 1), and the fourth shape dimensions will
             # be the number of channels
-            ishape = np.array([i for i in input_shape if i is not None])
-            assert sum(ishape > 1) == 1, "Tensor shape has multiple >1 size dims"
-            size_i = np.max(ishape)
+            ishape = knp.array([i for i in input_shape if i is not None])
+            assert knp.sum(ishape > 1) == 1, "Tensor shape has multiple >1 size dims"
+            size_i = knp.max(ishape)
 
-            oshape = np.array([i for i in output_shape if i is not None])
-            assert sum(oshape > 1) == 1, "Tensor shape has multiple >1 size dims"
-            size_o = np.max(oshape)
+            oshape = knp.array([i for i in output_shape if i is not None])
+            assert knp.sum(oshape > 1) == 1, "Tensor shape has multiple >1 size dims"
+            size_o = knp.max(oshape)
 
             number_of_operations = int(size_i * size_o)
 

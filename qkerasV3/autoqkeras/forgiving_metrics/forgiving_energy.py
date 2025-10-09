@@ -18,7 +18,7 @@
 
 import json
 
-import numpy as np
+import keras.ops.numpy as knp
 
 from qkerasV3.autoqkeras.forgiving_metrics.forgiving_factor import (
     ForgivingFactor,  # pylint: disable=line-too-long
@@ -216,8 +216,8 @@ class ForgivingFactorPower(ForgivingFactor):
 
         if self.ref_energy_dict and self.trial_energy_dict:
             print("Total Cost Reduction:")
-            reduction_percentage = np.round(
-                100.0 * (self.trial_size - self.reference_size) / self.reference_size, 2
+            reduction_percentage = knp.round(
+                knp.array(100.0 * (self.trial_size - self.reference_size) / self.reference_size), 2
             )
 
             print(
