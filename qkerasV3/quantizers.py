@@ -1038,7 +1038,7 @@ class quantized_linear(base_quantizer.BaseQuantizer):
         clip_min, clip_max = self.get_clip_bounds()
 
         scaled_x = x / quantization_scale
-        clipped_scaled_x = K.clip(scaled_x, clip_min, clip_max)
+        clipped_scaled_x = knp.clip(scaled_x, clip_min, clip_max)
         # Round through to nearest integer, using straight-through estimator
         # for gradient computations.
         scaled_xq = _round_through(

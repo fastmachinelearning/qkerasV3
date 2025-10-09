@@ -38,7 +38,7 @@ def _create_variable_name(attr_name, var_name=None):
     return attr_name + "_" + str(K.get_uid(attr_name))
 
 
-class BaseQuantizer():
+class BaseQuantizer:
     """Base quantizer.
 
     Defines behavior all quantizers should follow.

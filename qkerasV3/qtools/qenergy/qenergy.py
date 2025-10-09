@@ -86,9 +86,9 @@ def to_scalar(x):
         return x.numpy().item()
 
     # Keras backend tensor (immutable KerasTensor, JAX, Torch, TF eager…)
-    if ops.is_tensor(x):
+    if keras.ops.is_tensor(x):
         # Convert to NumPy via keras.ops
-        arr = ops.convert_to_numpy(x)
+        arr = keras.ops.convert_to_numpy(x)
         if arr.size != 1:
             raise ValueError(f"Keras tensor has {arr.size} elements, not 1")
         return arr.item()
