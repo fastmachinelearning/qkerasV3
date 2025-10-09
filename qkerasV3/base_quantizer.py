@@ -15,7 +15,6 @@
 # ==============================================================================
 import keras
 import keras.ops.numpy as knp
-import tensorflow as tf
 from keras import backend as K
 
 
@@ -39,7 +38,7 @@ def _create_variable_name(attr_name, var_name=None):
     return attr_name + "_" + str(K.get_uid(attr_name))
 
 
-class BaseQuantizer(tf.Module):
+class BaseQuantizer():
     """Base quantizer.
 
     Defines behavior all quantizers should follow.
