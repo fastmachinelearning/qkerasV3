@@ -96,7 +96,6 @@ def test_adjust_multiplier_for_auto_po2(
 
     qtools_util.adjust_multiplier_for_auto_po2(multiplier, qkerasV3_weight_quantizer)
     print(f"after adjustment: {multiplier.output.bits}, {multiplier.output.int_bits}")
-    print(multiplier.output.bits, expected_bits_after_adjustment, multiplier.output.int_bits, expected_int_bits_after_adjustment)
     assert_equal(multiplier.output.bits, expected_bits_after_adjustment)
     assert_equal(
         multiplier.output.int_bits, expected_int_bits_after_adjustment

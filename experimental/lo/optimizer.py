@@ -124,7 +124,7 @@ def mp_rf_optimizer_func(fn_tuple):
             n_jobs=1,
         )
 
-    if sample_size and train.shape[0] >= 10000:
+    if sample_size and train.shape[0] >= 10  # noqa: PLR2004000:
         sample_size = int(sample_size)
 
         idx = np.random.choice(train.shape[0], train.shape[0], replace=False)

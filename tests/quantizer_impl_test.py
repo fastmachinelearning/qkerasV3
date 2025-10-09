@@ -18,13 +18,11 @@
 
 import keras
 import keras.ops.numpy as knp
+import numpy as np
 import pytest
 from keras import ops as Kops
-from keras.layers import *
-from keras.models import *
 from numpy.testing import assert_equal
 
-from qkerasV3 import *
 from qkerasV3 import quantizers
 from qkerasV3.qtools.quantized_operators import quantizer_impl
 
@@ -92,7 +90,7 @@ def test_QuantizedBits_ElementsPerScale():
     xq_r3_min_exp, xq_r3_max_exp = _get_min_max_po2_exponent(x_r3_scale)
 
     assert_equal(new_quantizer.scale.shape, [1, 8, 8])
-    assert xq_r3_min_exp >= -3 * integer_po2_scale
+    assert xq_r3_min_exp >= -3  # noqa: PLR2004 * integer_po2_scale
     assert xq_r3_max_exp <= 3 * integer_po2_scale
 
     # Test for input tensors of rank 4
@@ -102,7 +100,7 @@ def test_QuantizedBits_ElementsPerScale():
     xq_r4_min_exp, xq_r4_max_exp = _get_min_max_po2_exponent(x_r4_scale)
 
     assert_equal(new_quantizer.scale.shape, [1, 2, 4, 1])
-    assert xq_r4_min_exp >= -3 * integer_po2_scale
+    assert xq_r4_min_exp >= -3  # noqa: PLR2004 * integer_po2_scale
     assert xq_r4_max_exp <= 3 * integer_po2_scale
 
 
@@ -534,17 +532,17 @@ def test_GetScale_MinPO2Exponent_MaxPO2Exponent():
     # verify that the output scales have the correct min and max ranges
     assert_equal(keras.ops.shape(scale_min_neg3_max_1), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg3_max_1)
-    assert min_po2_exp >= -3
+    assert min_po2_exp >= -3  # noqa: PLR2004
     assert max_po2_exp <= 1
 
     assert_equal(keras.ops.shape(scale_min_neg8_max_0), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg8_max_0)
-    assert min_po2_exp >= -8
+    assert min_po2_exp >= -8  # noqa: PLR2004
     assert max_po2_exp <= 0
 
     assert_equal(keras.ops.shape(scale_min_neg10_max_1), (1, 1, 8))
     min_po2_exp, max_po2_exp = _get_min_max_po2_exponent(scale_min_neg10_max_1)
-    assert min_po2_exp >= -10
+    assert min_po2_exp >= -10  # noqa: PLR2004
     assert max_po2_exp <= 1
 
 

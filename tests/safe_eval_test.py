@@ -61,7 +61,7 @@ def test_get_params3():
 
 def test_safe_eval1():
     s = "add(3,3)"
-    assert safe_eval(s, globals()) == 6
+    assert safe_eval(s, globals()) == 6  # noqa: PLR2004
 
 
 def i_func(s):
@@ -83,24 +83,24 @@ class myaddcls:
 
 def test_safe_eval2():
     s_add = [3, 39]
-    assert safe_eval("add", globals(), *s_add) == 42
+    assert safe_eval("add", globals(), *s_add) == 42  # noqa: PLR2004
 
 
 def test_safe_eval3():
-    assert safe_eval("myadd()", globals()) == 42
-    assert safe_eval("myadd(a=39)", globals(), b=3) == 42
+    assert safe_eval("myadd()", globals()) == 42  # noqa: PLR2004
+    assert safe_eval("myadd(a=39)", globals(), b=3) == 42  # noqa: PLR2004
 
 
 def test_safe_eval4():
-    assert safe_eval("myadd2(a=39)", globals(), b=3) == -42
-    assert safe_eval("myadd2(a= 39)", globals(), b=3) == -42
-    assert safe_eval("myadd2(a= 39, b = 3)", globals()) == -42
+    assert safe_eval("myadd2(a=39)", globals(), b=3) == -42  # noqa: PLR2004
+    assert safe_eval("myadd2(a= 39)", globals(), b=3) == -42  # noqa: PLR2004
+    assert safe_eval("myadd2(a= 39, b = 3)", globals()) == -42  # noqa: PLR2004
 
 
 def test_safe_eval5():
-    assert safe_eval("myadd", globals())(3, 39) == 42
-    assert safe_eval("myaddcls", globals())(3, 39) == 42
-    assert safe_eval("myaddcls()", globals())(3, 39) == 42
+    assert safe_eval("myadd", globals())(3, 39) == 42  # noqa: PLR2004
+    assert safe_eval("myaddcls", globals())(3, 39) == 42  # noqa: PLR2004
+    assert safe_eval("myaddcls()", globals())(3, 39) == 42  # noqa: PLR2004
 
 
 if __name__ == "__main__":

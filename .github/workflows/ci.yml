@@ -10,16 +10,31 @@ on:
     branches: [ main, v3 ]
 
 jobs:
-  build:
 
+  lint:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      # Update output format to enable automatic inline annotations.
+      - name: Run Ruffl
+        run: ruff check --output-format=github .
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
     - name: Set up Python 3.11
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.11
+        python-version: "3.11"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -28,18 +43,32 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-    - name: Run examples
-      run: |
-        for f in examples/*.py; do python "$f"; done
 
-  run_notebooks:
+  examples:
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install .
+      - name: Run examples
+        run: |
+          for f in examples/*.py; do python "$f"; done
+
+  notebooks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
-        python-version: 3.11
+        python-version: "3.11"
     - uses: yaananth/run-notebook@v2
       env:
         RUNNER: ${{ toJson(runner) }}
@@ -58,7 +87,7 @@ jobs:
         notebook: "notebook/CodebookQuantization.ipynb"
         isReport: False
         poll: True
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact
       if: always()
       with:
         name: output

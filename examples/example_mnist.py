@@ -162,7 +162,7 @@ if train:
             print(layer.name, w)
             all_weights.append(weights.flatten())
 
-    all_weights = knp.concatenate(all_weights).astype("float32")
+    all_weights = np.concatenate(all_weights).astype("float32")
     print(all_weights.size)
 
 

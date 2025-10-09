@@ -24,10 +24,18 @@ import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from keras import layers
-from keras.models import *
+from keras.models import Model
 from numpy.testing import assert_array_equal
 
-from qkerasV3 import *
+from qkerasV3 import (
+    QActivation,
+    QBatchNormalization,
+    QConv2D,
+    QDense,
+    QDepthwiseConv2D,
+    quantized_bits,
+    quantized_po2,
+)
 from qkerasV3.utils import (
     add_bn_fusing_weights,
     clone_model_and_freeze_auto_po2_scale,
@@ -102,7 +110,7 @@ def test_get_model_sparsity():
     for true_sparsity in sparsity_levels:
         qmodel = set_network_sparsity(qmodel, true_sparsity)
         calc_sparsity = get_model_sparsity(qmodel)
-        assert knp.abs(calc_sparsity - true_sparsity) < 0.01
+        assert knp.abs(calc_sparsity - true_sparsity) < 0.01 # noqa: PLR2004
 
 
 def test_get_po2_model_sparsity():
@@ -120,7 +128,7 @@ def test_get_po2_model_sparsity():
     for set_sparsity in sparsity_levels:
         qmodel = set_network_sparsity(qmodel, set_sparsity)
         calc_sparsity = get_model_sparsity(qmodel)
-        assert knp.abs(calc_sparsity - 0) < 0.01
+        assert knp.abs(calc_sparsity - 0) < 0.01 # noqa: PLR2004
 
 
 def test_convert_to_folded_model():
@@ -170,7 +178,7 @@ def test_convert_to_folded_model():
 
     assert isinstance(model.layers[2], layers.ReLU)
     assert isinstance(model.layers[3], layers.Multiply)
-    assert any(isinstance(l, layers.Multiply) for l in fmodel.layers)
+    assert any(isinstance(layer, layers.Multiply) for layer in fmodel.layers)
 
 
 def test_find_bn_fusing_layer_pair():

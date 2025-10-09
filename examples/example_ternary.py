@@ -14,9 +14,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import numpy as np
 import keras.ops.numpy as knp
 import matplotlib
+import numpy as np
 from absl import app, flags
 
 matplotlib.use("TkAgg")

@@ -624,7 +624,7 @@ def test_util_layers():
 
     multiplier = dtype_dict["qdense_4"]["multiplier"]
     assert multiplier["quantizer_type"] == "quantized_bits"
-    assert multiplier["bits"] == 6
+    assert multiplier["bits"] == 6  # noqa: PLR2004
     assert multiplier["int_bits"] == 1
     assert multiplier["is_signed"] == 1
     assert multiplier["op_type"] == "and"
@@ -678,7 +678,7 @@ def test_merge_layers():
     dtype_dict = run(model, input_quantizers)
     merge_quantizer = dtype_dict["maximum"]["Maximum_quantizer"]
     assert merge_quantizer["quantizer_type"] == "quantized_bits"
-    assert merge_quantizer["bits"] == 6
+    assert merge_quantizer["bits"] == 6  # noqa: PLR2004
     assert merge_quantizer["int_bits"] == 1
     assert merge_quantizer["is_signed"] == 1
 
