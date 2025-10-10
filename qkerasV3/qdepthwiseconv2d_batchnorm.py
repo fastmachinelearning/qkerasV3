@@ -19,8 +19,6 @@ import keras
 import keras.ops.numpy as knp
 from keras import layers
 from keras import ops as Kops
-from tensorflow.python.framework import smart_cond as tf_utils
-from tensorflow.python.ops import array_ops, math_ops
 
 from .ops_portable import bias_add_portable
 from .qconvolutional import QDepthwiseConv2D
@@ -205,10 +203,16 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
 
         # Perform a forward pass through BatchNormalization once to ensure that
         # the moving statistics (mean and variance) are updated if in training mode.
-        _ = self.batchnorm(conv_outputs, training=bn_training)
+        def call_batchnorm(conv_outputs, bn_training):
+            return keras.ops.cond(
+                bn_training,
+                lambda: self.batchnorm(conv_outputs, training=True),
+                lambda: self.batchnorm(conv_outputs, training=False)
+            )
+        _ = call_batchnorm(conv_outputs, bn_training)
 
         self._iteration.assign_add(
-            tf_utils.smart_cond(
+            keras.ops.cond(
                 training,
                 lambda: knp.array(1, dtype="int64"),
                 lambda: knp.array(0, dtype="int64"),
@@ -241,14 +245,14 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             mv_inv *= gamma
             batch_inv *= gamma
 
-        folded_bias = tf_utils.smart_cond(
+        folded_bias = keras.ops.cond(
             bn_training,
             lambda: batch_inv * (bias - mean) + beta,
             lambda: mv_inv * (bias - moving_mean) + beta,
         )
 
         if self.folding_mode == "batch_stats_folding":
-            inv = tf_utils.smart_cond(bn_training, lambda: batch_inv, lambda: mv_inv)
+            inv = keras.ops.cond(bn_training, lambda: batch_inv, lambda: mv_inv)
         elif self.folding_mode == "ema_stats_folding":
             inv = mv_inv
 
@@ -285,7 +289,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         )
 
         if training is True and self.folding_mode == "ema_stats_folding":
-            y_corr = tf_utils.smart_cond(
+            y_corr = keras.ops.cond(
                 bn_training,
                 lambda: knp.sqrt(moving_variance + self.batchnorm.epsilon)
                 * keras.ops.rsqrt(variance + self.batchnorm.epsilon),
@@ -354,7 +358,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         moving_variance = self.batchnorm.moving_variance
 
         # get the inversion factor so that we replace division by multiplication
-        inv = math_ops.rsqrt(moving_variance + self.batchnorm.epsilon)
+        inv = 1 / keras.ops.sqrt(moving_variance + self.batchnorm.epsilon)
         if gamma is not None:
             inv *= gamma
         # fold bias with bn stats
@@ -363,7 +367,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         # for DepthwiseConv2D inv needs to be broadcasted to the last 2 dimensions
         # of the kernels
         depthwise_weights_shape = [depthwise_kernel.shape[2], depthwise_kernel.shape[3]]
-        inv = array_ops.reshape(inv, depthwise_weights_shape)
+        inv = keras.ops.reshape(inv, depthwise_weights_shape)
         # wrap conv kernel with bn parameters
         folded_depthwise_kernel = inv * depthwise_kernel
 

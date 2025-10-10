@@ -22,7 +22,6 @@ import sys
 import keras
 import keras.ops.numpy as knp
 import numpy as np
-import tensorflow as tf
 from keras import KerasTensor
 from keras import backend as K
 
@@ -268,7 +267,7 @@ def get_scale_from_quantized_bits_with_auto_po2(quantizer):
         return quantizer.scale
     elif isinstance(quantizer.scale, KerasTensor):
         return quantizer.scale
-    elif isinstance(quantizer.scale, tf.Tensor):
+    elif keras.ops.is_tensor(quantizer.scale):
         return quantizer.scale.numpy()
     else:
         return None

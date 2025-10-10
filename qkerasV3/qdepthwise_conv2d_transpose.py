@@ -19,9 +19,6 @@ import keras
 import keras.ops.numpy as knp
 from keras import layers
 from keras.saving import register_keras_serializable
-from tensorflow.python.eager import context
-from tensorflow.python.keras import constraints
-from tensorflow.python.ops import array_ops
 
 from .ops_portable import bias_add_portable
 from .qconvolutional import deconv_output_length
@@ -123,7 +120,7 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         kernel_h,
         kernel_w,
     ):
-        input_shape = array_ops.shape(inputs)
+        input_shape = keras.ops.shape(inputs)
         batch_size, _, height, width = self._get_input_dims(input_shape)
         stride_h, stride_w = strides
 
@@ -288,15 +285,6 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         # Concat the channels.
         outputs = keras.ops.concatenate(outputs, axis=-1)
 
-        if not context.executing_eagerly():
-            # Infer the static output shape:
-            out_shape = self.compute_final_output_shape(
-                input_shape=inputs.shape,
-                kernel_size=(kernel_h, kernel_w),
-                strides=strides,
-            )
-            outputs.set_shape(out_shape)
-
         if use_bias:
             quantized_bias = bias_quantizer(bias) if bias_quantizer else bias
             outputs = bias_add_portable(
@@ -309,7 +297,7 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
         return outputs
 
     def call(self, inputs):
-        input_shape = array_ops.shape(inputs)
+        input_shape = keras.ops.shape(inputs)
         _, input_channel, _, _ = self._get_input_dims(input_shape)
 
         return self.conv_transpose_op(
@@ -343,10 +331,10 @@ class QDepthwiseConv2DTranspose(layers.Conv2DTranspose):
                 "depth_multiplier": self.depth_multiplier,
                 "activation": self.activation,
                 "use_bias": self.use_bias,
-                "depthwise_kernel_quantizer": constraints.serialize(
+                "depthwise_kernel_quantizer": keras.constraints.serialize(
                     self.depthwise_kernel_quantizer_internal
                 ),
-                "bias_quantizer": constraints.serialize(
+                "bias_quantizer": keras.constraints.serialize(
                     self.bias_quantizer_internal,
                 ),
                 "group_size": self.group_size,

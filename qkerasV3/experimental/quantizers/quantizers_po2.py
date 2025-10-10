@@ -39,7 +39,6 @@ import re
 import keras
 import keras.backend as K
 import keras.ops.numpy as knp
-import tensorflow as tf
 from keras import ops as Kops
 from keras.layers import Layer
 from six.moves import range
@@ -119,7 +118,7 @@ def _get_msqe_scale(x, q, scale_axis=None, per_channel_scale=True, msqe_weight=N
     except AttributeError:
         x_shape = list(x.shape)
 
-    len_axis = len(x_shape)
+    len_axis = Kops.ndim(x)
 
     if msqe_weight is not None:
         sqrt_msqe_weight = knp.sqrt(msqe_weight)
@@ -142,7 +141,7 @@ def _get_msqe_scale(x, q, scale_axis=None, per_channel_scale=True, msqe_weight=N
     scale = qx / (qq + K.epsilon())
 
     # Rounds the exponent to the nearest integer for power-of-2 scale.
-    return K.pow(2.0, tf.math.rint(K.log(scale + K.epsilon()) / knp.log(2.0)))
+    return K.pow(2.0, keras.ops.round(K.log(scale + K.epsilon()) / knp.log(2.0)))
 
 
 class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
@@ -554,7 +553,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
             is_initialized=is_initialized,
             should_update=should_update,
         )
-        return Kops.power(2.0, tf.math.rint(self.stable_scale_exponent))
+        return Kops.power(2.0, keras.ops.round(self.stable_scale_exponent))
 
     def _initialize_scale_exponent(self, inputs):
         """Initializes the scale exponent only once.
@@ -585,7 +584,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         Returns:
           A tensor to mask out the clipped inputs.
         """
-        inputs_rounded = tf.math.rint(inputs / scale)
+        inputs_rounded = keras.ops.round(inputs / scale)
         clip_error_mask = Kops.logical_and(
             knp.less_equal(inputs_rounded, self.qp),
             knp.greater_equal(inputs_rounded, -self.qn),
@@ -643,7 +642,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         Returns:
           A tensor through a straight-through estimator.
         """
-        return inputs + keras.ops.stop_gradient(-inputs + tf.math.rint(inputs))
+        return inputs + keras.ops.stop_gradient(-inputs + keras.ops.round(inputs))
 
     def _simple_quantize(self, inputs, scale, should_return_q=False):
         """Returns quantized inputs without a straight-through estimator (STE).
@@ -657,7 +656,7 @@ class BaseQuantizerPO2(Layer):  # pylint: disable=invalid-name
         Returns:
           A tensor of fake quantized inputs (, a tensor of quantized inputs)
         """
-        inputs_rounded = tf.math.rint(inputs / scale)
+        inputs_rounded = keras.ops.round(inputs / scale)
         inputs_clipped = self._clip_quant(inputs_rounded)
         if should_return_q:
             return scale * inputs_clipped, inputs_clipped
@@ -1092,7 +1091,7 @@ class quantized_bits_learnable_po2(BaseQuantizerPO2):  # pylint: disable=invalid
         if self.use_po2_scale_ceil:
             scale_exponent = knp.ceil(self.scale_exponent)
         else:
-            scale_exponent = tf.math.rint(self.scale_exponent)
+            scale_exponent = keras.ops.round(self.scale_exponent)
 
         # MSQE rounding requires the inputs to optimize the scale exponent.
         if self.use_po2_scale_msqe_round and inputs is not None:

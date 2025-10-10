@@ -44,7 +44,6 @@ from keras import backend as K
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow.python.framework import smart_cond as tf_utils
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
     PrunableLayer,
 )
@@ -451,7 +450,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             qx = self.quantizer(x)
 
         # Calculate the axis along where to find the min and max EMAs
-        len_axis = len(x.shape)
+        len_axis = Kops.ndim(x)
         if len_axis > 1:
             if self.per_channel:
                 if K.image_data_format() == "channels_last":
@@ -498,7 +497,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             self.quantizer.update_qnoise_factor(prev_qnoise_factor)
 
         # Update the moving average when is_ema_training is True
-        tf_utils.smart_cond(
+        keras.ops.cond(
             is_ema_training, true_fn=update_branch, false_fn=lambda: None
         )
 

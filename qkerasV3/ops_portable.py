@@ -14,7 +14,29 @@
 # limitations under the License.
 # ==============================================================================
 
+from collections.abc import Mapping, Sequence
 import keras
+from keras import ops as Kops
+import numpy as np
+
+# recognize common tensor leaves across backends
+try:
+    import tensorflow as tf
+    _tf_tensor = (tf.Tensor, tf.RaggedTensor)
+except Exception:
+    _tf_tensor = ()
+try:
+    import torch
+    _torch_tensor = (torch.Tensor,)
+except Exception:
+    _torch_tensor = ()
+try:
+    import jax
+    _jax_tensor = (jax.Array,)  # jax>=0.4
+except Exception:
+    _jax_tensor = ()
+
+_TENSOR_LEAVES = _tf_tensor + _torch_tensor + _jax_tensor + (np.ndarray, np.number)
 
 
 def bias_add_portable(x, bias, data_format="channels_last"):
@@ -35,3 +57,40 @@ def bias_add_portable(x, bias, data_format="channels_last"):
         return x + bias_reshaped
     else:
         raise ValueError(f"Unsupported data_format: {data_format}")
+
+
+def to_python_bool_if_possible(x):
+    # Already a Python bool/int?
+    if isinstance(x, (bool, int, np.bool_)):
+        return bool(x)
+    # Try to fold constant scalars in eager mode
+    try:
+        v = Kops.convert_to_numpy(x)   # works only in eager; raises/returns array in graph
+        if np.ndim(v) == 0:
+            return bool(v)
+    except Exception:
+        pass
+    # Could not fold -> keep as tensor (safe for BN's `training=` arg)
+    return x
+
+
+def constant_bool_value(x):
+    """Return a Python bool if x is statically known, else None."""
+    # Plain Python / NumPy bools
+    if isinstance(x, (bool, int, np.bool_)):
+        return bool(x)
+    # Try to fold constant scalar tensors in eager
+    try:
+        # works in eager; may raise in graph
+        v = keras.ops.convert_to_numpy(x)
+        if np.ndim(v) == 0:
+            return bool(v)
+    except Exception:
+        pass
+
+def is_nested(x):
+    if isinstance(x, (str, bytes)):
+        return False
+    if isinstance(x, _TENSOR_LEAVES):
+        return False
+    return isinstance(x, (Mapping, Sequence))

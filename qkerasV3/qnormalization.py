@@ -23,13 +23,11 @@ import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow.python.framework import ops
-from tensorflow.python.framework import smart_cond as tf_utils
-from tensorflow.python.ops import math_ops
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
     PrunableLayer,
 )
 
+from .ops_portable import constant_bool_value
 from .qlayers import get_auto_range_constraint_initializer, get_quantizer
 
 
@@ -210,7 +208,7 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
         scale, offset = _broadcast(quantized_gamma), _broadcast(quantized_beta)
 
         # Determine a boolean value for `training`: could be True, False, or None.
-        training_value = tf_utils.smart_constant_value(training)
+        training_value = constant_bool_value(training)
         if training_value == False:  # pylint: disable=singleton-comparison,g-explicit-bool-comparison
             quantized_mean, quantized_variance = (
                 quantized_moving_mean,
@@ -221,7 +219,7 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             # but not a constant. However, this makes the code simpler.
             keep_dims = len(axis) > 1
             mean, variance = keras.ops.moments(
-                math_ops.cast(inputs, self.compute_dtype),
+                keras.ops.cast(inputs, self.compute_dtype),
                 axes=reduction_axes,
                 keepdims=keep_dims,
             )
@@ -229,13 +227,13 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             moving_mean = self.moving_mean
             moving_variance = self.moving_variance
 
-            mean = tf_utils.smart_cond(
-                training, lambda: mean, lambda: ops.convert_to_tensor(moving_mean)
+            mean = keras.ops.cond(
+                training, lambda: mean, lambda: keras.ops.convert_to_tensor(moving_mean)
             )
-            variance = tf_utils.smart_cond(
+            variance = keras.ops.cond(
                 training,
                 lambda: variance,
-                lambda: ops.convert_to_tensor(moving_variance),
+                lambda: keras.ops.convert_to_tensor(moving_variance),
             )
 
             new_mean, new_variance = mean, variance
@@ -265,13 +263,13 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             def mean_update():
                 true_branch = lambda: _do_update(self.moving_mean, new_mean)
                 false_branch = lambda: self.moving_mean
-                return tf_utils.smart_cond(training, true_branch, false_branch)
+                return keras.ops.cond(training, true_branch, false_branch)
 
             def variance_update():
                 """Update the moving variance."""
                 true_branch = lambda: _do_update(self.moving_variance, new_variance)
                 false_branch = lambda: self.moving_variance
-                return tf_utils.smart_cond(training, true_branch, false_branch)
+                return keras.ops.cond(training, true_branch, false_branch)
 
             moving_mean_assign = self.moving_mean.assign(
                 self.moving_mean * self.momentum + mean * (1.0 - self.momentum)
@@ -280,22 +278,22 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
                 self.moving_variance * self.momentum + variance * (1.0 - self.momentum)
             )
 
-        quantized_mean = _broadcast(math_ops.cast(quantized_mean, inputs.dtype))
-        quantized_variance = _broadcast(math_ops.cast(quantized_variance, inputs.dtype))
+        quantized_mean = _broadcast(keras.ops.cast(quantized_mean, inputs.dtype))
+        quantized_variance = _broadcast(keras.ops.cast(quantized_variance, inputs.dtype))
         if offset is not None:
-            offset = math_ops.cast(offset, inputs.dtype)
+            offset = keras.ops.cast(offset, inputs.dtype)
         if scale is not None:
-            scale = math_ops.cast(scale, inputs.dtype)
+            scale = keras.ops.cast(scale, inputs.dtype)
 
         # Calculate and quantize the inverse
-        inv = math_ops.rsqrt(quantized_variance + self.epsilon)
+        inv = 1 / keras.ops.sqrt(quantized_variance + self.epsilon)
         if scale is not None:
             inv *= scale
         if self.inverse_quantizer_internal is not None:
             inv = self.inverse_quantizer_internal(inv)
 
         # Calculate the forward pass of the BN
-        outputs = inputs * math_ops.cast(inv, inputs.dtype) + math_ops.cast(
+        outputs = inputs * keras.ops.cast(inv, inputs.dtype) + keras.ops.cast(
             offset - quantized_mean * inv
             if offset is not None
             else -quantized_mean * inv,

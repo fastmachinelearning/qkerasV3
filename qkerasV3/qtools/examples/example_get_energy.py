@@ -16,7 +16,7 @@
 """Example code to generate weight and MAC sizes in a json file."""
 
 
-from tensorflow import keras
+import keras
 
 from qkerasV3 import QActivation, QDense, quantizers
 from qkerasV3.qtools import run_qtools

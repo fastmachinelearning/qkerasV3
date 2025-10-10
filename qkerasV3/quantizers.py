@@ -428,7 +428,7 @@ def _get_scale_mean(
         qq = keras.ops.reshape(qq, rolled_back_shape)
         qq = _repeat_along_axes(qq, repeats=elements_per_scale, axis=scale_axis)
     else:
-        len_axis = len(x.shape)
+        len_axis = Kops.ndim(x)
         axis = _get_scaling_axis(scale_axis, len_axis)
         qx = knp.mean(x * q, axis=axis, keepdims=True)
         qq = knp.mean(q * q, axis=axis, keepdims=True)
@@ -490,7 +490,7 @@ def _get_least_squares_scale(
         except AttributeError:
             x_shape = list(x.shape)
 
-        len_axis = len(x_shape)
+        len_axis = Kops.ndim(x)
         if not per_channel_scale:
             qx = keras.ops.mean(x * q, keepdims=True)
             qq = keras.ops.mean(q * q, keepdims=True)
@@ -1392,7 +1392,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         elif isinstance(self.alpha, six.string_types):
             # We only deal with the symmetric case right now.
             assert self.symmetric, "Only symmetric quantizers are implemented"
-            len_axis = len(x.shape)
+            len_axis = Kops.ndim(x)
             if len_axis > 1:
                 axis = _get_scaling_axis(self.scale_axis, len_axis)
             else:
@@ -1659,7 +1659,7 @@ class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             assert self.alpha in ["auto", "auto_po2"]
 
         if isinstance(self.alpha, six.string_types):
-            len_axis = len(x.shape)
+            len_axis = Kops.ndim(x)
 
             if len_axis > 1:
                 if K.image_data_format() == "channels_last":
@@ -1970,7 +1970,7 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
                 assert self.alpha >= 0.0
                 scale = float(self.alpha)
 
-            len_axis = len(x.shape)
+            len_axis = Kops.ndim(x)
             if len_axis > 1:
                 if keras.backend.image_data_format() == "channels_last":
                     axis = list(range(len_axis - 1))
@@ -2328,7 +2328,7 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
         def stochastic_output(x):
             if isinstance(self.alpha, six.string_types):
                 assert self.alpha in ["auto", "auto_po2"]
-                len_axis = len(x.shape)
+                len_axis = Kops.ndim(x)
                 if len_axis > 1:
                     if K.image_data_format() == "channels_last":
                         axis = list(range(len_axis - 1))

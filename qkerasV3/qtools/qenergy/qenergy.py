@@ -19,7 +19,6 @@
 import keras
 import keras.ops.numpy as knp
 import numpy as np
-import tensorflow as tf
 
 from qkerasV3.qtools import qtools_util
 from qkerasV3.qtools.generate_layer_data_type_map import KERAS_LAYERS, qkerasV3_LAYERS
@@ -78,12 +77,6 @@ def to_scalar(x):
         if x.size != 1:
             raise ValueError(f"NumPy array has {x.size} elements, not 1")
         return x.item()
-
-    # TensorFlow tensor
-    if tf is not None and isinstance(x, tf.Tensor):
-        if tf.size(x) != 1:
-            raise ValueError(f"TensorFlow tensor has {tf.size(x)} elements, not 1")
-        return x.numpy().item()
 
     # Keras backend tensor (immutable KerasTensor, JAX, Torch, TF eager…)
     if keras.ops.is_tensor(x):

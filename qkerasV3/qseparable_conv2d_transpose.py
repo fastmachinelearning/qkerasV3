@@ -19,9 +19,6 @@ import keras
 import keras.ops.numpy as knp
 from keras import layers
 from keras.saving import register_keras_serializable
-from tensorflow.python.eager import context
-from tensorflow.python.keras import constraints
-from tensorflow.python.ops import array_ops
 
 from .ops_portable import bias_add_portable
 from .qconvolutional import deconv_output_length
@@ -126,7 +123,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
     def _get_output_size(
         self, inputs, output_padding, padding, strides, dilation_rate, kernel_weights
     ):
-        input_shape = array_ops.shape(inputs)
+        input_shape = keras.ops.shape(inputs)
         batch_size, _, height, width = self._get_input_dims(input_shape)
         kernel_h, kernel_w = kernel_weights.shape[:2]
         stride_h, stride_w = strides
@@ -216,7 +213,6 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
     def compute_final_output_shape(
         self, input_shape, kernel_size, strides, is_depthwise=True
     ):
-        input_shape = keras.ops.shape(input_shape).as_list()
         # By using list(), output_shape is a copy of input_shape, instead of a
         # reference to input_shape.
         output_shape = list(input_shape)
@@ -314,16 +310,6 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
                 dilation_rate=dilation_rate,
             )
 
-        if not context.executing_eagerly():
-            # Infer the static output shape:
-            out_shape = self.compute_final_output_shape(
-                input_shape=inputs.shape,
-                kernel_size=(kernel_h, kernel_w),
-                strides=strides,
-                is_depthwise=is_depthwise,
-            )
-            outputs.set_shape(out_shape)
-
         if use_bias:
             quantized_bias = bias_quantizer(bias) if bias_quantizer else bias
             outputs = bias_add_portable(
@@ -336,7 +322,7 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
         return outputs
 
     def call(self, inputs):
-        input_shape = array_ops.shape(inputs)
+        input_shape = keras.ops.shape(inputs)
         _, input_channel, _, _ = self._get_input_dims(input_shape)
 
         # First apply depthwise transposed convolution.
@@ -394,13 +380,13 @@ class QSeparableConv2DTranspose(layers.Conv2DTranspose):
                 "depth_multiplier": self.depth_multiplier,
                 "activation": self.activation,
                 "use_bias": self.use_bias,
-                "depthwise_kernel_quantizer": constraints.serialize(
+                "depthwise_kernel_quantizer": keras.constraints.serialize(
                     self.depthwise_kernel_quantizer_internal
                 ),
-                "pointwise_kernel_quantizer": constraints.serialize(
+                "pointwise_kernel_quantizer": keras.constraints.serialize(
                     self.pointwise_kernel_quantizer_internal
                 ),
-                "bias_quantizer": constraints.serialize(
+                "bias_quantizer": keras.constraints.serialize(
                     self.bias_quantizer_internal,
                 ),
             }

@@ -213,7 +213,7 @@ def optimize_conv2d_logic(
     do not require any values, unless we want to embed maxpooling layer or
     multiple convolutional layers between i_name and o_name. In that case,
     we require the user to compute the proper kernel, strides, and padding
-    that will correspond to the combined layer, as Keras and tensorflow do not
+    that will correspond to the combined layer, as Keras does not
     provide a way to compute the receptive field between two layers.
 
     Arguments:

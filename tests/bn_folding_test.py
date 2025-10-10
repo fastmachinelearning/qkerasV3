@@ -25,6 +25,7 @@ from keras.backend import clear_session
 from keras.models import Model
 from keras.utils import to_categorical
 from numpy.testing import assert_allclose, assert_equal, assert_raises
+import pytest
 
 from qkerasV3 import (
     QActivation,
@@ -785,3 +786,7 @@ def test_populate_bias_quantizer_from_accumulator():
     )
     q = model.layers[5].get_quantizers()[1]
     assert_equal(q.__str__(), "quantized_bits(10,3,1)")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

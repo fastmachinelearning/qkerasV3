@@ -21,10 +21,7 @@ import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow.python.eager import context
-from tensorflow.python.ops import array_ops
 
-# from tensorflow.python.ops import array_ops
 from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
     PrunableLayer,
 )
@@ -508,7 +505,7 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
         )
 
     def call(self, inputs):
-        inputs_shape = array_ops.shape(inputs)
+        inputs_shape = keras.ops.shape(inputs)
 
         if self.kernel_quantizer:
             quantized_kernel = self.kernel_quantizer_internal(self.kernel)
@@ -523,11 +520,6 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
             data_format=self.data_format,
             dilation_rate=self.dilation_rate,
         )
-
-        if not context.executing_eagerly():
-            # Infer the static output shape:
-            out_shape = self.compute_output_shape(inputs.shape)
-            outputs.set_shape(out_shape)
 
         if self.use_bias:
             if self.bias_quantizer:
@@ -674,14 +666,14 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
 
     def call(self, inputs):
         if self.padding == "causal":
-            inputs = array_ops.pad(inputs, self._compute_causal_padding())
+            inputs = keras.ops.pad(inputs, self._compute_causal_padding())
 
         spatial_start_dim = 1 if self.data_format == "channels_last" else 2
 
         # Explicitly broadcast inputs and kernels to 4D.
-        inputs = array_ops.expand_dims(inputs, spatial_start_dim)
-        depthwise_kernel = array_ops.expand_dims(self.depthwise_kernel, 0)
-        pointwise_kernel = array_ops.expand_dims(self.pointwise_kernel, 0)
+        inputs = keras.ops.expand_dims(inputs, spatial_start_dim)
+        depthwise_kernel = keras.ops.expand_dims(self.depthwise_kernel, 0)
+        pointwise_kernel = keras.ops.expand_dims(self.pointwise_kernel, 0)
         dilation_rate = (1,) + self.dilation_rate
 
         if self.padding == "causal":
@@ -723,7 +715,7 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
                 outputs, quantized_bias, data_format=self.data_format
             )
 
-        outputs = array_ops.squeeze(outputs, [spatial_start_dim])
+        outputs = keras.ops.squeeze(outputs, [spatial_start_dim])
 
         if self.activation is not None:
             return self.activation(outputs)

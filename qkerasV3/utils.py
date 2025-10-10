@@ -26,7 +26,6 @@ import networkx as nx
 import six
 from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
-from tensorflow.python.ops import math_ops
 from tensorflow_model_optimization.python.core.sparsity.keras import (
     prunable_layer,
     prune_registry,
@@ -185,7 +184,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     variance = apply_quantizer(bn_layer.variance_quantizer_internal, bn_ws[idx])
 
     # Compute inv[i]
-    inv = gamma * math_ops.rsqrt(variance + bn_layer.epsilon)
+    inv = gamma * (1.0 / keras.ops.sqrt(variance + bn_layer.epsilon))
     inv = inv.numpy()
     if bn_layer.inverse_quantizer_internal is not None:
         quantizer = bn_layer.inverse_quantizer_internal
@@ -331,7 +330,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
 
                     assert  isinstance(quantizer.scale, np.ndarray) or \
                             isinstance(quantizer.scale, KerasTensor) or \
-                            isinstance(quantizer.scale, tf.Tensor)
+                            keras.ops.is_tensor(quantizer.scale)
                     (
                         "The auto_po2 quantizer has to be called first in order "
                         "to know the values of scale."

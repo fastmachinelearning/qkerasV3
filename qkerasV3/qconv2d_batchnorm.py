@@ -22,8 +22,6 @@ from keras import layers
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from six.moves import range
-from tensorflow.python.framework import smart_cond as tf_utils
-from tensorflow.python.ops import math_ops
 
 from .ops_portable import bias_add_portable
 from .qconvolutional import QConv2D
@@ -197,10 +195,18 @@ class QConv2DBatchnorm(QConv2D):
         else:
             bias = 0
 
-        _ = self.batchnorm(conv_outputs, training=bn_training)
+        # Perform a forward pass through BatchNormalization once to ensure that
+        # the moving statistics (mean and variance) are updated if in training mode.
+        def call_batchnorm(conv_outputs, bn_training):
+            return keras.ops.cond(
+                bn_training,
+                lambda: self.batchnorm(conv_outputs, training=True),
+                lambda: self.batchnorm(conv_outputs, training=False)
+            )
+        _ = call_batchnorm(conv_outputs, bn_training)
 
         self._iteration.assign_add(
-            tf_utils.smart_cond(
+            keras.ops.cond(
                 training,
                 lambda: knp.array(1, dtype="int64"),
                 lambda: knp.array(0, dtype="int64"),
@@ -218,7 +224,7 @@ class QConv2DBatchnorm(QConv2D):
 
         keep_dims = len(axes) > 1
         mean, variance = keras.ops.moments(  # pylint: disable=protected-access
-            math_ops.cast(conv_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
+            keras.ops.cast(conv_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
             reduction_axes,
             keepdims=keep_dims,
         )
@@ -231,15 +237,15 @@ class QConv2DBatchnorm(QConv2D):
         if self.folding_mode == "batch_stats_folding":
             # using batch mean and variance in the initial training stage
             # after sufficient training, switch to moving mean and variance
-            new_mean = tf_utils.smart_cond(
+            new_mean = keras.ops.cond(
                 bn_training, lambda: mean, lambda: moving_mean
             )
-            new_variance = tf_utils.smart_cond(
+            new_variance = keras.ops.cond(
                 bn_training, lambda: variance, lambda: moving_variance
             )
 
             # get the inversion factor so that we replace division by multiplication
-            inv = math_ops.rsqrt(new_variance + self.batchnorm.epsilon)
+            inv = 1 / keras.ops.sqrt(new_variance + self.batchnorm.epsilon)
             if gamma is not None:
                 inv *= gamma
             # fold bias with bn stats
@@ -257,13 +263,13 @@ class QConv2DBatchnorm(QConv2D):
 
             # use batch stats for calcuating bias before bn freeze, and use moving
             # stats after bn freeze
-            mv_inv = math_ops.rsqrt(moving_variance + self.batchnorm.epsilon)
-            batch_inv = math_ops.rsqrt(variance + self.batchnorm.epsilon)
+            mv_inv = 1 / keras.ops.sqrt(moving_variance + self.batchnorm.epsilon)
+            batch_inv = 1 / keras.ops.sqrt(variance + self.batchnorm.epsilon)
 
             if gamma is not None:
                 mv_inv *= gamma
                 batch_inv *= gamma
-            folded_bias = tf_utils.smart_cond(
+            folded_bias = keras.ops.cond(
                 bn_training,
                 lambda: batch_inv * (bias - mean) + beta,
                 lambda: mv_inv * (bias - moving_mean) + beta,
@@ -306,16 +312,16 @@ class QConv2DBatchnorm(QConv2D):
             dilation_rate=self.dilation_rate,
         )
         if training is True and self.folding_mode == "ema_stats_folding":
-            batch_inv = math_ops.rsqrt(variance + self.batchnorm.epsilon)
-            y_corr = tf_utils.smart_cond(
+            batch_inv = 1 / keras.ops.sqrt(variance + self.batchnorm.epsilon)
+            y_corr = keras.ops.cond(
                 bn_training,
                 lambda: (
-                    math_ops.sqrt(moving_variance + self.batchnorm.epsilon)
-                    * math_ops.rsqrt(variance + self.batchnorm.epsilon)
+                    keras.ops.sqrt(moving_variance + self.batchnorm.epsilon)
+                    * (1 / keras.ops.sqrt(variance + self.batchnorm.epsilon))
                 ),
                 lambda: 1.0,
             )
-            folded_outputs = math_ops.mul(folded_outputs, y_corr)
+            folded_outputs = folded_outputs * y_corr
 
         folded_outputs = bias_add_portable(
             folded_outputs, applied_bias, data_format=self.data_format
@@ -376,7 +382,7 @@ class QConv2DBatchnorm(QConv2D):
         moving_variance = self.batchnorm.moving_variance
 
         # get the inversion factor so that we replace division by multiplication
-        inv = math_ops.rsqrt(moving_variance + self.batchnorm.epsilon)
+        inv = 1 / keras.ops.sqrt(moving_variance + self.batchnorm.epsilon)
         if gamma is not None:
             inv *= gamma
 
