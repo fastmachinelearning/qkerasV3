@@ -18,3 +18,4 @@ ruff
 tensorflow_datasets
 jax
 torch
+keras_tuner

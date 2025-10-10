@@ -29,11 +29,11 @@ from keras import ops as Kops
 
 if os.environ["KERAS_BACKEND"] == "tensorflow":
     from tensorflow_model_optimization.python.core.sparsity.keras import (
-        prunable_layer,
         prune_registry,
         pruning_wrapper,
     )
 
+from .prunable_layer import PrunableLayer
 from .qconv2d_batchnorm import QConv2DBatchnorm
 from .qconvolutional import (
     QConv1D,
@@ -1216,7 +1216,7 @@ def print_model_sparsity(model):
     for layer in model.layers:
         if isinstance(layer, pruning_wrapper.PruneLowMagnitude):
             prunable_weights = layer.layer.get_prunable_weights()
-        elif isinstance(layer, prunable_layer.PrunableLayer):
+        elif isinstance(layer, PrunableLayer):
             prunable_weights = layer.get_prunable_weights()
         elif prune_registry.PruneRegistry.supports(layer):
             weight_names = prune_registry.PruneRegistry._weight_names(layer)

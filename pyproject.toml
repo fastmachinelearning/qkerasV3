@@ -30,7 +30,8 @@ dependencies = [
     "tqdm",
     "ruff",
     "jax",
-    "torch"
+    "torch",
+    "keras_tuner"
 ]
 
 classifiers = [
