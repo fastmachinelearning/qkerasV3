@@ -21,10 +21,9 @@ import keras
 import keras.ops.numpy as knp
 import numpy as np
 import six
-import tensorflow as tf
+from keras import KerasTensor, initializers, utils
 from keras import activations as Kact
 from keras import backend as K
-from keras import initializers, utils
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from six.moves import range
@@ -91,17 +90,17 @@ def _get_integer_bits(
 
     # Estimate integer_bits
     if is_clipping:
-        min_int_bits = keras.ops.round(tf.where(min_value_log2 > 0, min_value_log2, 0))
-        max_int_bits = keras.ops.round(tf.where(max_value_log2 > 0, max_value_log2, 0))
+        min_int_bits = keras.ops.round(keras.ops.where(min_value_log2 > 0, min_value_log2, 0))
+        max_int_bits = keras.ops.round(keras.ops.where(max_value_log2 > 0, max_value_log2, 0))
     else:
-        min_int_bits = keras.ops.ceil(tf.where(min_value_log2 > 0, min_value_log2, 0))
-        max_int_bits = keras.ops.ceil(tf.where(max_value_log2 > 0, max_value_log2, 0))
+        min_int_bits = keras.ops.ceil(keras.ops.where(min_value_log2 > 0, min_value_log2, 0))
+        max_int_bits = keras.ops.ceil(keras.ops.where(max_value_log2 > 0, max_value_log2, 0))
         # Checks max_value is bounded by the maximum positive value of
         # pow(2,integer_bits) - pow(2,-fractional_bits).
         max_value_po2 = pow(2.0, max_int_bits) - pow(
             2.0, Kops.minimum(max_int_bits - unsigned_bits, 0)
         )
-        max_int_bits = tf.where(
+        max_int_bits = keras.ops.where(
             max_value <= max_value_po2, max_int_bits, max_int_bits + 1
         )
         if symmetric:
@@ -110,13 +109,13 @@ def _get_integer_bits(
             min_value_po2 = -pow(2.0, min_int_bits) + pow(
                 2.0, Kops.minimum(min_int_bits - unsigned_bits, 0)
             )
-            min_int_bits = tf.where(
+            min_int_bits = keras.ops.where(
                 min_value_po2 <= min_value, min_int_bits, min_int_bits + 1
             )
 
     # To cover both negative and positive ranges with integer_bits.
     # (For keep_negative=False, min_int_bits is 0.)
-    integer_bits = Kops.cast(Kops.maximum(min_int_bits, max_int_bits), dtype=tf.int32)
+    integer_bits = Kops.cast(Kops.maximum(min_int_bits, max_int_bits), dtype="int32")
     # It assumes that integer_bits cannot be greater than unsigned_bits
     integer_bits = Kops.minimum(unsigned_bits, integer_bits)
 
@@ -142,12 +141,13 @@ def _get_scaling_axis(scale_axis: Any, len_axis: int) -> list[int]:
         if isinstance(scale_axis, list):
             axis = [i for i in range(len_axis) if i not in scale_axis]
         else:
-            axis = tf.range(scale_axis)
-            axis = tf.concat([axis, tf.range(scale_axis + 1, len_axis)], axis=0)
+            axis = keras.ops.arange(scale_axis)
+            axis = keras.ops.concatenate([axis, keras.ops.arange(scale_axis + 1, len_axis)], axis=0)
     elif K.image_data_format() == "channels_last":
-        axis = tf.range(tf.math.maximum(len_axis - 1, 0))
+
+        axis = keras.ops.arange(keras.ops.maximum(len_axis - 1, 0))
     else:
-        axis = tf.range(1, len_axis)
+        axis = keras.ops.arange(1, len_axis)
     return axis
 
 
@@ -355,12 +355,12 @@ def _validate_axis_and_eps(
     return scale_axis, elements_per_scale
 
 
-def _repeat_along_axis(x: tf.Tensor, axis: int, repeats: int) -> tf.Tensor:
+def _repeat_along_axis(x: KerasTensor, axis: int, repeats: int) -> KerasTensor:
     """Repeats the elements in a tensor along the specified axis."""
-    return tf.repeat(x, repeats=repeats, axis=axis)
+    return keras.ops.repeat(x, repeats=repeats, axis=axis)
 
 
-def _repeat_along_axes(x: tf.Tensor, axis: Any, repeats: Any) -> tf.Tensor:
+def _repeat_along_axes(x: KerasTensor, axis: Any, repeats: Any) -> KerasTensor:
     """Repeats the elements in a tensor along the specified axes."""
     if isinstance(axis, int) and isinstance(repeats, int):
         x = _repeat_along_axis(x, axis, repeats)
@@ -371,7 +371,7 @@ def _repeat_along_axes(x: tf.Tensor, axis: Any, repeats: Any) -> tf.Tensor:
 
 
 def _get_scale_mean(
-    scale_axis: Any, x: tf.Tensor, q: tf.Tensor, elements_per_scale: Any
+    scale_axis: Any, x: KerasTensor, q: KerasTensor, elements_per_scale: Any
 ):
     """Gets the mean of the tensor along the specified scaling axis/axes.
 
@@ -406,13 +406,13 @@ def _get_scale_mean(
         )
 
         # Unroll x and q
-        x1 = tf.reshape(x, unrolled_shape)
-        q1 = tf.reshape(q, unrolled_shape)
+        x1 = keras.ops.reshape(x, unrolled_shape)
+        q1 = keras.ops.reshape(q, unrolled_shape)
 
         # Get the mean along the unroll axis/axes
         axes_of_mean = _get_scaling_axis(unrolled_scale_axis, len(unrolled_shape))
-        qx = tf.reduce_mean(x1 * q1, axis=axes_of_mean, keepdims=True)
-        qq = tf.reduce_mean(q1 * q1, axis=axes_of_mean, keepdims=True)
+        qx = keras.ops.mean(x1 * q1, axis=axes_of_mean, keepdims=True)
+        qq = keras.ops.mean(q1 * q1, axis=axes_of_mean, keepdims=True)
 
         # Reshape qx and qq to be divisible by the input shape.
         # To achieve this, qx and qq are first rolled back along unroll axis.
@@ -422,10 +422,10 @@ def _get_scale_mean(
             qx.shape.as_list(), roll_axis=unrolled_scale_axis
         )
 
-        qx = tf.reshape(qx, rolled_back_shape)
+        qx = keras.ops.reshape(qx, rolled_back_shape)
         qx = _repeat_along_axes(qx, repeats=elements_per_scale, axis=scale_axis)
 
-        qq = tf.reshape(qq, rolled_back_shape)
+        qq = keras.ops.reshape(qq, rolled_back_shape)
         qq = _repeat_along_axes(qq, repeats=elements_per_scale, axis=scale_axis)
     else:
         len_axis = len(x.shape)
@@ -435,7 +435,7 @@ def _get_scale_mean(
     return qx, qq
 
 
-def _clip_po2_scale(scale: tf.Tensor, min_po2_exponent: Any, max_po2_exponent: Any):
+def _clip_po2_scale(scale: KerasTensor, min_po2_exponent: Any, max_po2_exponent: Any):
     """Clip power-of-two scales given minimum and maximum po2 exponenets."""
 
     min_po2 = None if min_po2_exponent is None else 2**min_po2_exponent
@@ -446,8 +446,8 @@ def _clip_po2_scale(scale: tf.Tensor, min_po2_exponent: Any, max_po2_exponent: A
 
 def _get_least_squares_scale(
     alpha: Any,
-    x: tf.Tensor,
-    q: tf.Tensor,
+    x: KerasTensor,
+    q: KerasTensor,
     scale_axis: Any = None,
     per_channel_scale: bool = True,
     elements_per_scale: Any = None,
@@ -492,8 +492,8 @@ def _get_least_squares_scale(
 
         len_axis = len(x_shape)
         if not per_channel_scale:
-            qx = tf.reduce_mean(x * q, keepdims=True)
-            qq = tf.reduce_mean(q * q, keepdims=True)
+            qx = keras.ops.mean(x * q, keepdims=True)
+            qq = keras.ops.mean(q * q, keepdims=True)
         elif len_axis > 1:
             qx, qq = _get_scale_mean(scale_axis, x, q, elements_per_scale)
         else:
@@ -504,7 +504,7 @@ def _get_least_squares_scale(
 
         scale = qx / (qq + keras.backend.epsilon())
         if alpha == "auto_po2":
-            scale = tf.pow(
+            scale = knp.power(
                 2.0,
                 keras.ops.round(
                     Kops.log(scale + keras.backend.epsilon()) / np.log(2.0)
@@ -599,10 +599,10 @@ def stochastic_round(x, precision=0.5):
     """Performs stochastic rounding to the first decimal point."""
     scale = 1.0 / precision
     scale_x = x * scale
-    fraction = scale_x - tf.floor(scale_x)
+    fraction = scale_x - keras.ops.floor(scale_x)
 
-    result = tf.where(
-        fraction < tf.random.uniform(tf.shape(x)),
+    result = keras.ops.where(
+        fraction < np.random.uniform(size=keras.ops.shape(x)),
         keras.ops.floor(scale_x),
         keras.ops.ceil(scale_x),
     )
@@ -617,22 +617,22 @@ def stochastic_round_po2(x):
     eps = keras.backend.epsilon()
     log2 = keras.ops.log(2.0)
 
-    x_log2 = tf.round(keras.ops.log(y + eps) / log2)
+    x_log2 = keras.ops.round(keras.ops.log(y + eps) / log2)
     po2 = Kops.cast(pow(2.0, Kops.cast(x_log2, dtype="float32")), dtype="float32")
-    left_val = tf.where(po2 > y, x_log2 - 1, x_log2)
-    right_val = tf.where(po2 > y, x_log2, x_log2 + 1)
+    left_val = keras.ops.where(po2 > y, x_log2 - 1, x_log2)
+    right_val = keras.ops.where(po2 > y, x_log2, x_log2 + 1)
     # sampling in [2**left_val, 2**right_val].
     minval = 2**left_val
     maxval = 2**right_val
-    val = tf.random.uniform(tf.shape(y), minval=minval, maxval=maxval)
+    val = np.random.uniform(size=keras.ops.shape(y), low=minval, high=maxval)
     # use y as a threshold to keep the probabliy [2**left_val, y, 2**right_val]
     # so that the mean value of the sample should be y
-    x_po2 = tf.where(y < val, left_val, right_val)
+    x_po2 = keras.ops.where(y < val, left_val, right_val)
     """
   x_log2 = stochastic_round(keras.ops.log(y + eps) / log2)
-  sign = tf.sign(x)
+  sign = keras.ops.sign(x)
   po2 = (
-      tf.sign(x) *
+      keras.ops.sign(x) *
       Kops.cast(pow(2.0, Kops.cast(x_log2, dtype="float32")), dtype="float32")
   )
   """
@@ -665,37 +665,37 @@ def _round_through(x, training=False, use_stochastic_rounding=False, precision=0
       Rounded tensor.
     """
     if use_stochastic_rounding:
-        output = tf.cond(
-            Kops.cast(training, tf.bool),
-            lambda: x + tf.stop_gradient(-x + stochastic_round(x, precision)),
-            lambda: x + tf.stop_gradient(-x + tf.round(x)),
+        output = keras.ops.cond(
+            Kops.cast(training, bool),
+            lambda: x + keras.ops.stop_gradient(-x + stochastic_round(x, precision)),
+            lambda: x + keras.ops.stop_gradient(-x + keras.ops.round(x)),
         )
     else:
-        output = x + tf.stop_gradient(-x + tf.round(x))
+        output = x + keras.ops.stop_gradient(-x + keras.ops.round(x))
     return output
 
 
 def _sign_through(x):
     """Computes the sign operation using the straight through estimator."""
 
-    # tf.sign generates -1, 0 or +1, so it should not be used when we attempt
+    # keras.ops.sign generates -1, 0 or +1, so it should not be used when we attempt
     # to generate -1 and +1.
 
-    k_sign = tf.sign(x)
+    k_sign = keras.ops.sign(x)
 
-    return x + tf.stop_gradient(-x + k_sign)
+    return x + keras.ops.stop_gradient(-x + k_sign)
 
 
 def _ceil_through(x):
     """Computes the ceiling operation using straight through estimator."""
 
-    return x + tf.stop_gradient(-x + tf.ceil(x))
+    return x + keras.ops.stop_gradient(-x + keras.ops.ceil(x))
 
 
 def _floor_through(x):
     """Computes the floor operation using straight through estimator."""
 
-    return x + tf.stop_gradient(-x + tf.floor(x))
+    return x + keras.ops.stop_gradient(-x + keras.ops.floor(x))
 
 
 #
@@ -793,13 +793,13 @@ class quantized_linear(base_quantizer.BaseQuantizer):
 
     # 8-bit quantization with 3 integer bits
     >>> q = quantized_linear(8, 3)
-    >>> x = tf.constant([0.0, 0.5, 1.0, 1.5, 2.0])
+    >>> x = keras.ops.array([0.0, 0.5, 1.0, 1.5, 2.0])
     >>> q(x).numpy()
     array([0., 0., 1., 2., 2.], dtype=float32)
 
     # 2-bit quantization with "auto" and tensor alphas
     >>> q_auto = quantized_linear(2, alpha="auto")
-    >>> x = tf.constant([0.0, 0.5, 1.0, 1.5, 2.0])
+    >>> x = keras.ops.array([0.0, 0.5, 1.0, 1.5, 2.0])
     >>> q_auto(x).numpy()
     array([0., 0., 0., 2., 2.], dtype=float32)
     >>> q_auto.scale.numpy()
@@ -841,11 +841,11 @@ class quantized_linear(base_quantizer.BaseQuantizer):
           sum of (1 - qnoise_factor) * unquantized_x + qnoise_factor *
           quantized_x. Defaults to 1.0, which means that the result is fully
           quantized.
-        use_variables (bool): If true, we use tf.Variables to store certain
+        use_variables (bool): If true, we use Variables to store certain
           parameters. See the BaseQuantizer implementation for more details.
           Defaults to False. If set to True, be sure to use the special attribute
           update methods detailed in the BaseQuantizer.
-        var_name (str or None): A variable name shared between the tf.Variables
+        var_name (str or None): A variable name shared between the Variables
           created in on initialization, if use_variables is true. If None, the
           variable names are generated automatically based on the parameter names
           along with a uid. Defaults to None.
@@ -957,8 +957,8 @@ class quantized_linear(base_quantizer.BaseQuantizer):
     def data_type_scale(self):
         """Quantization scale for the data type"""
         # integer is sometimes cast as int32, so cast to float32 to avoid errors
-        integer = Kops.cast(self.integer, tf.float32)
-        return tf.pow(2.0, integer - self.bits + self.keep_negative)
+        integer = Kops.cast(self.integer, "float32")
+        return knp.power(2.0, integer - self.bits + self.keep_negative)
 
     @property
     def auto_alpha(self):
@@ -992,7 +992,7 @@ class quantized_linear(base_quantizer.BaseQuantizer):
             clip_min = Kops.cast(-0.5, keras.backend.floatx())
             clip_max = Kops.cast(0.5, keras.backend.floatx())
         else:
-            unsigned_bits_po2 = tf.pow(2.0, self.bits - self.keep_negative)
+            unsigned_bits_po2 = knp.power(2.0, self.bits - self.keep_negative)
             # if symmetric, clip_min is negative of clip_max. Otherwise clip_min is
             # lowered by 1, giving us one more representable number
             clip_min = self.keep_negative * (-unsigned_bits_po2 + self.symmetric)
@@ -1061,16 +1061,16 @@ class quantized_linear(base_quantizer.BaseQuantizer):
 
         # update quantization_scale variable
         # stop_gradient on quantization_scale to ignore dependence on x
-        self.quantization_scale = tf.stop_gradient(quantization_scale)
+        self.quantization_scale = keras.ops.stop_gradient(quantization_scale)
 
-        # very important that return value is a tf.Variable with shape None
+        # very important that return value is a KerasTensor with shape None
         return self.quantization_scale
 
     def _get_quantization_scale_from_max_data(self, x):
         """Get the minimum floating point scale that does not clip the max
         of x"""
 
-        axis = _get_scaling_axis(self.scale_axis, tf.rank(x))
+        axis = _get_scaling_axis(self.scale_axis, len(x.shape))
 
         clip_min, clip_max = self.get_clip_bounds()
         clip_range = clip_max - clip_min
@@ -1084,13 +1084,13 @@ class quantized_linear(base_quantizer.BaseQuantizer):
             data_max = Kops.max(x, axis=axis, keepdims=True)
             quantization_scale = data_max / clip_range
 
-        return tf.math.maximum(quantization_scale, K.epsilon())
+        return keras.ops.maximum(quantization_scale, K.epsilon())
 
     def _po2_autoscale(self, x, quantization_scale):
         """Get an approximation of the "best" po2 scale using least squares"""
 
         # set alpha scale to a near power of two
-        quantization_scale = tf.pow(
+        quantization_scale = knp.power(
             2.0,
             keras.ops.round(Kops.log(quantization_scale + K.epsilon()) / Kops.log(2.0)),
         )
@@ -1111,20 +1111,20 @@ class quantized_linear(base_quantizer.BaseQuantizer):
             """Loop condition for least squares autoscaling- stop when the
             scale converges"""
 
-            tensors_not_equal = tf.math.reduce_any(
-                tf.not_equal(last_quantization_scale, quantization_scale)
+            tensors_not_equal = keras.ops.any(
+                keras.ops.not_equal(last_quantization_scale, quantization_scale)
             )
             return tensors_not_equal
 
         # Need a tensor of the same shape as quantization_scale that
         # does not equal quantization_scale
-        dummy_quantization_scale = -tf.ones_like(quantization_scale)
+        dummy_quantization_scale = -keras.ops.ones_like(quantization_scale)
 
         # For 1-bit quantization, po2 autoscale loop is guaranteed to converge
         # after 1 iteration
         max_iterations = 1 if self.use_sign_function else 5
 
-        _, quantization_scale = tf.while_loop(
+        _, quantization_scale = keras.ops.while_loop(
             loop_cond,
             loop_body,
             (dummy_quantization_scale, quantization_scale),
@@ -1157,12 +1157,12 @@ class quantized_linear(base_quantizer.BaseQuantizer):
             return Kops.cast([self.max(), self.min()], keras.backend.floatx())
         else:
             clip_min, clip_max = self.get_clip_bounds()
-            clip_max = Kops.cast(clip_max, tf.int32)
-            clip_min = Kops.cast(clip_min, tf.int32)
-            pos_array = Kops.cast(tf.range(clip_max + 1), keras.backend.floatx())
-            neg_array = Kops.cast(tf.range(clip_min, 0), keras.backend.floatx())
+            clip_max = Kops.cast(clip_max, "int32")
+            clip_min = Kops.cast(clip_min, "int32")
+            pos_array = Kops.cast(keras.ops.arange(clip_max + 1), keras.backend.floatx())
+            neg_array = Kops.cast(keras.ops.arange(clip_min, 0), keras.backend.floatx())
 
-            return self.quantization_scale * tf.concat([pos_array, neg_array], axis=0)
+            return self.quantization_scale * keras.ops.concatenate([pos_array, neg_array], axis=0)
 
     def __str__(self):
         # Main parameters always printed in string
@@ -1256,12 +1256,12 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         quantization noise to add. This controls the amount of the quantization
         noise to add to the outputs by changing the weighted sum of
         (1 - qnoise_factor)*unquantized_x + qnoise_factor*quantized_x.
-      var_name: String or None. A variable name shared between the tf.Variables
+      var_name: String or None. A variable name shared between the Variables
         created in the build function. If None, it is generated automatically.
       use_ste: Bool. Whether to use "straight-through estimator" (STE) method or
           not.
       use_variables: Bool. Whether to make the quantizer variables to be dynamic
-        tf.Variables or not.
+        Variables or not.
       elements_per_scale: if set to an int or List[int], we create multiple scales
         per axis across scale_axis, where 'elements_per_scale' represents the
         number of elements/values associated with every separate scale value.
@@ -1338,7 +1338,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             r"\g<1>",
             str(
                 self.integer.numpy()
-                if isinstance(self.integer, tf.Variable)
+                if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),
         )
@@ -1371,8 +1371,8 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         # float32 has a much larger value range (2^128) than int32 (2^32), this is
         # particularly important when quantizing very large values, and when integer
         # bits are set much larger than total bits.
-        m = tf.pow(2.0, Kops.cast(unsigned_bits, keras.backend.floatx()))
-        m_i = tf.pow(2.0, Kops.cast(self.integer, keras.backend.floatx()))
+        m = knp.power(2.0, Kops.cast(unsigned_bits, keras.backend.floatx()))
+        m_i = knp.power(2.0, Kops.cast(self.integer, keras.backend.floatx()))
 
         # Verify that "elements_per_scale", "min_po2_exponent",
         # and "max_po2_exponent" are only set when alpha is "auto_po2"
@@ -1424,7 +1424,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
 
                 # If alpha is "auto_po2", then get the "best" po2 scale
                 if "po2" in self.alpha:
-                    scale = tf.pow(
+                    scale = knp.power(
                         2.0,
                         keras.ops.round(
                             Kops.log(scale + keras.backend.epsilon()) / np.log(2.0)
@@ -1433,7 +1433,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                     for idx in range(5):
                         v = knp.floor(knp.abs(x) / scale + 0.5)
                         mask = v < levels / 2
-                        z = tf.sign(x) * tf.where(mask, v, tf.ones_like(v) * levels / 2)
+                        z = keras.ops.sign(x) * keras.ops.where(mask, v, keras.ops.ones_like(v) * levels / 2)
                         scale = _get_least_squares_scale(
                             alpha="auto_po2",
                             x=x,
@@ -1453,9 +1453,9 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             # scale. This extra step is needed to ensure that with the same input
             # and scale, the quantized output is identical between training and
             # inference.
-            v = tf.floor(keras.ops.abs(x) / scale + 0.5)
+            v = keras.ops.floor(keras.ops.abs(x) / scale + 0.5)
             mask = v < levels / 2
-            z = tf.sign(x) * tf.where(mask, v, tf.ones_like(v) * levels / 2)
+            z = keras.ops.sign(x) * keras.ops.where(mask, v, keras.ops.ones_like(v) * levels / 2)
 
             # z is an integer number, so we must make the scale * m and z / m
             scale = scale * m
@@ -1466,7 +1466,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             # if "new" in self.alpha:
             #  z = z / m
             #  self.scale = scale
-            #  return x + tf.stop_gradient(-x + scale * z)
+            #  return x + keras.ops.stop_gradient(-x + scale * z)
             x = m_i * x
             xq = m_i * z / m
             if not self.freeze_scale:
@@ -1474,9 +1474,9 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             xq = scale * xq
 
             if self.use_ste:
-                return x + tf.stop_gradient(self.qnoise_factor * (-x + xq))
+                return x + keras.ops.stop_gradient(self.qnoise_factor * (-x + xq))
             else:
-                return (1 - self.qnoise_factor) * x + tf.stop_gradient(
+                return (1 - self.qnoise_factor) * x + keras.ops.stop_gradient(
                     self.qnoise_factor * xq
                 )
 
@@ -1499,7 +1499,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                 / m
             )
         else:
-            xq = tf.sign(x)
+            xq = keras.ops.sign(x)
             xq += 1.0 - keras.ops.abs(xq)
             if not self.keep_negative:
                 xq = (xq + 1.0) / 2.0
@@ -1508,9 +1508,9 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         xq = scale * xq
 
         if self.use_ste:
-            return x + tf.stop_gradient(self.qnoise_factor * (-x + xq))
+            return x + keras.ops.stop_gradient(self.qnoise_factor * (-x + xq))
         else:
-            return (1 - self.qnoise_factor) * x + tf.stop_gradient(
+            return (1 - self.qnoise_factor) * x + keras.ops.stop_gradient(
                 self.qnoise_factor * xq
             )
 
@@ -1527,7 +1527,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             return max(
                 1.0,
                 np.array(
-                    tf.pow(2.0, Kops.cast(self.integer, dtype="float32")),
+                    knp.power(2.0, Kops.cast(self.integer, dtype="float32")),
                     dtype="float32",
                 ),
             )
@@ -1543,7 +1543,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             return -max(
                 1.0,
                 np.array(
-                    tf.pow(2, Kops.cast(self.integer, dtype="float32")), dtype="float32"
+                    knp.power(2, Kops.cast(self.integer, dtype="float32")), dtype="float32"
                 ),
             )
         else:
@@ -1563,7 +1563,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             x,
         )
         return p_and_n * np.array(
-            tf.pow(2.0, -self.bits + Kops.cast(self.integer, dtype="float32") + 1),
+            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32") + 1),
             dtype="float32",
         )
 
@@ -1579,14 +1579,14 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         config = {
             "bits": self.bits,
             "integer": self.integer.numpy()
-            if isinstance(self.integer, tf.Variable)
+            if isinstance(self.integer, KerasTensor)
             else self.integer,
             "symmetric": self.symmetric,
             "alpha": self.alpha,
             "keep_negative": self.keep_negative,
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "qnoise_factor": self.qnoise_factor.numpy()
-            if isinstance(self.qnoise_factor, tf.Variable)
+            if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "post_training_scale":
             # Since NumPy arrays are not directly JSON-serializable,
@@ -1677,12 +1677,12 @@ class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             p = keras.activations.sigmoid(self.temperature * x / std)
         else:
             p = _sigmoid(self.temperature * x / std)
-        r = tf.random.uniform(tf.shape(x))
-        q = tf.sign(p - r)
+        r = np.random.uniform(size=keras.ops.shape(x))
+        q = keras.ops.sign(p - r)
         q += 1.0 - keras.ops.abs(q)
         q = (q + 1.0) / 2.0
 
-        q_non_stochastic = tf.sign(x)
+        q_non_stochastic = keras.ops.sign(x)
         q_non_stochastic += 1.0 - keras.ops.abs(q_non_stochastic)
         q_non_stochastic = (q_non_stochastic + 1.0) / 2.0
 
@@ -1696,7 +1696,7 @@ class bernoulli(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         x = Kops.cast(x, dtype=K.floatx())
 
         self.scale = scale
-        return x + tf.stop_gradient(-x + scale * q)
+        return x + keras.ops.stop_gradient(-x + scale * q)
 
     def _set_trainable_parameter(self):
         if self.alpha is None:
@@ -1818,7 +1818,7 @@ class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             m = Kops.max(keras.ops.abs(x), axis=axis, keepdims=True)
             scale = 2 * m / 3.0
             if "po2" in self.alpha:
-                scale = tf.pow(
+                scale = knp.power(
                     2.0,
                     keras.ops.round(
                         Kops.log(scale + keras.backend.epsilon()) / np.log(2.0)
@@ -1860,7 +1860,7 @@ class ternary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         x = Kops.cast(x, dtype=K.floatx())
 
         self.scale = scale
-        return x + tf.stop_gradient(-x + scale * q)
+        return x + keras.ops.stop_gradient(-x + scale * q)
 
     def _set_trainable_parameter(self):
         if self.alpha is None:
@@ -1979,12 +1979,12 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
             else:
                 axis = [0]
 
-            x_std = tf.math.reduce_std(x, axis=axis, keepdims=True)
+            x_std = keras.ops.std(x, axis=axis, keepdims=True)
             m = Kops.max(keras.ops.abs(x), axis=axis, keepdims=True)
             scale = 2.0 * m / 3.0
 
             if self.alpha == "auto_po2":
-                scale = tf.pow(
+                scale = knp.power(
                     2.0,
                     keras.ops.round(
                         Kops.log(scale + keras.backend.epsilon()) / Kops.log(2.0)
@@ -2009,11 +2009,11 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
                 p0 = _sigmoid(self.temperature * (x_norm - T))
                 p1 = _sigmoid(self.temperature * (x_norm + T))
 
-            r0 = tf.random.uniform(tf.shape(p0))
-            r1 = tf.random.uniform(tf.shape(p1))
-            q0 = tf.sign(p0 - r0)
+            r0 = np.random.uniform(size=keras.ops.shape(p0))
+            r1 = np.random.uniform(size=keras.ops.shape(p1))
+            q0 = keras.ops.sign(p0 - r0)
             q0 += 1.0 - keras.ops.abs(q0)
-            q1 = tf.sign(p1 - r1)
+            q1 = keras.ops.sign(p1 - r1)
             q1 += 1.0 - keras.ops.abs(q1)
 
             q = (q0 + q1) / 2.0
@@ -2024,7 +2024,7 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
             x = Kops.cast(x, dtype=K.floatx())
 
             self.scale = scale
-            return x + tf.stop_gradient(-x + scale * q)
+            return x + keras.ops.stop_gradient(-x + scale * q)
 
         if training:
             return stochastic_output(x)
@@ -2205,23 +2205,23 @@ class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             # This is especially important if range of x is very
             # small, which occurs during initialization of weights.
             m = Kops.max(keras.ops.abs(x), axis=axis, keepdims=True)
-            m = tf.where(m > 1.0, tf.ones_like(m), m)
+            m = keras.ops.where(m > 1.0, keras.ops.ones_like(m), m)
             f = 2 * m
 
-            x = tf.cond(
-                Kops.cast(self.training, tf.bool),
+            x = keras.ops.cond(
+                Kops.cast(self.training, bool),
                 lambda: f
                 * _round_through(x / f, use_stochastic_rounding=True, precision=0.125),
                 lambda: x,
             )
 
-        k_sign = tf.sign(x)
+        k_sign = keras.ops.sign(x)
         if self.use_stochastic_rounding:
             # in inference, we use a biased "1" for stochastic rounding right now
-            k_sign += (1.0 - keras.ops.abs(k_sign)) * tf.cond(
-                Kops.cast(self.training, tf.bool),
-                lambda: 2.0 * tf.round(tf.random.uniform(tf.shape(x))) - 1.0,
-                lambda: tf.ones_like(tf.shape(x), dtype=K.floatx()),
+            k_sign += (1.0 - keras.ops.abs(k_sign)) * keras.ops.cond(
+                Kops.cast(self.training, bool),
+                lambda: 2.0 * keras.ops.round(np.random.uniform(size=keras.ops.shape(x))) - 1.0,
+                lambda: keras.ops.ones_like(keras.ops.shape(x), dtype=K.floatx()),
             )
             # if something still remains, just make it positive for now.
         k_sign += 1.0 - keras.ops.abs(k_sign)
@@ -2247,7 +2247,7 @@ class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
         k_sign = Kops.cast(k_sign, dtype=K.floatx())
         x = Kops.cast(x, dtype=K.floatx())
 
-        return x + tf.stop_gradient(-x + self.scale * k_sign)
+        return x + keras.ops.stop_gradient(-x + self.scale * k_sign)
 
     def _set_trainable_parameter(self):
         if self.alpha is None:
@@ -2345,10 +2345,10 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
             else:
                 p = _sigmoid(self.temperature * x / std)
 
-            r = tf.random.uniform(tf.shape(x))
-            q = tf.sign(p - r)
+            r = np.random.uniform(size=keras.ops.shape(x))
+            q = keras.ops.sign(p - r)
             q += 1.0 - keras.ops.abs(q)
-            q_non_stochastic = tf.sign(x)
+            q_non_stochastic = keras.ops.sign(x)
             q_non_stochastic += 1.0 - keras.ops.abs(q_non_stochastic)
             scale = _get_least_squares_scale(self.alpha, x, q_non_stochastic)
 
@@ -2358,7 +2358,7 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
             x = Kops.cast(x, dtype=K.floatx())
 
             self.scale = scale
-            return x + tf.stop_gradient(-x + scale * q)
+            return x + keras.ops.stop_gradient(-x + scale * q)
 
         if training:
             return stochastic_output(x)
@@ -2438,12 +2438,12 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         quantization noise to add. This controls the amount of the quantization
         noise to add to the outputs by changing the weighted sum of
         (1 - qnoise_factor)*unquantized_x + qnoise_factor*quantized_x.
-      var_name: String or None. A variable name shared between the tf.Variables
+      var_name: String or None. A variable name shared between the Variables
         created in the build function. If None, it is generated automatically.
       use_ste: Bool. Whether to use "straight-through estimator" (STE) method or
           not.
       use_variables: Bool. Whether to make the quantizer variables to be dynamic
-        tf.Variables or not.
+        Variables or not.
 
     Returns:
       Function that performs relu + quantization to bits >= 0.
@@ -2487,7 +2487,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             r"\g<1>",
             str(
                 self.integer.numpy()
-                if isinstance(self.integer, tf.Variable)
+                if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),
         )
@@ -2507,29 +2507,29 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
 
         non_sign_bits = self.bits - (self.negative_slope != 0.0)
         x = Kops.cast(x, dtype="float32")
-        m = Kops.cast(tf.pow(2, non_sign_bits), dtype="float32")
-        m_i = Kops.cast(tf.pow(2, self.integer), dtype="float32")
+        m = Kops.cast(knp.power(2, non_sign_bits), dtype="float32")
+        m_i = Kops.cast(knp.power(2, self.integer), dtype="float32")
 
         # is_quantized_clip has precedence over relu_upper_bound for backward
         # compatibility.
         m_f = Kops.cast(
-            tf.pow(
-                tf.constant(2.0, tf.float32),
+            knp.power(
+                keras.ops.array(2.0, "float32"),
                 Kops.cast(self.integer, dtype="float32") - non_sign_bits,
             ),
             dtype="float32",
         )
         if self.is_quantized_clip:
-            x_u = tf.where(
+            x_u = keras.ops.where(
                 x <= m_i - m_f,
                 Kops.leaky_relu(x, negative_slope=self.negative_slope),
-                tf.ones_like(x) * (m_i - m_f),
+                keras.ops.ones_like(x) * (m_i - m_f),
             )
         elif self.relu_upper_bound is not None:
-            x_u = tf.where(
+            x_u = keras.ops.where(
                 x <= self.relu_upper_bound,
                 Kops.leaky_relu(x, negative_slope=self.negative_slope),
-                tf.ones_like(x) * self.relu_upper_bound,
+                keras.ops.ones_like(x) * self.relu_upper_bound,
             )
         else:
             x_u = Kops.leaky_relu(x, negative_slope=self.negative_slope)
@@ -2574,16 +2574,16 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                 )
 
         if self.relu_upper_bound and not self.is_quantized_clip:
-            xq = tf.where(
+            xq = keras.ops.where(
                 xq <= self.relu_upper_bound,
                 xq,
-                tf.ones_like(xq) * self.relu_upper_bound,
+                keras.ops.ones_like(xq) * self.relu_upper_bound,
             )
 
         if self.use_ste:
-            return x_u + tf.stop_gradient(self.qnoise_factor * (-x_u + xq))
+            return x_u + keras.ops.stop_gradient(self.qnoise_factor * (-x_u + xq))
         else:
-            return (1 - self.qnoise_factor) * x_u + tf.stop_gradient(
+            return (1 - self.qnoise_factor) * x_u + keras.ops.stop_gradient(
                 self.qnoise_factor * xq
             )
 
@@ -2595,7 +2595,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             return max(
                 1.0,
                 np.array(
-                    tf.pow(2.0, Kops.cast(self.integer, dtype="float32")),
+                    knp.power(2.0, Kops.cast(self.integer, dtype="float32")),
                     dtype="float32",
                 ),
             )
@@ -2613,7 +2613,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                 -0.0,
                 -self.negative_slope
                 * np.array(
-                    tf.pow(2.0, Kops.cast(self.integer, dtype="float32")),
+                    knp.power(2.0, Kops.cast(self.integer, dtype="float32")),
                     dtype="float32",
                 ),
             )
@@ -2629,7 +2629,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         assert self.negative_slope == 0  # # unsupported unsupported
         x = np.asarray(range(2**self.bits))
         return x * np.array(
-            tf.pow(2.0, -self.bits + Kops.cast(self.integer, dtype="float32")),
+            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32")),
             dtype="float32",
         )
 
@@ -2641,14 +2641,14 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         config = {
             "bits": self.bits,
             "integer": self.integer.numpy()
-            if isinstance(self.integer, tf.Variable)
+            if isinstance(self.integer, KerasTensor)
             else self.integer,
             "use_sigmoid": self.use_sigmoid,
             "negative_slope": self.negative_slope,
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "relu_upper_bound": self.relu_upper_bound,
             "qnoise_factor": self.qnoise_factor.numpy()
-            if isinstance(self.qnoise_factor, tf.Variable)
+            if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
         }
         return config
@@ -2692,7 +2692,7 @@ class quantized_ulaw(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         p = _sigmoid(x / m_i) * m
         rp = 2.0 * (_round_through(p) / m) - 1.0
         u_law_p = (
-            tf.sign(rp)
+            keras.ops.sign(rp)
             * keras.ops.log(1 + self.u * keras.ops.abs(rp))
             / keras.ops.log(1 + self.u)
         )
@@ -2780,7 +2780,7 @@ class quantized_tanh(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
     def __call__(self, x):
         non_sign_bits = self.bits - 1
         x = Kops.cast(x, keras.backend.floatx())
-        m = Kops.cast(tf.pow(2, non_sign_bits), keras.backend.floatx())
+        m = Kops.cast(knp.power(2, non_sign_bits), keras.backend.floatx())
         p = Kact.tanh(x) if self.use_real_tanh else 2.0 * _sigmoid(x) - 1.0
         return keras.ops.clip(
             (_round_through(p * m, self.use_stochastic_rounding) / m),
@@ -2851,7 +2851,7 @@ class quantized_sigmoid(base_quantizer.BaseQuantizer):  # pylint: disable=invali
 
     def __call__(self, x):
         x = Kops.cast(x, keras.backend.floatx())
-        m = Kops.cast(tf.pow(2, self.bits), keras.backend.floatx())
+        m = Kops.cast(knp.power(2, self.bits), keras.backend.floatx())
 
         p = Kact.sigmoid(x) if self.use_real_sigmoid else _sigmoid(x)
 
@@ -2906,7 +2906,7 @@ def _clip_power_of_two(
       use_stochastic_rounding: An boolean representing whether the stochastic
         rounding method is applied.
       log2_rounding: log2 rounding mode. "rnd" and "floor" currently
-        supported, corresponding to tf.round and tf.floor respectively.
+        supported, corresponding to keras.ops.round and keras.ops.floor respectively.
 
     Returns:
       A tensor object, the values are clipped by min_exp and max_exp.
@@ -2920,11 +2920,11 @@ def _clip_power_of_two(
     # we just overwrite x_abs with eps
     eps = keras.backend.epsilon()
     x_abs = Kops.cast(x_abs, keras.backend.floatx())
-    x_filter = tf.where(x_abs < eps, eps, x_abs)
+    x_filter = keras.ops.where(x_abs < eps, eps, x_abs)
     if max_value is not None:
         # If the elements of x_filter has value larger than x_value, clip it.
-        x_filter = tf.where(
-            x_filter >= max_value, tf.ones_like(x_filter) * max_value, x_filter
+        x_filter = keras.ops.where(
+            x_filter >= max_value, keras.ops.ones_like(x_filter) * max_value, x_filter
         )
 
     def power_of_two_clip(
@@ -2942,7 +2942,7 @@ def _clip_power_of_two(
 
         if quadratic_approximation:
             q_factor = 2.0
-            x_input = tf.sqrt(x_abs)
+            x_input = keras.ops.sqrt(x_abs)
         else:
             q_factor = 1.0
             x_input = x_abs
@@ -2957,12 +2957,12 @@ def _clip_power_of_two(
         else:
             x_log2 = _round_through(Kops.log(x_input) / log2)
 
-        x_clipped = q_factor * tf.clip_by_value(x_log2, min_exp, max_exp)
+        x_clipped = q_factor * keras.ops.clip(x_log2, min_exp, max_exp)
         return x_clipped
 
-    x_clipped = tf.where(
+    x_clipped = keras.ops.where(
         x_abs < eps,
-        tf.ones_like(x_abs) * min_exp,
+        keras.ops.ones_like(x_abs) * min_exp,
         power_of_two_clip(
             x_filter,
             min_exp,
@@ -3044,17 +3044,17 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
       quadratic_approximation: A boolean, default is False if True, it forces the
         exponent to be even number that closted to x.
       log2_rounding: A string, log2 rounding mode. "rnd" and "floor" currently
-        supported, corresponding to tf.round and tf.floor respectively.
+        supported, corresponding to keras.ops.round and keras.ops.floor respectively.
       qnoise_factor: float. a scalar from 0 to 1 that represents the level of
         quantization noise to add. This controls the amount of the quantization
         noise to add to the outputs by changing the weighted sum of
         (1 - qnoise_factor)*unquantized_x + qnoise_factor*quantized_x.
-      var_name: String or None. A variable name shared between the tf.Variables
+      var_name: String or None. A variable name shared between the Variables
         created in the build function. If None, it is generated automatically.
       use_ste: Bool. Whether to use "straight-through estimator" (STE) method or
           not.
       use_variables: Bool. Whether to make the quantizer variables to be dynamic
-        tf.Variables or not.
+        Variables or not.
     """
 
     def __init__(
@@ -3104,7 +3104,7 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
         if not self.built:
             self.build(var_name=self.var_name, use_variables=self.use_variables)
 
-        x_sign = Kops.cast(tf.sign(x), keras.backend.floatx())
+        x_sign = Kops.cast(keras.ops.sign(x), keras.backend.floatx())
         x_sign += 1.0 - keras.ops.abs(x_sign)
         x_abs = keras.ops.abs(x)
 
@@ -3126,9 +3126,9 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
         xq = Kops.cast(xq, keras.backend.floatx())
 
         if self.use_ste:
-            return x + tf.stop_gradient(self.qnoise_factor * (-x + xq))
+            return x + keras.ops.stop_gradient(self.qnoise_factor * (-x + xq))
         else:
-            return (1 - self.qnoise_factor) * x + tf.stop_gradient(
+            return (1 - self.qnoise_factor) * x + keras.ops.stop_gradient(
                 self.qnoise_factor * xq
             )
 
@@ -3171,7 +3171,7 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "quadratic_approximation": self.quadratic_approximation,
             "qnoise_factor": self.qnoise_factor.numpy()
-            if isinstance(self.qnoise_factor, tf.Variable)
+            if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "log2_rounding": self.log2_rounding,
         }
@@ -3193,17 +3193,17 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
       quadratic_approximation: A boolean, default is False if True, it forces the
         exponent to be even number that is closest to x.
       log2_rounding: A string, log2 rounding mode. "rnd" and "floor" currently
-        supported, corresponding to tf.round and tf.floor respectively.
+        supported, corresponding to keras.ops.round and keras.ops.floor respectively.
       qnoise_factor: float. a scalar from 0 to 1 that represents the level of
         quantization noise to add. This controls the amount of the quantization
         noise to add to the outputs by changing the weighted sum of
         (1 - qnoise_factor)*unquantized_x + qnoise_factor*quantized_x.
-      var_name: String or None. A variable name shared between the tf.Variables
+      var_name: String or None. A variable name shared between the Variables
         created in the build function. If None, it is generated automatically.
       use_ste: Bool. Whether to use "straight-through estimator" (STE) method or
           not.
       use_variables: Bool. Whether to make the quantizer variables to be dynamic
-        tf.Variables or not.
+        Variables or not.
     """
 
     def __init__(
@@ -3266,10 +3266,10 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
         if self.max_value is None:
             x = Kops.leaky_relu(x, self.negative_slope)
         else:
-            x = tf.where(
+            x = keras.ops.where(
                 x <= self.max_value,
                 Kops.leaky_relu(x, self.negative_slope),
-                tf.ones_like(x) * self.max_value,
+                keras.ops.ones_like(x) * self.max_value,
             )
 
         use_stochastic = self.use_stochastic_rounding if training else False
@@ -3296,19 +3296,19 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
             training,
         )
 
-        xq = tf.where(
+        xq = keras.ops.where(
             Kops.logical_or(
-                x_original >= tf.constant(0, dtype=x_original.dtype),
-                tf.constant(self.negative_slope == 0.0),
+                x_original >= keras.ops.array(0, dtype=x_original.dtype),
+                keras.ops.array(self.negative_slope == 0.0),
             ),
             pow(2.0, x_pos_clipped),
             -pow(2.0, x_neg_clipped),
         )
 
         if self.use_ste:
-            return x + tf.stop_gradient(self.qnoise_factor * (-x + xq))
+            return x + keras.ops.stop_gradient(self.qnoise_factor * (-x + xq))
         else:
-            return (1 - self.qnoise_factor) * x + tf.stop_gradient(
+            return (1 - self.qnoise_factor) * x + keras.ops.stop_gradient(
                 self.qnoise_factor * xq
             )
 
@@ -3360,7 +3360,7 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "quadratic_approximation": self.quadratic_approximation,
             "qnoise_factor": self.qnoise_factor.numpy()
-            if isinstance(self.qnoise_factor, tf.Variable)
+            if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "log2_rounding": self.log2_rounding,
         }
@@ -3394,12 +3394,12 @@ class quantized_hswish(quantized_bits):  # pylint: disable=invalid-name
         quantization noise to add. This controls the amount of the quantization
         noise to add to the outputs by changing the weighted sum of (1 -
         qnoise_factor)*unquantized_x + qnoise_factor*quantized_x.
-      var_name: String or None. A variable name shared between the tf.Variables
+      var_name: String or None. A variable name shared between the Variables
         created in the build function. If None, it is generated automatically.
       use_ste: Bool. Whether to use "straight-through estimator" (STE) method or
         not.
       use_variables: Bool. Whether to make the quantizer variables to be dynamic
-        tf.Variables or not.
+        Variables or not.
       relu_shift: integer type, representing the shift amount of the unquantized
         relu.
       relu_upper_bound: integer type, representing an upper bound of the
@@ -3449,7 +3449,7 @@ class quantized_hswish(quantized_bits):  # pylint: disable=invalid-name
             r"\g<1>",
             str(
                 self.integer.numpy()
-                if isinstance(self.integer, tf.Variable)
+                if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),
         )
@@ -3486,13 +3486,13 @@ class quantized_hswish(quantized_bits):  # pylint: disable=invalid-name
         ), f"relu_shift must be a positive value, found {self.relu_shift} instead"
         x = Kops.cast(x, keras.backend.floatx())
         shift_x = x + self.relu_shift
-        relu_x = tf.where(
+        relu_x = keras.ops.where(
             shift_x <= self.relu_upper_bound,
             Kops.leaky_relu(shift_x, negative_slope=False),
-            tf.ones_like(shift_x) * self.relu_upper_bound,
+            keras.ops.ones_like(shift_x) * self.relu_upper_bound,
         )
 
-        hswish_x = tf.math.multiply(x, relu_x) / self.relu_upper_bound
+        hswish_x = (x * relu_x) / self.relu_upper_bound
         return super(quantized_hswish, self).__call__(hswish_x)
 
     def min(self):
