@@ -27,7 +27,7 @@ import six
 from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
 from tensorflow_model_optimization.python.core.sparsity.keras import (
-    PrunableLayer,
+    prunable_layer,
     prune_registry,
     pruning_wrapper,
 )
@@ -1214,7 +1214,7 @@ def print_model_sparsity(model):
     for layer in model.layers:
         if isinstance(layer, pruning_wrapper.PruneLowMagnitude):
             prunable_weights = layer.layer.get_prunable_weights()
-        elif isinstance(layer, PrunableLayer):
+        elif isinstance(layer, prunable_layer.PrunableLayer):
             prunable_weights = layer.get_prunable_weights()
         elif prune_registry.PruneRegistry.supports(layer):
             weight_names = prune_registry.PruneRegistry._weight_names(layer)

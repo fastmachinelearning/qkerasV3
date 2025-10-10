@@ -16,7 +16,9 @@
 import keras
 from keras import constraints
 from keras.saving import register_keras_serializable
-from tensorflow_model_optimization.python.core.sparsity.keras import PrunableLayer
+from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
+    PrunableLayer,
+)
 
 from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer

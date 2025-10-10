@@ -44,7 +44,9 @@ from keras import backend as K
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow_model_optimization.python.core.sparsity.keras import PrunableLayer
+from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
+    PrunableLayer,
+)
 
 from .ops_portable import bias_add_portable
 from .quantizers import *
