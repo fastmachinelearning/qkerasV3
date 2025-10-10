@@ -17,10 +17,12 @@
 
 # We use wildcard import for convenience at this moment, which will be later
 # refactored and removed.
-import tensorflow as tf
 
-# TODO: convert framework running in graphmode only
-tf.config.run_functions_eagerly(True)
+import os
+if os.environ["KERAS_BACKEND"] == "tensorflow":
+    import tensorflow as tf
+    # TODO: convert framework running in graphmode only
+    tf.config.run_functions_eagerly(True)
 
 from .b2t import *  # pylint: disable=wildcard-import
 from .estimate import *  # pylint: disable=wildcard-import

@@ -113,8 +113,6 @@ def test_qnetwork():
         all_weights = []
         for i, weights in enumerate(layer.get_weights()):
             input_shape = layer.input.shape
-            if hasattr(input_shape, "as_list"):
-                input_shape = input_shape.as_list()
             input_size = knp.prod(input_shape[1:]) if input_shape is not None else 1
 
             if len(layer.get_weights()) == 3 and i > 0:

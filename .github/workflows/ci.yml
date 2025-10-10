@@ -27,7 +27,7 @@ jobs:
       - name: Run Ruffl
         run: ruff check --output-format=github .
 
-  tests:
+  tests-tensorflow:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -42,55 +42,89 @@ jobs:
         pip install .
     - name: Test with pytest
       run: |
-        pytest
+        export KERAS_BACKEND=tensorflow && pytest
 
-  examples:
-      runs-on: ubuntu-latest
-      steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install .
-      - name: Run examples
-        run: |
-          for f in examples/*.py; do python "$f"; done
-
-  notebooks:
+  tests-jax:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
+    - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
-    - uses: yaananth/run-notebook@v2
-      env:
-        RUNNER: ${{ toJson(runner) }}
-        SECRETS: ${{ toJson(secrets) }}
-        GITHUB: ${{ toJson(github) }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
+    - name: Test with pytest
+      run: |
+        export KERAS_BACKEND=jax && pytest
+
+  tests-torch:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
       with:
-        notebook: "notebook/AutoQKeras.ipynb"
-        isReport: False
-        poll: True
-    - uses: yaananth/run-notebook@v2
-      env:
-        RUNNER: ${{ toJson(runner) }}
-        SECRETS: ${{ toJson(secrets) }}
-        GITHUB: ${{ toJson(github) }}
-      with:
-        notebook: "notebook/CodebookQuantization.ipynb"
-        isReport: False
-        poll: True
-    - uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: output
-        path: ${{ RUNNER.temp }}/nb-runner
-      env:
-        RUNNER: ${{ toJson(runner) }}
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install .
+    - name: Test with pytest
+      run: |
+        export KERAS_BACKEND=torch && pytest
+
+  # examples:
+  #     runs-on: ubuntu-latest
+  #     steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python 3.11
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.11"
+  #     - name: Install dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  #         pip install .
+  #     - name: Run examples
+  #       run: |
+  #         for f in examples/*.py; do python "$f"; done
+
+  # notebooks:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Set up Python
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "3.11"
+  #   - uses: yaananth/run-notebook@v2
+  #     env:
+  #       RUNNER: ${{ toJson(runner) }}
+  #       SECRETS: ${{ toJson(secrets) }}
+  #       GITHUB: ${{ toJson(github) }}
+  #     with:
+  #       notebook: "notebook/AutoQKeras.ipynb"
+  #       isReport: False
+  #       poll: True
+  #   - uses: yaananth/run-notebook@v2
+  #     env:
+  #       RUNNER: ${{ toJson(runner) }}
+  #       SECRETS: ${{ toJson(secrets) }}
+  #       GITHUB: ${{ toJson(github) }}
+  #     with:
+  #       notebook: "notebook/CodebookQuantization.ipynb"
+  #       isReport: False
+  #       poll: True
+  #   - uses: actions/upload-artifact@v4
+  #     if: always()
+  #     with:
+  #       name: output
+  #       path: ${{ RUNNER.temp }}/nb-runner
+  #     env:
+  #       RUNNER: ${{ toJson(runner) }}

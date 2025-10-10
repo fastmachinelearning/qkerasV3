@@ -257,8 +257,8 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             inv = mv_inv
 
         depthwise_weights_shape = [
-            depthwise_kernel.shape.as_list()[2],
-            depthwise_kernel.shape.as_list()[3],
+            depthwise_kernel.shape[2],
+            depthwise_kernel.shape[3],
         ]
         inv = knp.reshape(inv, depthwise_weights_shape)
 

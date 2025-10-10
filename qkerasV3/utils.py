@@ -26,11 +26,13 @@ import networkx as nx
 import six
 from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
-from tensorflow_model_optimization.python.core.sparsity.keras import (
-    prunable_layer,
-    prune_registry,
-    pruning_wrapper,
-)
+
+if os.environ["KERAS_BACKEND"] == "tensorflow":
+    from tensorflow_model_optimization.python.core.sparsity.keras import (
+        prunable_layer,
+        prune_registry,
+        pruning_wrapper,
+    )
 
 from .qconv2d_batchnorm import QConv2DBatchnorm
 from .qconvolutional import (

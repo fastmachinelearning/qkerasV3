@@ -111,12 +111,6 @@ def _get_msqe_scale(x, q, scale_axis=None, per_channel_scale=True, msqe_weight=N
       A scaling factor tensor or scalar for scaling tensor per channel or per
       layer.
     """
-    # in different tensorflow version (e.g., 2.4)
-    # x.shape is a tuple which doesn't have as_list() method
-    try:
-        x_shape = x.shape
-    except AttributeError:
-        x_shape = list(x.shape)
 
     len_axis = Kops.ndim(x)
 

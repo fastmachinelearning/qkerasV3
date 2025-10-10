@@ -44,10 +44,8 @@ from keras import backend as K
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
-    PrunableLayer,
-)
 
+from .prunable_layer import PrunableLayer
 from .ops_portable import bias_add_portable
 from .quantizers import *
 from .quantizers import _get_integer_bits, get_quantizer
@@ -377,7 +375,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
             input_shape_list = (
                 list(input_shape)
                 if isinstance(input_shape, tuple)
-                else input_shape.as_list()
+                else input_shape
             )
             num_channels = knp.array(
                 input_shape_list[channel_index], dtype=np.int64

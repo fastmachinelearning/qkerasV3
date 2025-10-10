@@ -535,7 +535,7 @@ def OctaveConv2D(
 
         if co_h > 0:
             if x_l is not None:
-                _, height, width, _ = x_l.shape.as_list()
+                _, height, width, _ = x_l.shape
                 if height == 1 and width == 1:
                     local_kernel = 1
                     local_strides = 1

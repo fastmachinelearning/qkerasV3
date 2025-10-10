@@ -173,7 +173,7 @@ class ConvBlockNetwork:
             if self.dropout_rate > 0:
                 x = Dropout(self.dropout_rate, name="drop_" + name_suffix)(x)
 
-        if x.shape.as_list()[1] > 1:
+        if x.shape[1] > 1:
             x = Flatten(name="flatten")(x)
             x = Dense(
                 self.nb_classes,
