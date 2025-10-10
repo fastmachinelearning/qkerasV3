@@ -23,8 +23,8 @@ import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
+from tensorflow_model_optimization.python.core.sparsity.keras import PrunableLayer
 
-from .prunable_layer import PrunableLayer
 from .ops_portable import constant_bool_value
 from .qlayers import get_auto_range_constraint_initializer, get_quantizer
 

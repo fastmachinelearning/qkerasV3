@@ -15,9 +15,10 @@
 # ==============================================================================
 
 from collections.abc import Mapping, Sequence
+
 import keras
-from keras import ops as Kops
 import numpy as np
+from keras import ops as Kops
 
 # recognize common tensor leaves across backends
 try:

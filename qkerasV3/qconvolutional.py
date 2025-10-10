@@ -15,13 +15,14 @@
 # ==============================================================================
 
 import warnings
+
 import keras
 import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
+from tensorflow_model_optimization.python.core.sparsity.keras import PrunableLayer
 
-from .prunable_layer import PrunableLayer
 from .ops_portable import bias_add_portable
 from .qlayers import QActivation, get_auto_range_constraint_initializer
 from .quantizers import get_quantizer

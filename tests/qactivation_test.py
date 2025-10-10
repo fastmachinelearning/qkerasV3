@@ -15,9 +15,9 @@
 # ==============================================================================
 """Test activation from qlayers.py."""
 
+import keras
 import numpy as np
 import pytest
-import keras
 from keras import backend as K
 from numpy.testing import assert_allclose
 

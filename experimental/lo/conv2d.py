@@ -20,8 +20,8 @@ import multiprocessing as mp
 import os
 import shutil
 
-import numpy as np
 import keras.ops.numpy as knp
+import numpy as np
 import six
 from keras.models import Model
 

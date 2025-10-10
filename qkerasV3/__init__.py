@@ -19,6 +19,7 @@
 # refactored and removed.
 
 import os
+
 if os.environ["KERAS_BACKEND"] == "tensorflow":
     import tensorflow as tf
     # TODO: convert framework running in graphmode only

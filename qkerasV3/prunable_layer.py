@@ -17,11 +17,12 @@
 """Abstract Base Class for making a custom keras layer prunable."""
 
 import abc
+
 import six
 
 
 @six.add_metaclass(abc.ABCMeta)
-class PrunableLayer(object):
+class PrunableLayer:
   """Abstract Base Class for making your own keras layer prunable.
 
   Custom keras layers which want to add pruning should implement this class.

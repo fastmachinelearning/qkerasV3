@@ -21,15 +21,15 @@ import copy
 import json
 import os
 import re
-import six
 
 import keras
 import keras.ops.numpy as knp
+import keras_tuner as kt
+import six
 from keras import backend as K
 from keras import metrics
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
-import keras_tuner as kt
 from keras_tuner import BayesianOptimization, Hyperband, HyperModel, RandomSearch
 
 from qkerasV3.autoqkeras.forgiving_metrics import (
@@ -1268,7 +1268,7 @@ class AutoQKerasScheduler:
             return 0
         else:
             try:
-                with open(os.path.join(self.output_dir, "scheduler.json"), "r") as f:
+                with open(os.path.join(self.output_dir, "scheduler.json")) as f:
                     scheduler = json.load(f)
                 return scheduler["next_block"]
             except:  # pylint: disable=bare-except

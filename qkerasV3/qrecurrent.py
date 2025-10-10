@@ -20,8 +20,8 @@ import keras
 from keras import activations, constraints, initializers, layers, regularizers
 from keras import backend as K
 from keras.saving import register_keras_serializable
+from tensorflow_model_optimization.python.core.sparsity.keras import PrunableLayer
 
-from .prunable_layer import PrunableLayer
 from .ops_portable import is_nested
 from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
