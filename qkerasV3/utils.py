@@ -185,7 +185,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
 
     # Compute inv[i]
     inv = gamma * (1.0 / keras.ops.sqrt(variance + bn_layer.epsilon))
-    inv = inv.numpy()
+    inv = keras.ops.convert_to_numpy(inv)
     if bn_layer.inverse_quantizer_internal is not None:
         quantizer = bn_layer.inverse_quantizer_internal
         inv = quantizer(inv)
@@ -336,7 +336,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                         "to know the values of scale."
                     )
                     scale = (
-                        quantizer.scale.numpy()
+                        keras.ops.convert_to_numpy(quantizer.scale)
                         if isinstance(quantizer.scale, KerasTensor)
                         else quantizer.scale
                     )
@@ -385,7 +385,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                     layer.average_quantizer_internal
                 ):
                     saved_weights[layer.name]["q_mult_factor"] = (
-                        layer.average_quantizer_internal(1.0 / pool_area).numpy()
+                        keras.ops.convert_to_numpy(layer.average_quantizer_internal(1.0 / pool_area))
                     )
                 else:
                     saved_weights[layer.name]["q_mult_factor"] = None
@@ -1227,7 +1227,7 @@ def print_model_sparsity(model):
                     layer.name,
                     ", ".join(
                         [
-                            f"({weight.name}, {str(_get_sparsity(weight.numpy()))})"
+                            f"({weight.name}, {str(_get_sparsity(keras.ops.convert_to_numpy(weight)))})"
                             for weight in prunable_weights
                         ]
                     ),
@@ -1305,7 +1305,7 @@ def get_model_sparsity(model, per_layer=False, allow_list=None):
                     weight_numpy = weight.ravel()
                 except AttributeError:
                     # In case of EagerTensor.
-                    weight_numpy = weight.numpy().ravel()
+                    weight_numpy = keras.ops.convert_to_numpy(weight).ravel()
                 layer_weights.append(weight_numpy)
                 all_weights.append(weight_numpy)
             layer_weights = knp.concatenate(layer_weights)
@@ -1398,7 +1398,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
 
                 # Evaluate the tensor to a NumPy array if necessary
                 if isinstance(quantized_weights, KerasTensor):
-                    weights = quantized_weights.numpy()
+                    weights = keras.ops.convert_to_numpy(quantized_weights)
                 else:
                     weights = quantized_weights
 

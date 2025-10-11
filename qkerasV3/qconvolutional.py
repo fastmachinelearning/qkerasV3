@@ -394,7 +394,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
             "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
             "kernel_range": self.kernel_range,
             "bias_range": self.bias_range,
-            "mask": self._mask.numpy().tolist() if self._mask is not None else None,
+            "mask": keras.ops.convert_to_numpy(self._mask).tolist() if self._mask is not None else None,
         }
         base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))

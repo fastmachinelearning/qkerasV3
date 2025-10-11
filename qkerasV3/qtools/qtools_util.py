@@ -268,7 +268,7 @@ def get_scale_from_quantized_bits_with_auto_po2(quantizer):
     elif isinstance(quantizer.scale, KerasTensor):
         return quantizer.scale
     elif keras.ops.is_tensor(quantizer.scale):
-        return quantizer.scale.numpy()
+        return keras.ops.convert_to_numpy(quantizer.scale)
     else:
         return None
 

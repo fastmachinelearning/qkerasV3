@@ -112,16 +112,16 @@ def unfold_model(model):
             new_layer.__class__.__name__ == "QConv2D"
         ):
             src_weights = src_layer.get_folded_weights()
-            folded_kernel_quantized = src_weights[0].numpy()
-            folded_bias_quantized = src_weights[1].numpy()
+            folded_kernel_quantized = keras.ops.convert_to_numpy(src_weights[0])
+            folded_bias_quantized = keras.ops.convert_to_numpy(src_weights[1])
             new_layer.set_weights([folded_kernel_quantized, folded_bias_quantized])
 
         elif (src_layer.__class__.__name__ == "QDepthwiseConv2DBatchnorm") and (
             new_layer.__class__.__name__ == "QDepthwiseConv2D"
         ):
             src_weights = src_layer.get_folded_weights()
-            folded_depthwise_kernel_quantized = src_weights[0].numpy()
-            folded_bias_quantized = src_weights[1].numpy()
+            folded_depthwise_kernel_quantized = keras.ops.convert_to_numpy(src_weights[0])
+            folded_bias_quantized = keras.ops.convert_to_numpy(src_weights[1])
             new_layer.set_weights(
                 [folded_depthwise_kernel_quantized, folded_bias_quantized]
             )
@@ -209,7 +209,7 @@ def populate_bias_quantizer_from_accumulator(model, source_quantizers):
 
                 if keras.utils.is_keras_tensor(qtools_bias_quantizer.int_bits):
                     qtools_bias_quantizer.int_bits = (
-                        qtools_bias_quantizer.int_bits.numpy()
+                        keras.ops.convert_to_numpy(qtools_bias_quantizer.int_bits)
                     )
 
                 layer.bias_quantizer = (

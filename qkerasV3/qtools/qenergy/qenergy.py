@@ -250,7 +250,7 @@ def memory_write_energy(
             total_bits_log2
         )
 
-    return energy_mem.numpy().ravel()[0]
+    return keras.ops.convert_to_numpy(energy_mem).ravel()[0]
 
 
 def energy_estimate(

@@ -34,7 +34,9 @@ def _get_min_max_po2_exponent(x):
     """Get min and max po2 exponent of x."""
     x = keras.ops.cast(x, dtype="float64")
     po2_x = Kops.log(x) / keras.ops.cast(knp.log(2.0), dtype="float64")
-    return (keras.ops.amin(po2_x).numpy(), keras.ops.max(po2_x).numpy())
+    po2_x_min = Kops.convert_to_numpy(keras.ops.amin(po2_x))
+    po2_x_max = Kops.convert_to_numpy(keras.ops.max(po2_x))
+    return (po2_x_min, po2_x_max)
 
 
 # pylint: disable=invalid-name
@@ -307,7 +309,8 @@ def test_GetScale_PerChannelScale():
 
 
 def _get_num_unique_elements(input_tensor):
-    return len(np.unique(input_tensor.numpy()))
+    input_tensor = Kops.convert_to_numpy(input_tensor)
+    return len(np.unique(input_tensor))
 
 
 def test_GetScale_ElementsPerScale_Scalar_ScaleAxis_EPS():

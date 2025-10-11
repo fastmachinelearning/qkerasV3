@@ -235,7 +235,7 @@ def test_quantized_relu(
     """Test quantized_relu function."""
     x = test_values
     layer = quantized_relu(bits, integer, use_sigmoid, negative_slope)
-    result = layer(x).numpy()
+    result = keras.ops.convert_to_numpy(layer(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -401,7 +401,7 @@ def test_quantized_relu(
 def test_quantized_relu_po2(bits, negative_slope, test_values, expected_values):
     x = test_values
     layer = quantized_relu_po2(bits, negative_slope=negative_slope)
-    result = layer(x).numpy()
+    result = keras.ops.convert_to_numpy(layer(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 

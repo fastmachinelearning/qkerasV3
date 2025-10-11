@@ -177,7 +177,7 @@ def test_quantized_po2(
         quadratic_approximation=quadratic_approximation,
         log2_rounding=log2_rounding,
     )
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
     assert_allclose(result, expected_values, rtol=1e-5, atol=1e-5)
 
 
@@ -290,7 +290,7 @@ def test_quantized_relu_po2(
         quadratic_approximation,
         log2_rounding,
     )
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
     assert_allclose(result, expected_values, rtol=1e-5, atol=1e-5)
 
 
@@ -307,7 +307,7 @@ def test_smooth_sigmoid():
 
     sigmoid = np.vectorize(ref_smooth_sigmoid)
     x = keras.ops.array(test_values)
-    result = smooth_sigmoid(x).numpy()
+    result = keras.ops.convert_to_numpy(smooth_sigmoid(x))
     expected = sigmoid(test_values)
     assert_allclose(result, expected, rtol=1e-5)
 
@@ -325,7 +325,7 @@ def test_hard_sigmoid():
 
     sigmoid = np.vectorize(ref_hard_sigmoid)
     x = keras.ops.array(test_values)
-    result = hard_sigmoid(x).numpy()
+    result = keras.ops.convert_to_numpy(hard_sigmoid(x))
     expected = sigmoid(test_values)
     assert_allclose(result, expected, rtol=1e-5)
 
@@ -391,7 +391,7 @@ def test_quantized_sigmoid(
 
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
 
     set_internal_sigmoid(_default_sigmoid_type)
 
@@ -433,7 +433,7 @@ def test_quantized_sigmoid_limits(
 
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_sigmoid(bits, symmetric=True, use_real_sigmoid=use_real_sigmoid)
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
 
     min_max = np.array([q.min(), q.max()])
     set_internal_sigmoid(_default_sigmoid_type)
@@ -474,7 +474,7 @@ def test_quantized_tanh(bits, use_real_tanh, test_values, expected_values):
 
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
 
     set_internal_sigmoid(_default_sigmoid_type)
 
@@ -516,7 +516,7 @@ def test_quantized_tanh_limits(
 
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_tanh(bits, symmetric=True, use_real_tanh=use_real_tanh)
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
 
     min_max = np.array([q.min(), q.max()])
 
@@ -632,7 +632,7 @@ def test_quantized_relu(bits, integer, use_sigmoid, test_values, expected_values
     """Test quantized_relu function."""
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_relu(bits, integer, use_sigmoid)
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -691,7 +691,7 @@ def test_quantized_bits(
 ):
     q = quantized_bits(bits, integer, symmetric, keep_negative)
     x = keras.ops.array(test_values, dtype=K.floatx())
-    result = q(x).numpy()
+    result = keras.ops.convert_to_numpy(q(x))
     assert_allclose(result, expected_values, rtol=rtol)
 
 
@@ -725,8 +725,8 @@ def test_quantized_bits_with_auto_po2_scale(
     x = np.array([[0.23, 2.76, 0.1, 0.33], [0.53, 0.16, 0.3, 1.43]])
 
     q = quantized_bits(bits=bits, integer=integer, alpha="auto_po2")
-    q_out = q(x).numpy()
-    scale = q.scale.numpy()
+    q_out = keras.ops.convert_to_numpy(q(x))
+    scale = keras.ops.convert_to_numpy(q.scale)
 
     np.testing.assert_array_equal(q_out, expected_output)
     np.testing.assert_array_equal(scale, expected_scale)
@@ -739,7 +739,7 @@ def test_quantized_bits_with_post_training_scale():
 
     auto_po2_quantizer = quantized_bits(bits=8, integer=3, alpha="auto_po2")
     qw = auto_po2_quantizer(array)
-    auto_po2_scale = auto_po2_quantizer.scale.numpy()
+    auto_po2_scale = keras.ops.convert_to_numpy(auto_po2_quantizer.scale)
     alpha_ndarray_quantizer = quantized_bits(
         bits=8, integer=3, alpha="auto_po2", post_training_scale=auto_po2_scale
     )
@@ -749,7 +749,9 @@ def test_quantized_bits_with_post_training_scale():
 
     qw_ndarray = alpha_ndarray_quantizer(array)
     # Check if the quantized values are the same as auto_po2 quantizer.
-    np.testing.assert_array_equal(qw.numpy(), qw_ndarray.numpy())
+    qw = keras.ops.convert_to_numpy(qw)
+    qw_ndarray = keras.ops.convert_to_numpy(qw_ndarray)
+    np.testing.assert_array_equal(qw, qw_ndarray)
 
 
 @pytest.mark.parametrize(
@@ -772,7 +774,7 @@ def test_quantized_bits_with_post_training_scale():
 def test_ternary(alpha, threshold, test_values, expected_values):
     x = keras.ops.array(test_values, dtype=K.floatx())
     layer = ternary(alpha, threshold)
-    result = layer(x).numpy()
+    result = keras.ops.convert_to_numpy(layer(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -802,7 +804,7 @@ def test_ternary(alpha, threshold, test_values, expected_values):
 def test_binary(use_01, alpha, test_values, expected_values):
     x = keras.ops.array(test_values, dtype=K.floatx())
     layer = binary(use_01, alpha)
-    result = layer(x).numpy()
+    result = keras.ops.convert_to_numpy(layer(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -823,7 +825,7 @@ def test_stochastic_round_quantized_po2(test_values, expected_values):
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_po2(use_stochastic_rounding=True)
 
-    res = q(x, training=True).numpy()
+    res = keras.ops.convert_to_numpy(q(x, training=True))
     res = np.average(res)
 
     assert_allclose(res, expected_values, rtol=1e-1, atol=1e-6)
@@ -845,7 +847,7 @@ def test_stochastic_round_quantized_relu_po2(test_values, expected_values):
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = quantized_relu_po2(use_stochastic_rounding=True)
 
-    res = q(x, training=True).numpy()
+    res = keras.ops.convert_to_numpy(q(x, training=True))
     res = np.average(res)
 
     assert_allclose(res, expected_values, rtol=1e-1, atol=1e-6)
@@ -866,8 +868,8 @@ def test_stochastic_binary():
     n = 1000
 
     for _ in range(n):
-        y = s(keras.ops.array(x), training=True).numpy()
-        scale = s.scale.numpy()[0]
+        y = keras.ops.convert_to_numpy(s(keras.ops.array(x), training=True))
+        scale = keras.ops.convert_to_numpy(s.scale)[0]
         ts += scale
         ty += y / scale
 
@@ -903,7 +905,7 @@ def test_stochastic_binary():
 def test_stochastic_binary_inference_mode(alpha, test_values, expected_values):
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = stochastic_binary(alpha)
-    result = q(x, training=False).numpy()
+    result = keras.ops.convert_to_numpy(q(x, training=False))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -988,8 +990,8 @@ def test_stochastic_ternary(bound, alpha, temperature, expected_values, expected
 
     s = stochastic_ternary(alpha=alpha, temperature=temperature)
 
-    y = s(x, training=True).numpy()
-    scale = s.scale.numpy().astype("float32")[0]
+    y = keras.ops.convert_to_numpy(s(x, training=True))
+    scale = keras.ops.convert_to_numpy(s.scale).astype("float32")[0]
 
     result = (y / scale).mean(axis=0).astype("float32")
 
@@ -1019,7 +1021,7 @@ def test_stochastic_ternary_inference_mode(
 ):
     x = keras.ops.array(test_values, dtype=K.floatx())
     q = stochastic_ternary(alpha, threshold)
-    result = q(x, training=False).numpy()
+    result = keras.ops.convert_to_numpy(q(x, training=False))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 
@@ -1082,7 +1084,7 @@ def test_quantized_hswish(
         relu_shift=relu_shift,
         relu_upper_bound=relu_upper_bound,
     )
-    result = layer(x).numpy()
+    result = keras.ops.convert_to_numpy(layer(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
 

@@ -51,7 +51,7 @@ def get_weight_scale(quantizer, x=None):
       quantizers with auto or auto_po2 alpha/threshold.
     """
     if hasattr(quantizer, "scale") and quantizer.scale is not None:
-        return quantizer.scale.numpy()
+        return keras.ops.convert_to_numpy(quantizer.scale)
     return 1.0
 
 
@@ -203,7 +203,8 @@ def _get_unrolled_shape(
             unroll_factor
         ), "unroll_axis and unroll_factor must have the same length"
 
-        unrolled_scale_axis = unroll_axis.copy()
+
+        unrolled_scale_axis = list(unroll_axis)
         axis_shift = 0
         for idx, (axis, factor) in enumerate(zip(unroll_axis, unroll_factor)):
             unrolled_scale_axis[idx] += axis_shift
@@ -245,7 +246,7 @@ def _get_rolled_back_shape(input_shape: list[int], roll_axis: Any) -> list[int]:
         shape[axis] *= shape[axis + 1]
         shape.pop(axis + 1)
 
-    rolled_shape = input_shape.copy()
+    rolled_shape = list(input_shape)
 
     if isinstance(roll_axis, int):
         _roll_back_one_axis(rolled_shape, roll_axis)
@@ -419,7 +420,7 @@ def _get_scale_mean(
         # Then, the values along the scale_axis are repeated "elements_per_scale"
         # times to match the original shape.
         rolled_back_shape = _get_rolled_back_shape(
-            qx.shape.as_list(), roll_axis=unrolled_scale_axis
+            qx.shape, roll_axis=unrolled_scale_axis
         )
 
         qx = keras.ops.reshape(qx, rolled_back_shape)
@@ -788,17 +789,17 @@ class quantized_linear(base_quantizer.BaseQuantizer):
     # 8-bit quantization with 3 integer bits
     >>> q = quantized_linear(8, 3)
     >>> x = keras.ops.array([0.0, 0.5, 1.0, 1.5, 2.0])
-    >>> q(x).numpy()
+    >>> keras.ops.convert_to_numpy(q(x))
     array([0., 0., 1., 2., 2.], dtype=float32)
 
     # 2-bit quantization with "auto" and tensor alphas
     >>> q_auto = quantized_linear(2, alpha="auto")
     >>> x = keras.ops.array([0.0, 0.5, 1.0, 1.5, 2.0])
-    >>> q_auto(x).numpy()
+    >>> keras.ops.convert_to_numpy(q_auto(x))
     array([0., 0., 0., 2., 2.], dtype=float32)
-    >>> q_auto.scale.numpy()
+    >>> keras.ops.convert_to_numpy(q_auto.scale)
     array([4.], dtype=float32)
-    >>> q_auto.quantization_scale.numpy()
+    >>> keras.ops.convert_to_numpy(q_auto.quantization_scale)
     array([2.], dtype=float32)
     >>> q_fixed = quantized_linear(2, alpha=q_auto.scale)
     >>> q_fixed(x)
@@ -1331,7 +1332,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             r"\[(\d)\]",
             r"\g<1>",
             str(
-                self.integer.numpy()
+                keras.ops.convert_to_numpy(self.integer)
                 if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),
@@ -1572,14 +1573,14 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
     def get_config(self):
         config = {
             "bits": self.bits,
-            "integer": self.integer.numpy()
+            "integer": keras.ops.convert_to_numpy(self.integer)
             if isinstance(self.integer, KerasTensor)
             else self.integer,
             "symmetric": self.symmetric,
             "alpha": self.alpha,
             "keep_negative": self.keep_negative,
             "use_stochastic_rounding": self.use_stochastic_rounding,
-            "qnoise_factor": self.qnoise_factor.numpy()
+            "qnoise_factor": keras.ops.convert_to_numpy(self.qnoise_factor)
             if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "post_training_scale":
@@ -2474,7 +2475,7 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             r"\[(\d)\]",
             r"\g<1>",
             str(
-                self.integer.numpy()
+                keras.ops.convert_to_numpy(self.integer)
                 if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),
@@ -2628,14 +2629,14 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
     def get_config(self):
         config = {
             "bits": self.bits,
-            "integer": self.integer.numpy()
+            "integer": keras.ops.convert_to_numpy(self.integer)
             if isinstance(self.integer, KerasTensor)
             else self.integer,
             "use_sigmoid": self.use_sigmoid,
             "negative_slope": self.negative_slope,
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "relu_upper_bound": self.relu_upper_bound,
-            "qnoise_factor": self.qnoise_factor.numpy()
+            "qnoise_factor": keras.ops.convert_to_numpy(self.qnoise_factor)
             if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
         }
@@ -3158,7 +3159,7 @@ class quantized_po2(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-na
             "max_value": self.max_value,
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "quadratic_approximation": self.quadratic_approximation,
-            "qnoise_factor": self.qnoise_factor.numpy()
+            "qnoise_factor": keras.ops.convert_to_numpy(self.update_qnoise_factor)
             if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "log2_rounding": self.log2_rounding,
@@ -3347,7 +3348,7 @@ class quantized_relu_po2(base_quantizer.BaseQuantizer):  # pylint: disable=inval
             "negative_slope": self.negative_slope,
             "use_stochastic_rounding": self.use_stochastic_rounding,
             "quadratic_approximation": self.quadratic_approximation,
-            "qnoise_factor": self.qnoise_factor.numpy()
+            "qnoise_factor": keras.ops.convert_to_numpy(self.qnoise_factor)
             if isinstance(self.qnoise_factor, KerasTensor)
             else self.qnoise_factor,
             "log2_rounding": self.log2_rounding,
@@ -3436,7 +3437,7 @@ class quantized_hswish(quantized_bits):  # pylint: disable=invalid-name
             r"\[(\d)\]",
             r"\g<1>",
             str(
-                self.integer.numpy()
+                keras.ops.convert_to_numpy(self.integer)
                 if isinstance(self.integer, KerasTensor)
                 else self.integer
             ),

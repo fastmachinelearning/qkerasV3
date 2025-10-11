@@ -395,7 +395,7 @@ class QConv2DBatchnorm(QConv2D):
     def save_own_variables(self, store):
         super().save_own_variables(store)
         # Stores the value of the variable upon saving
-        store["iteration"] = self._iteration.numpy()
+        store["iteration"] = keras.ops.convert_to_numpy(self._iteration)
 
     def load_own_variables(self, store):
         super().load_own_variables(store)

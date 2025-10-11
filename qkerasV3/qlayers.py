@@ -526,7 +526,7 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
         config = {
             "activation": self.quantizer.__class__.__name__,
             "total_bits": self.total_bits,
-            "current_step": self.step.numpy(),
+            "current_step": keras.ops.convert_to_numpy(self.step),
             "symmetric": self.symmetric,
             "quantization_delay": knp.array(self.quantization_delay),
             "ema_freeze_delay": knp.array(self.ema_freeze_delay),
