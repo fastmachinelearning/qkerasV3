@@ -32,7 +32,8 @@ dependencies = [
     "jax",
     "torch",
     "tensorflow",
-    "keras-tuner"
+    "keras-tuner",
+    "tf_keras"
 ]
 
 classifiers = [
