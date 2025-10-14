@@ -348,7 +348,7 @@ def test_QAveragePooling_output():
         padding="valid",
         average_quantizer="quantized_bits(8, 1, 1)",
     )(x)
-    y = y.numpy()
+    y = keras.ops.convert_to_numpy(y)
     assert knp.all(
         y
         == [
@@ -366,7 +366,7 @@ def test_QGlobalAveragePooling_output():
     x = knp.array(x, dtype=float)
 
     y = QGlobalAveragePooling2D(average_quantizer="quantized_bits(8, 1, 1)")(x)
-    y = y.numpy()
+    y = keras.ops.convert_to_numpy(y)
     assert knp.all(y == knp.array([[0.875, 0.875], [0.984375, 0.984375]]))
 
 

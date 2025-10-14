@@ -1542,7 +1542,7 @@ def clone_model_and_freeze_auto_po2_scale(
         # Create a new quantized_bits instance with the fixed scale value.
         if q is not None:
             q_cfg = q.get_config()
-            q_cfg["post_training_scale"] = q.scale.numpy()
+            q_cfg["post_training_scale"] = keras.ops.convert_to_numpy(q.scale)
             q = quantized_bits(**q_cfg)
         return q
 

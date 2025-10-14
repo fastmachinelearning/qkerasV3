@@ -107,7 +107,7 @@ def activation_compression(
         quantizer = getattr(
             model.layers[-1], "quantizer", getattr(model.layers[-1], "activation")
         )
-        km.cluster_centers_ = quantizer(km.cluster_centers_).numpy()
+        km.cluster_centers_ = keras.ops.convert_to_numpy(quantizer(km.cluster_centers_))
         km.cluster_centers_.sort(axis=0)
         cb_tables[i] = create_in_out_table(km, quantizer)
     x = X_test
@@ -152,7 +152,7 @@ def weight_compression(weights, bits, axis=0, quantizer=None):
         km = KMeans(n)
         km.fit(w.reshape(-1, 1))
         if quantizer:
-            q_output = np.ascontiguousarray(quantizer(km.cluster_centers_).numpy(), dtype=np.float64)
+            q_output = np.ascontiguousarray(keras.ops.convert_to_numpy(quantizer(km.cluster_centers_)), dtype=np.float64)
             km.cluster_centers_ = q_output
         km.cluster_centers_.sort(axis=0)
 
@@ -202,7 +202,7 @@ def two_tier_embedding_compression(embeddings, bits, quantizer=None):
         km2 = KMeans(n)
         km2.fit(block.flatten().reshape(-1, 1))
         if quantizer:
-            km2.cluster_centers_ = quantizer(km2.cluster_centers_).numpy()
+            km2.cluster_centers_ = keras.ops.convert_to_numpy(quantizer(km2.cluster_centers_))
         km2.cluster_centers_.sort(axis=0)
 
         km_models[block_label] = km2

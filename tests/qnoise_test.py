@@ -54,17 +54,17 @@ def test_qnoise_quantized_bits():
     # no quantization
     qb.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qb(inputs)
-    assert_equal(x_q_0.numpy(), x)
+    assert_equal(keras.ops.convert_to_numpy(x_q_0), x)
 
     # full quantization
     qb.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qb(inputs)
-    assert_equal(x_q_1.numpy(), xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_1), xq)
 
     # mixing half and half of x and xq
     qb.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qb(inputs)
-    assert_equal(x_q_05.numpy(), x_xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_05), x_xq)
 
 
 def test_qnoise_quantized_relu():
@@ -108,17 +108,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_qc_false.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_qc_false(inputs)
-    assert_equal(x_q_0.numpy(), x)
+    assert_equal(keras.ops.convert_to_numpy(x_q_0), x)
 
     # full quantization
     qr_qc_false.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_qc_false(inputs)
-    assert_equal(x_q_1.numpy(), xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_1), xq)
 
     # mixing half and half
     qr_qc_false.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_qc_false(inputs)
-    assert_equal(x_q_05.numpy(), x_xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_05), x_xq)
 
     #########################################
     # No relu upper bound
@@ -137,17 +137,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_qc_true.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_qc_true(inputs)
-    assert_equal(x_q_0.numpy(), x_clipped)
+    assert_equal(keras.ops.convert_to_numpy(x_q_0), x_clipped)
 
     # full quantization
     qr_qc_true.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_qc_true(inputs)
-    assert_equal(x_q_1.numpy(), xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_1), xq)
 
     # mixing half and half
     qr_qc_true.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_qc_true(inputs)
-    assert_equal(x_q_05.numpy(), x_clipped_xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_05), x_clipped_xq)
 
     #########################################
     # Relu upper bound
@@ -166,17 +166,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_0.numpy(), np.clip(x_ub, a_min=None, a_max=1.5))
+    assert_equal(keras.ops.convert_to_numpy(x_q_0), np.clip(x_ub, a_min=None, a_max=1.5))
 
     # full quantization
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_1.numpy(), np.clip(xq, a_min=None, a_max=1.5))
+    assert_equal(keras.ops.convert_to_numpy(x_q_1), np.clip(xq, a_min=None, a_max=1.5))
 
     # mixing half and half
     qr_ub_qc_false.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_ub_qc_false(inputs)
-    assert_equal(x_q_05.numpy(), np.clip(x_ub_xq, a_min=None, a_max=1.5))
+    assert_equal(keras.ops.convert_to_numpy(x_q_05), np.clip(x_ub_xq, a_min=None, a_max=1.5))
 
     #########################################
     # Relu upper bound
@@ -196,17 +196,17 @@ def test_qnoise_quantized_relu():
     # no quantization
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.0)
     x_q_0 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_0.numpy(), x_clipped)
+    assert_equal(keras.ops.convert_to_numpy(x_q_0), x_clipped)
 
     # full quantization
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=1.0)
     x_q_1 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_1.numpy(), xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_1), xq)
 
     # mixing half and half
     qr_ub_qc_true.update_qnoise_factor(qnoise_factor=0.5)
     x_q_05 = qr_ub_qc_true(inputs)
-    assert_equal(x_q_05.numpy(), x_clipped_xq)
+    assert_equal(keras.ops.convert_to_numpy(x_q_05), x_clipped_xq)
 
 
 if __name__ == "__main__":

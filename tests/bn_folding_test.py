@@ -386,8 +386,8 @@ def test_loading():
     model_loaded = load_qmodel(fname)
     weight1 = model_fold.layers[1].get_folded_weights()
     weight2 = model_loaded.layers[1].get_folded_weights()
-    assert_equal(weight1[0].numpy(), weight2[0].numpy())
-    assert_equal(weight1[1].numpy(), weight2[1].numpy())
+    assert_equal(keras.ops.convert_to_numpy(weight1[0]), keras.ops.convert_to_numpy(weight2[0]))
+    assert_equal(keras.ops.convert_to_numpy(weight1[1]), keras.ops.convert_to_numpy(weight2[1]))
 
     # test convert a folded model to a normal model for zpm
     # the kernel/bias weight in the normal model should be the same as the folded
@@ -395,8 +395,8 @@ def test_loading():
     normal_model = bn_folding_utils.unfold_model(model_fold)
     weight2 = normal_model.layers[1].get_weights()
 
-    assert_equal(weight1[0].numpy(), weight2[0])
-    assert_equal(weight1[1].numpy(), weight2[1])
+    assert_equal(keras.ops.convert_to_numpy(weight1[0]), weight2[0])
+    assert_equal(keras.ops.convert_to_numpy(weight1[1]), weight2[1])
 
 
 def test_same_training_and_prediction():

@@ -47,13 +47,13 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     model.compile()
 
     # Test input on untrained EMAs
-    qout = model(input_val, training=False).numpy()
+    qout = keras.ops.convert_to_numpy(model(input_val, training=False))
     assert_allclose(model.layers[0].quantizer(input_val), qout)
     assert_allclose(model.layers[0].ema_min.numpy().flatten(), 0)
     assert_allclose(model.layers[0].ema_max.numpy().flatten(), 0)
 
     # Run an unquantized input and train the EMA
-    unquantized_out = model(input_val, training=True).numpy()
+    unquantized_out = keras.ops.convert_to_numpy(model(input_val, training=True))
     assert kwargs["current_step"].numpy() == 0, err
     if kwargs["activation"] == "quantized_relu":
         assert_allclose(unquantized_out, knp.maximum(input_val, 0))
@@ -85,14 +85,14 @@ def run_qadaptiveactivation_test(input_val, kwargs):
         assert quant.keep_negative, err
         assert quant.alpha == 1.0, err
         keep_negative = True
-    expected_integer_bits = _get_integer_bits(
+    expected_integer_bits = keras.ops.convert_to_numpy(_get_integer_bits(
         model.layers[0].ema_min.numpy(),
         model.layers[0].ema_max.numpy(),
         kwargs["total_bits"],
         kwargs["symmetric"],
         keep_negative,
         kwargs["po2_rounding"],
-    ).numpy()
+    ))
     assert_allclose(expected_integer_bits, quant.integer.numpy(), atol=1e-4)
 
     # Skip to a step where the quantization is used
@@ -105,11 +105,11 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     expected_qout = knp.copy(quant(input_val))
     # Revert qnoise_factor to its original value.
     quant.update_qnoise_factor(qnoise_factor)
-    qout = model(input_val, training=True).numpy()
+    qout = keras.ops.convert_to_numpy(model(input_val, training=True))
     assert_allclose(expected_qout, qout, atol=1e-4)
 
     # Check testing mode
-    qout = model(input_val, training=False).numpy()
+    qout = keras.ops.convert_to_numpy(model(input_val, training=False))
     assert_allclose(quant(input_val), qout, atol=1e-4)
 
 
@@ -174,7 +174,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
         # Check results
         assert knp.abs(exp_ema_max - q_act.ema_max.numpy()[0]) < 0.0001
 
-        assert np.isclose(exp_int_bits.numpy(), q_act.quantizer.integer.numpy())
+        assert np.isclose(keras.ops.convert_to_tensor(exp_int_bits), q_act.quantizer.integer.numpy())
         if not estimate_step_count:
             step.assign_add(1)
 

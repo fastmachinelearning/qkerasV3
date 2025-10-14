@@ -74,7 +74,7 @@ def test_adjust_multiplier_for_auto_po2(
 
         if weight_quantizer_scale_type == "post_training_scale":
             # Set the post_training_scale as fixed scale.
-            auto_po2_scale = qkerasV3_weight_quantizer.scale.numpy()
+            auto_po2_scale = keras.ops.convert_to_numpy(qkerasV3_weight_quantizer.scale)
             qkerasV3_weight_quantizer = quantizers.quantized_bits(
                 bits=w_bits,
                 integer=w_int_bits,

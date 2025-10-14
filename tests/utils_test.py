@@ -388,7 +388,7 @@ def test_clone_model_and_freeze_auto_po2_scale():
     )
 
     assert_array_equal(
-        new_hw["dw_conv"]["weights"][0].numpy().flatten(),
+        keras.ops.convert_to_numpy(new_hw["dw_conv"]["weights"][0]).flatten(),
         knp.array([0.0, 14, 8, 4, 0, 6, -2, 4, -2, -42, 46, -4, -42, 2, -8, 12]),
     )
 

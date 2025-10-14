@@ -360,7 +360,7 @@ def test_masked_qconv2d_creates_correct_parameters():
     # kernel.
     assert_equal(len(model.trainable_weights), 1)
     num_trainable_params = knp.prod(model.trainable_weights[0].shape)
-    assert_equal(num_trainable_params.numpy(), 25)
+    assert_equal(keras.ops.convert_to_numpy(num_trainable_params), 25)
 
 
 def test_qconv2d_masks_weights():
@@ -434,7 +434,7 @@ def test_qconv2d_groups_works():
         model.trainable_weights[1].shape
     )
     expected_trainable_params = 36  # (5*3)*2 + 6
-    assert_equal(num_trainable_params.numpy(), expected_trainable_params)
+    assert_equal(keras.ops.convert_to_numpy(num_trainable_params), expected_trainable_params)
 
 
 if __name__ == "__main__":

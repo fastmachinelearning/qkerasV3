@@ -43,7 +43,7 @@ def test_binary_auto():
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = binary(alpha="auto")
-        q = quantizer(x_tensor).numpy()
+        q = keras.ops.convert_to_numpy(quantizer(x_tensor))
 
         result = get_weight_scale(quantizer, q)
         expected = m / 2.0
@@ -65,8 +65,8 @@ def test_binary_auto_po2():
         quantizer_ref = binary(alpha="auto")
         quantizer = binary(alpha="auto_po2")
 
-        q_ref = quantizer_ref(x_tensor).numpy()
-        q = quantizer(x_tensor).numpy()
+        q_ref = keras.ops.convert_to_numpy(quantizer_ref(x_tensor))
+        q = keras.ops.convert_to_numpy(quantizer(x_tensor))
 
         ref = get_weight_scale(quantizer_ref, q_ref)
 
@@ -88,7 +88,7 @@ def test_ternary_auto():
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = ternary(alpha="auto")
-        q = quantizer(x_tensor).numpy()
+        q = keras.ops.convert_to_numpy(quantizer(x_tensor))
 
         d = m / 3.0
         result = np.mean(get_weight_scale(quantizer, q))
@@ -109,8 +109,8 @@ def test_ternary_auto_po2():
         quantizer_ref = ternary(alpha="auto")
         quantizer = ternary(alpha="auto_po2")
 
-        q_ref = quantizer_ref(x_tensor).numpy()
-        q = quantizer(x_tensor).numpy()
+        q_ref = keras.ops.convert_to_numpy(quantizer_ref(x_tensor))
+        q = keras.ops.convert_to_numpy(quantizer(x_tensor))
 
         ref = get_weight_scale(quantizer_ref, q_ref)
 
@@ -188,7 +188,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([2, 2, 2, 3, 2, 3, 3, 4, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 4, 4, 4]),
     )
 
@@ -205,7 +205,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([2, 2, 2, 2, 1, 2, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 4]),
     )
 
@@ -222,7 +222,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([2, 3, 3, 3, 2, 3, 3, 3, 3, 0, 0, 1, 0, 1, 1, 1, 2, 2, 3, 3, 3]),
     )
 
@@ -239,7 +239,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([2, 2, 2, 2, 1, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 3]),
     )
 
@@ -256,7 +256,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([3, 3, 3, 3, 2, 3, 3, 3, 3, 0, 0, 1, 0, 1, 1, 1, 2, 2, 3, 3, 3]),
     )
 
@@ -273,7 +273,7 @@ def test_get_integer_bits():
         is_clipping=is_clipping,
     )
     assert_equal(
-        integer_bits.numpy(),
+        keras.ops.convert_to_numpy(integer_bits),
         np.array([2, 2, 2, 2, 1, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 3, 3]),
     )
 
