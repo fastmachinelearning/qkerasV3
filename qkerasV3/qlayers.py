@@ -471,35 +471,30 @@ class QAdaptiveActivation(layers.Layer, PrunableLayer):
                 True,
             )
 
-        def update_branch():
-            """Update the moving average when is_ema_training is True."""
-
-            # Set the qnoise factor to 0 to update the EMA using the unquantized input
-            prev_qnoise_factor = knp.identity(self.quantizer.qnoise_factor)
-            self.quantizer.update_qnoise_factor(0.0)
-
-            # Update the EMA
-            act_x = self.quantizer(x)  # act_x is the input after the activation
-            # function, but before the quantizer. This is
-            # done by using a qnoise_factor of 0
-            new_min = knp.squeeze(Kops.min(act_x, axis=axis, keepdims=True))
-            self.ema_min.assign(
-                keras.ops.cast(self.ema_min * self.ema_decay, dtype=float) + \
-                keras.ops.cast(new_min * (1.0 - self.ema_decay), dtype=float)
-            )
-            new_max = knp.squeeze(Kops.max(act_x, axis=axis, keepdims=True))
-            self.ema_max.assign(
-                keras.ops.cast(self.ema_max * self.ema_decay, dtype=float) + \
-                keras.ops.cast(new_max * (1.0 - self.ema_decay), dtype=float)
-            )
-
-            # Reset the qnoise factor to the previous value
-            self.quantizer.update_qnoise_factor(prev_qnoise_factor)
-
-        # Update the moving average when is_ema_training is True
-        keras.ops.cond(
-            is_ema_training, true_fn=update_branch, false_fn=lambda: None
-        )
+        # JAX-safe EMA update (no side effects in cond, no numpy, no prints)
+        # 1) Get activation output (pre-quantizer) directly:
+        prev_qnoise_factor = Kops.array(self.quantizer.qnoise_factor)
+        self.quantizer.update_qnoise_factor(0.0)
+        act_x = self.quantizer(x)  # act_x is the input after the activation
+        # function, but before the quantizer. This is
+        # done by using a qnoise_factor of 0
+        # Reset the qnoise factor to the previous value
+        self.quantizer.update_qnoise_factor(prev_qnoise_factor)
+        # 2) Reduce over the same axis w/o keepdims (avoid squeeze and host numpy):
+        new_min = Kops.min(act_x, axis=axis)
+        new_max = Kops.max(act_x, axis=axis)
+        # 3) Blend tensors and write once, outside any cond.
+        decay = Kops.array(self.ema_decay, dtype=self.ema_min.dtype)
+        one   = Kops.array(1.0,      dtype=self.ema_min.dtype)
+        ema_min_next = Kops.cast(self.ema_min, self.ema_min.dtype) * decay + Kops.cast(new_min, self.ema_min.dtype) * (one - decay)
+        ema_max_next = Kops.cast(self.ema_max, self.ema_max.dtype) * decay + Kops.cast(new_max, self.ema_max.dtype) * (one - decay)
+        # 4) Conditionally apply the update with where (pure tensor op):
+        #    Shapes: is_ema_training is scalar -> broadcasts over vectors like (3,)
+        ema_min_applied = Kops.where(is_ema_training, ema_min_next, self.ema_min)
+        ema_max_applied = Kops.where(is_ema_training, ema_max_next, self.ema_max)
+        # 5) Now assign once (outside of any traced cond):
+        self.ema_min.assign(ema_min_applied)
+        self.ema_max.assign(ema_max_applied)
 
         # Set the integer bits for the quantizer
         integer_bits = _get_integer_bits(
