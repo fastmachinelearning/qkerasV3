@@ -198,18 +198,14 @@ class QConv2DBatchnorm(QConv2D):
         # Perform a forward pass through BatchNormalization once to ensure that
         # the moving statistics (mean and variance) are updated if in training mode.
         def call_batchnorm(conv_outputs, bn_training):
-            return keras.ops.cond(
-                bn_training,
-                lambda: self.batchnorm(conv_outputs, training=True),
-                lambda: self.batchnorm(conv_outputs, training=False)
-            )
+            self.batchnorm(conv_outputs, training=keras.ops.cast(bn_training, bool))
         _ = call_batchnorm(conv_outputs, bn_training)
 
         self._iteration.assign_add(
-            keras.ops.cond(
-                training,
-                lambda: knp.array(1, dtype="int64"),
-                lambda: knp.array(0, dtype="int64"),
+            keras.ops.where(
+                Kops.cast(training, bool),
+                knp.array(1, dtype="int64"),
+                knp.array(0, dtype="int64"),
             )
         )
 
@@ -237,11 +233,11 @@ class QConv2DBatchnorm(QConv2D):
         if self.folding_mode == "batch_stats_folding":
             # using batch mean and variance in the initial training stage
             # after sufficient training, switch to moving mean and variance
-            new_mean = keras.ops.cond(
-                bn_training, lambda: mean, lambda: moving_mean
+            new_mean = keras.ops.where(
+                Kops.cast(bn_training, bool), mean, moving_mean
             )
-            new_variance = keras.ops.cond(
-                bn_training, lambda: variance, lambda: moving_variance
+            new_variance = keras.ops.where(
+                Kops.cast(bn_training, bool), variance, moving_variance
             )
 
             # get the inversion factor so that we replace division by multiplication
@@ -269,10 +265,10 @@ class QConv2DBatchnorm(QConv2D):
             if gamma is not None:
                 mv_inv *= gamma
                 batch_inv *= gamma
-            folded_bias = keras.ops.cond(
-                bn_training,
-                lambda: batch_inv * (bias - mean) + beta,
-                lambda: mv_inv * (bias - moving_mean) + beta,
+            folded_bias = keras.ops.where(
+                Kops.cast(bn_training, bool),
+                batch_inv * (bias - mean) + beta,
+                mv_inv * (bias - moving_mean) + beta,
             )
             # moving stats is always used to fold kernel in tflite; before bn freeze
             # an additional correction factor will be applied to the conv2d output
@@ -313,13 +309,10 @@ class QConv2DBatchnorm(QConv2D):
         )
         if training is True and self.folding_mode == "ema_stats_folding":
             batch_inv = 1 / keras.ops.sqrt(variance + self.batchnorm.epsilon)
-            y_corr = keras.ops.cond(
-                bn_training,
-                lambda: (
-                    keras.ops.sqrt(moving_variance + self.batchnorm.epsilon)
-                    * (1 / keras.ops.sqrt(variance + self.batchnorm.epsilon))
-                ),
-                lambda: 1.0,
+            y_corr = keras.ops.where(
+                Kops.cast(bn_training, bool),
+                keras.ops.sqrt(moving_variance + self.batchnorm.epsilon) * (1 / keras.ops.sqrt(variance + self.batchnorm.epsilon)),
+                1.0
             )
             folded_outputs = folded_outputs * y_corr
 

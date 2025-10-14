@@ -227,13 +227,13 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
             moving_mean = self.moving_mean
             moving_variance = self.moving_variance
 
-            mean = keras.ops.cond(
-                training, lambda: mean, lambda: keras.ops.convert_to_tensor(moving_mean)
+            mean = keras.ops.where(
+                training, mean, keras.ops.convert_to_tensor(moving_mean)
             )
-            variance = keras.ops.cond(
+            variance = keras.ops.where(
                 training,
-                lambda: variance,
-                lambda: keras.ops.convert_to_tensor(moving_variance),
+                variance,
+                keras.ops.convert_to_tensor(moving_variance)
             )
 
             new_mean, new_variance = mean, variance
@@ -261,15 +261,15 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
                 )
 
             def mean_update():
-                true_branch = lambda: _do_update(self.moving_mean, new_mean)
-                false_branch = lambda: self.moving_mean
-                return keras.ops.cond(training, true_branch, false_branch)
+                true_branch = _do_update(self.moving_mean, new_mean)
+                false_branch = self.moving_mean
+                return keras.ops.where(keras.ops.cast(training, bool), true_branch, false_branch)
 
             def variance_update():
                 """Update the moving variance."""
-                true_branch = lambda: _do_update(self.moving_variance, new_variance)
-                false_branch = lambda: self.moving_variance
-                return keras.ops.cond(training, true_branch, false_branch)
+                true_branch = _do_update(self.moving_variance, new_variance)
+                false_branch = self.moving_variance
+                return keras.ops.where(keras.ops.cast(training, bool), true_branch, false_branch)
 
             moving_mean_assign = self.moving_mean.assign(
                 self.moving_mean * self.momentum + mean * (1.0 - self.momentum)

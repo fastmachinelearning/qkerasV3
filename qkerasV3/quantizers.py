@@ -660,10 +660,10 @@ def _round_through(x, training=False, use_stochastic_rounding=False, precision=0
       Rounded tensor.
     """
     if use_stochastic_rounding:
-        output = keras.ops.cond(
+        output = keras.ops.where(
             Kops.cast(training, bool),
-            lambda: x + keras.ops.stop_gradient(-x + stochastic_round(x, precision)),
-            lambda: x + keras.ops.stop_gradient(-x + keras.ops.round(x)),
+            x + keras.ops.stop_gradient(-x + stochastic_round(x, precision)),
+            x + keras.ops.stop_gradient(-x + keras.ops.round(x)),
         )
     else:
         output = x + keras.ops.stop_gradient(-x + keras.ops.round(x))
@@ -2197,20 +2197,19 @@ class binary(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
             m = keras.ops.where(m > 1.0, keras.ops.ones_like(m), m)
             f = 2 * m
 
-            x = keras.ops.cond(
+            x = keras.ops.where(
                 Kops.cast(self.training, bool),
-                lambda: f
-                * _round_through(x / f, use_stochastic_rounding=True, precision=0.125),
-                lambda: x,
+                f * _round_through(x / f, use_stochastic_rounding=True, precision=0.125),
+                x
             )
 
         k_sign = keras.ops.sign(x)
         if self.use_stochastic_rounding:
             # in inference, we use a biased "1" for stochastic rounding right now
-            k_sign += (1.0 - keras.ops.abs(k_sign)) * keras.ops.cond(
+            k_sign += (1.0 - keras.ops.abs(k_sign)) * keras.ops.where(
                 Kops.cast(self.training, bool),
-                lambda: 2.0 * keras.ops.round(np.random.uniform(size=keras.ops.shape(x))) - 1.0,
-                lambda: keras.ops.ones_like(keras.ops.shape(x), dtype=K.floatx()),
+                2.0 * keras.ops.round(np.random.uniform(size=keras.ops.shape(x))) - 1.0,
+                keras.ops.ones_like(keras.ops.shape(x), dtype=K.floatx())
             )
             # if something still remains, just make it positive for now.
         k_sign += 1.0 - keras.ops.abs(k_sign)

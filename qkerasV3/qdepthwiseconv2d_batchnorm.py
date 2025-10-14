@@ -204,18 +204,14 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         # Perform a forward pass through BatchNormalization once to ensure that
         # the moving statistics (mean and variance) are updated if in training mode.
         def call_batchnorm(conv_outputs, bn_training):
-            return keras.ops.cond(
-                bn_training,
-                lambda: self.batchnorm(conv_outputs, training=True),
-                lambda: self.batchnorm(conv_outputs, training=False)
-            )
+            return self.batchnorm(conv_outputs, training=Kops.cast(bn_training, bool))
         _ = call_batchnorm(conv_outputs, bn_training)
 
         self._iteration.assign_add(
-            keras.ops.cond(
-                training,
-                lambda: knp.array(1, dtype="int64"),
-                lambda: knp.array(0, dtype="int64"),
+            keras.ops.where(
+                Kops.cast(training, bool),
+                knp.array(1, dtype="int64"),
+                knp.array(0, dtype="int64")
             )
         )
 
@@ -245,14 +241,18 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             mv_inv *= gamma
             batch_inv *= gamma
 
-        folded_bias = keras.ops.cond(
-            bn_training,
-            lambda: batch_inv * (bias - mean) + beta,
-            lambda: mv_inv * (bias - moving_mean) + beta,
+        folded_bias = keras.ops.where(
+            Kops.cast(bn_training, bool),
+            batch_inv * (bias - mean) + beta,
+            mv_inv * (bias - moving_mean) + beta
         )
 
         if self.folding_mode == "batch_stats_folding":
-            inv = keras.ops.cond(bn_training, lambda: batch_inv, lambda: mv_inv)
+            inv = keras.ops.where(
+                Kops.cast(bn_training, bool),
+                batch_inv,
+                mv_inv
+            )
         elif self.folding_mode == "ema_stats_folding":
             inv = mv_inv
 
@@ -289,11 +289,10 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         )
 
         if training is True and self.folding_mode == "ema_stats_folding":
-            y_corr = keras.ops.cond(
-                bn_training,
-                lambda: knp.sqrt(moving_variance + self.batchnorm.epsilon)
-                * keras.ops.rsqrt(variance + self.batchnorm.epsilon),
-                lambda: 1,
+            y_corr = keras.ops.where(
+                Kops.cast(bn_training, bool),
+                knp.sqrt(moving_variance + self.batchnorm.epsilon) * keras.ops.rsqrt(variance + self.batchnorm.epsilon),
+                1
             )
             folded_outputs = folded_outputs * y_corr
 
