@@ -16,6 +16,7 @@
 """Clustering based quantizers"""
 
 
+import keras
 import keras.ops.numpy as knp
 import numpy as np
 from keras import Model, layers

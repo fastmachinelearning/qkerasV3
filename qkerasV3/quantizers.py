@@ -1017,7 +1017,7 @@ class quantized_linear(base_quantizer.BaseQuantizer):
         xq = scaled_xq * quantization_scale
 
         res = x + self.qnoise_factor * (xq - x)
-        res.set_shape(shape)
+        res = keras.ops.reshape(res, shape)
 
         return res
 

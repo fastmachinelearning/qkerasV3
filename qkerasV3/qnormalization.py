@@ -301,7 +301,7 @@ class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
         )
 
         # If some components of the shape got lost due to adjustments, fix that.
-        outputs.set_shape(input_shape)
+        outputs = keras.ops.reshape(outputs, input_shape)
 
         return outputs
 
