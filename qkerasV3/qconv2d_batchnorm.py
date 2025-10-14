@@ -17,7 +17,6 @@
 
 
 import keras
-import keras.ops.numpy as knp
 from keras import layers
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
@@ -172,7 +171,7 @@ class QConv2DBatchnorm(QConv2D):
             bn_training = Kops.cast(training, dtype=bool)
         else:
             bn_training = Kops.logical_and(
-                training, knp.less_equal(self._iteration, self.ema_freeze_delay)
+                training, Kops.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
         kernel = self.kernel
@@ -197,17 +196,10 @@ class QConv2DBatchnorm(QConv2D):
 
         # Perform a forward pass through BatchNormalization once to ensure that
         # the moving statistics (mean and variance) are updated if in training mode.
-        def call_batchnorm(conv_outputs, bn_training):
-            self.batchnorm(conv_outputs, training=keras.ops.cast(bn_training, bool))
-        _ = call_batchnorm(conv_outputs, bn_training)
+        self.batchnorm(conv_outputs, training=bool(training))
 
-        self._iteration.assign_add(
-            keras.ops.where(
-                Kops.cast(training, bool),
-                knp.array(1, dtype="int64"),
-                knp.array(0, dtype="int64"),
-            )
-        )
+        if training:
+            self._iteration.assign_add(Kops.array(1, "int64"))
 
         # calcuate mean and variance from current batch
         bn_shape = conv_outputs.shape

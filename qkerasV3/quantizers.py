@@ -144,8 +144,7 @@ def _get_scaling_axis(scale_axis: Any, len_axis: int) -> list[int]:
             axis = keras.ops.arange(scale_axis)
             axis = keras.ops.concatenate([axis, keras.ops.arange(scale_axis + 1, len_axis)], axis=0)
     elif K.image_data_format() == "channels_last":
-
-        axis = keras.ops.arange(keras.ops.maximum(len_axis - 1, 0))
+        axis = list(range(max(len_axis - 1, 0)))
     else:
         axis = keras.ops.arange(1, len_axis)
     return axis
@@ -1366,8 +1365,8 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         # float32 has a much larger value range (2^128) than int32 (2^32), this is
         # particularly important when quantizing very large values, and when integer
         # bits are set much larger than total bits.
-        m = knp.power(2.0, Kops.cast(unsigned_bits, keras.backend.floatx()))
-        m_i = knp.power(2.0, Kops.cast(self.integer, keras.backend.floatx()))
+        m = Kops.power(2.0, Kops.cast(unsigned_bits, keras.backend.floatx()))
+        m_i = Kops.power(2.0, Kops.cast(self.integer, keras.backend.floatx()))
 
         # Verify that "elements_per_scale", "min_po2_exponent",
         # and "max_po2_exponent" are only set when alpha is "auto_po2"
@@ -1419,14 +1418,14 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
 
                 # If alpha is "auto_po2", then get the "best" po2 scale
                 if "po2" in self.alpha:
-                    scale = knp.power(
+                    scale = Kops.power(
                         2.0,
                         keras.ops.round(
-                            Kops.log(scale + keras.backend.epsilon()) / np.log(2.0)
+                            Kops.log(scale + keras.backend.epsilon()) / Kops.log(2.0)
                         ),
                     )
                     for idx in range(5):
-                        v = knp.floor(knp.abs(x) / scale + 0.5)
+                        v = Kops.floor(Kops.abs(x) / scale + 0.5)
                         mask = v < levels / 2
                         z = keras.ops.sign(x) * keras.ops.where(mask, v, keras.ops.ones_like(v) * levels / 2)
                         scale = _get_least_squares_scale(

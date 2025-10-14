@@ -756,8 +756,7 @@ class AutoQKHyperModel(HyperModel):
                 ext_metrics += [TrialMetric(trial_size=self.trial_size), self.score]
             metrics = ext_metrics
 
-        # TODO: fix run_eagerly=True
-        q_model.compile(optimizer=optimizer, loss=self.model.loss, metrics=metrics, run_eagerly=True)
+        q_model.compile(optimizer=optimizer, loss=self.model.loss, metrics=metrics)
         self.q_model = q_model
 
         # this just prints a summary of the quantization for debugging
@@ -1386,8 +1385,7 @@ class AutoQKerasScheduler:
 
             # restore learning rate
             # this is just a placeholder for the optimizer.
-            # TODO: fix run_eagerly=True
-            model.compile(clone_optimizer(self.model.optimizer), loss=self.model.loss, metrics=["accuracy"], run_eagerly=True)
+            model.compile(clone_optimizer(self.model.optimizer), loss=self.model.loss, metrics=["accuracy"])
 
             frozen_layers = frozen_layers + new_frozen_layers
             filename = os.path.join(self.output_dir, f"model_block_{i}.keras")

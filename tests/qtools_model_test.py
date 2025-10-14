@@ -226,7 +226,7 @@ def qbn_model_inference():
     )(x)
 
     model = keras.Model(inputs=[x_in], outputs=[x])
-    model.compile(loss="mse", run_eagerly=True)
+    model.compile(loss="mse")
     model.get_layer("qconv2d_1").set_weights(
         [
             knp.array(
@@ -965,7 +965,7 @@ def test_auto_po2():
             3,
         )
     )
-    model.compile(loss="mse", run_eagerly=True)
+    model.compile(loss="mse")
     model.layers[1].quantizers[0].scale = knp.array(
         [[[[0.0625, 0.0625, 0.0625, 0.0625, 0.03125]]]]
     )

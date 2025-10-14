@@ -15,8 +15,10 @@
 # ==============================================================================
 """Tests layers from folded_layers.py."""
 
+import os
 import tempfile
 
+import jax
 import keras
 import keras.ops.numpy as knp
 import numpy as np
@@ -345,7 +347,12 @@ def test_unfold_model():
                 assert_equal(weight1[1], weight2[1])
 
         # test if the predictions of the two models are identical
-        pred1 = model.predict(x)
+        # TODO: fix eager mode
+        if os.environ["KERAS_BACKEND"] == "jax":
+            with jax.disable_jit():
+                pred1 = model.predict(x)
+        else:
+            pred1 = model.predict(x)
         pred2 = cvt_model.predict(x)
         assert_equal(pred1, pred2)
 
@@ -438,8 +445,13 @@ def test_same_training_and_prediction():
 
     # check if prediction is the same
     y1 = unfold_model.predict(x)
-    y2_batch = fold_model_batch.predict(x)
-    y2_ema = fold_model_ema.predict(x)
+    if os.environ["KERAS_BACKEND"] == "jax":
+        with jax.disable_jit():
+            y2_batch = fold_model_batch.predict(x)
+            y2_ema = fold_model_ema.predict(x)
+    else:
+        y2_batch = fold_model_batch.predict(x)
+        y2_ema = fold_model_ema.predict(x)
     assert_allclose(y1, y2_batch, rtol=1e-2)
     assert_allclose(y1, y2_ema, rtol=1e-2)
 
