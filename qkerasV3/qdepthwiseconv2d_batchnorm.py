@@ -201,11 +201,29 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         else:
             bias = 0
 
-        # Perform a forward pass through BatchNormalization once to ensure that
-        # the moving statistics (mean and variance) are updated if in training mode.
-        def call_batchnorm(conv_outputs, bn_training):
-            return self.batchnorm(conv_outputs, training=Kops.cast(bn_training, bool))
-        _ = call_batchnorm(conv_outputs, bn_training)
+        # TODO(makoeppel): the following code is hacky:
+        # since self._iteration is counted inside the layer
+        # `bn_training` will be always a tensor in graph mode,
+        # which can not be passed like training=bn_training.
+        # Therefore, we have to call self.batchnorm with `training`
+        # first to perform a forward pass and then use `bn_training`
+        # later in keras.ops.where to assign the correct values.
+        gamma_prev = self.batchnorm.gamma
+        beta_prev = self.batchnorm.beta
+        mm_prev = self.batchnorm.moving_mean
+        mv_prev = self.batchnorm.moving_variance
+
+        _ = self.batchnorm(conv_outputs, training=training)
+
+        gamma_keep = Kops.where(bn_training, self.batchnorm.gamma, gamma_prev)
+        beta_keep = Kops.where(bn_training, self.batchnorm.beta, beta_prev)
+        mm_keep = Kops.where(bn_training, self.batchnorm.moving_mean, mm_prev)
+        mv_keep = Kops.where(bn_training, self.batchnorm.moving_variance, mv_prev)
+
+        self.batchnorm.gamma.assign(gamma_keep)
+        self.batchnorm.beta.assign(beta_keep)
+        self.batchnorm.moving_mean.assign(mm_keep)
+        self.batchnorm.moving_variance.assign(mv_keep)
 
         self._iteration.assign_add(
             keras.ops.where(

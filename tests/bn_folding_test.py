@@ -445,6 +445,7 @@ def test_same_training_and_prediction():
 
     # check if prediction is the same
     y1 = unfold_model.predict(x)
+    # TODO: fix eager mode
     if os.environ["KERAS_BACKEND"] == "jax":
         with jax.disable_jit():
             y2_batch = fold_model_batch.predict(x)
