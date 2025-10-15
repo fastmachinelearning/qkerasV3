@@ -37,6 +37,7 @@ from qkerasV3 import (
     QDepthwiseConv2D,
     QDepthwiseConv2DBatchnorm,
     bn_folding_utils,
+    QDenseBatchnorm,
 )
 from qkerasV3.utils import (
     _add_supported_quantized_objects,
@@ -79,13 +80,7 @@ def get_qconv2d_model(input_shape, kernel_size, kernel_quantizer=None):
         gamma_regularizer=None,
         beta_constraint=None,
         gamma_constraint=None,
-        renorm=False,
-        renorm_clipping=None,
-        renorm_momentum=0.99,
-        fused=None,
         trainable=True,
-        virtual_batch_size=None,
-        adjustment=None,
         name="bn",
     )(x)
     x = layers.Flatten(name="flatten")(x)
@@ -128,7 +123,7 @@ def get_qconv2d_batchnorm_model(
     return model
 
 
-def get_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
+def get_conv2d_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
     x_shape = (2, 2, 1)
     loss_fn = keras.losses.MeanSquaredError()
     optimizer = keras.optimizers.SGD(learning_rate=1e-3)
@@ -189,6 +184,60 @@ def get_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
     return (unfold_model, fold_model)
 
 
+def get_dense_models_with_one_layer(kernel_quantizer, folding_mode, ema_freeze_delay):
+
+    x_shape = (4,)
+    loss_fn = keras.losses.MeanSquaredError()
+    optimizer = keras.optimizers.SGD(learning_rate=1e-3)
+
+    # define a model with seperate conv2d and bn layers
+    x = x_in = layers.Input(x_shape, name="input")
+    x = QDense(
+        2,
+        kernel_initializer="ones",
+        bias_initializer="zeros", use_bias=False,
+        kernel_quantizer=kernel_quantizer, bias_quantizer=None,
+        name="conv2d")(x)
+    x = layers.BatchNormalization(
+        axis=-1,
+        momentum=0.99,
+        epsilon=0.001,
+        center=True,
+        scale=True,
+        beta_initializer="zeros",
+        gamma_initializer="ones",
+        moving_mean_initializer="zeros",
+        moving_variance_initializer="ones",
+        beta_regularizer=None,
+        gamma_regularizer=None,
+        beta_constraint=None,
+        gamma_constraint=None,
+        trainable=True,
+        name="bn")(x)
+    unfold_model = Model(inputs=[x_in], outputs=[x])
+    unfold_model.compile(loss=loss_fn, optimizer=optimizer, metrics=["acc"])
+
+    x = x_in = layers.Input(x_shape, name="input")
+    x = QDenseBatchnorm(
+        2,
+        kernel_initializer="ones",
+        bias_initializer="zeros",
+        use_bias=False,
+        kernel_quantizer=kernel_quantizer,
+        beta_initializer="zeros",
+        gamma_initializer="ones",
+        moving_mean_initializer="zeros",
+        moving_variance_initializer="ones",
+        folding_mode=folding_mode,
+        ema_freeze_delay=ema_freeze_delay,
+        name="foldconv2d"
+    )(x)
+    fold_model = Model(inputs=[x_in], outputs=[x])
+    fold_model.compile(loss=loss_fn, optimizer=optimizer, metrics=["acc"])
+
+    return (unfold_model, fold_model)
+
+
 def get_debug_model(model):
     layer_output_list = []
     for layer in model.layers:
@@ -204,7 +253,7 @@ def generate_dataset(
 ):
     """create a toy dataset"""
 
-    x_train = np.random.rand(train_size, input_shape[0], input_shape[1], input_shape[2])
+    x_train = np.random.rand(*(train_size,) + input_shape)
 
     if output_shape:
         y_train = np.random.random_sample((train_size,) + output_shape)
@@ -219,7 +268,12 @@ def run_training(
     model, x, y, epochs, loss_fn, loss_metric, optimizer, do_preditc=False
 ):
     model.compile(loss=loss_fn, optimizer=optimizer, metrics=[loss_metric])
-    model.fit(x, y, epochs=epochs, shuffle=False)
+    # TODO: fix eager mode
+    if os.environ["KERAS_BACKEND"] == "jax":
+        with jax.disable_jit():
+            model.fit(x, y, epochs=epochs, shuffle=False)
+    else:
+        model.fit(x, y, epochs=epochs, shuffle=False)
     if do_preditc: return model.predict(x)
 
 
@@ -406,15 +460,20 @@ def test_loading():
     assert_equal(keras.ops.convert_to_numpy(weight1[1]), weight2[1])
 
 
-def test_same_training_and_prediction():
+@pytest.mark.parametrize("model_name", ["conv2d", "dense"])
+def test_same_training_and_prediction(model_name):
     """test if fold/unfold layer has the same training and prediction output."""
 
     epochs = 5
     loss_fn = keras.losses.MeanSquaredError()
     loss_metric = 'MAE'
 
-    x_shape = (2, 2, 1)
-    kernel = knp.array([[[[1.0, 1.0]], [[1.0, 0.0]]], [[[1.0, 1.0]], [[0.0, 1.0]]]])
+    if model_name == "conv2d":
+        x_shape = (2, 2, 1)
+        kernel = np.array([[[[1., 1.]], [[1., 0.]]], [[[1., 1.]], [[0., 1.]]]])
+    elif model_name == "dense":
+        x_shape = (4,)
+        kernel = np.array([[1., 1.], [1., 0.], [1., 1.], [0., 1.]])
     gamma = knp.array([2.0, 1.0])
     beta = knp.array([0.0, 1.0])
     moving_mean = knp.array([1.0, 1.0])
@@ -427,12 +486,20 @@ def test_same_training_and_prediction():
         num_class=2
     )
 
-    (unfold_model, fold_model_batch) = get_models_with_one_layer(
-        kernel_quantizer=None, folding_mode="batch_stats_folding", ema_freeze_delay=10
-    )
-    (_, fold_model_ema) = get_models_with_one_layer(
-        kernel_quantizer=None, folding_mode="ema_stats_folding", ema_freeze_delay=10
-    )
+    if model_name == "conv2d":
+        (unfold_model, fold_model_batch) = get_conv2d_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="batch_stats_folding",
+            ema_freeze_delay=10)
+        (_, fold_model_ema) = get_conv2d_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="ema_stats_folding",
+            ema_freeze_delay=10)
+    elif model_name == "dense":
+        (unfold_model, fold_model_batch) = get_dense_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="batch_stats_folding",
+            ema_freeze_delay=10)
+        (_, fold_model_ema) = get_dense_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="ema_stats_folding",
+            ema_freeze_delay=10)
 
     unfold_model.layers[1].set_weights([kernel])
     unfold_model.layers[2].set_weights([gamma, beta, moving_mean, moving_variance])
@@ -497,12 +564,21 @@ def test_same_training_and_prediction():
     # models should be different, but the two folding modes should be the same
     epochs = 5
     iteration = knp.array(8)
-    (unfold_model, fold_model_batch) = get_models_with_one_layer(
-        kernel_quantizer=None, folding_mode="batch_stats_folding", ema_freeze_delay=10
-    )
-    (_, fold_model_ema) = get_models_with_one_layer(
-        kernel_quantizer=None, folding_mode="ema_stats_folding", ema_freeze_delay=10
-    )
+    if model_name == "conv2d":
+        (unfold_model, fold_model_batch) = get_conv2d_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="batch_stats_folding",
+            ema_freeze_delay=10)
+        (_, fold_model_ema) = get_conv2d_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="ema_stats_folding",
+            ema_freeze_delay=10)
+    elif model_name == "dense":
+        (unfold_model, fold_model_batch) = get_dense_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="batch_stats_folding",
+            ema_freeze_delay=10)
+        (_, fold_model_ema) = get_dense_models_with_one_layer(
+            kernel_quantizer=None, folding_mode="ema_stats_folding",
+            ema_freeze_delay=10)
+
     unfold_model.layers[1].set_weights([kernel])
     unfold_model.layers[2].set_weights([gamma, beta, moving_mean, moving_variance])
     fold_model_batch.layers[1].set_weights(

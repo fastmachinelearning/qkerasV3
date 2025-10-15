@@ -5,7 +5,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#         http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,34 +13,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Fold batchnormalization with previous QConv2D layers."""
-
+"""Fold batchnormalization with previous QDense layers."""
 
 import keras
+import keras.ops.numpy as knp
 from keras import layers
 from keras import ops as Kops
-from keras.saving import register_keras_serializable
-from six.moves import range
 
 from .ops_portable import bias_add_portable
-from .qconvolutional import QConv2D
+from .qlayers import QDense
 from .quantizers import *
 
 
-# TODO(lishanok): Create an abstract folding parent class
-@register_keras_serializable(package="qkerasV3")
-class QConv2DBatchnorm(QConv2D):
-    """Fold batchnormalization with a previous qconv2d layer."""
+class QDenseBatchnorm(QDense):
+    """Implements a quantized Dense layer fused with Batchnorm."""
 
     def __init__(
         self,
-        # qconv2d params
-        filters,
-        kernel_size,
-        strides=(1, 1),
-        padding="valid",
-        data_format="channels_last",
-        dilation_rate=(1, 1),
+        units,
         activation=None,
         use_bias=True,
         kernel_initializer="he_normal",
@@ -52,6 +42,8 @@ class QConv2DBatchnorm(QConv2D):
         bias_constraint=None,
         kernel_quantizer=None,
         bias_quantizer=None,
+        kernel_range=None,
+        bias_range=None,
         # batchnorm params
         axis=-1,
         momentum=0.99,
@@ -70,12 +62,14 @@ class QConv2DBatchnorm(QConv2D):
         # other params
         ema_freeze_delay=None,
         folding_mode="ema_stats_folding",
-        **kwargs,
+        **kwargs
     ):
-        """Initialize a composite layer that folds conv2d and batch normalization.
+
+        """A composite layer that folds QDense and batch normalization.
 
         The first group of parameters correponds to the initialization parameters
-          of a qconv2d layer. check qkerasV3.qconvolutional.qconv2d for details.
+          of a QDense layer. check qkerasV3.qlayers.QDense
+          for details.
 
         The 2nd group of parameters corresponds to the initialization parameters
           of a BatchNormalization layer. Check keras.layers.normalization.BatchNorma
@@ -84,8 +78,8 @@ class QConv2DBatchnorm(QConv2D):
         The 3rd group of parameters corresponds to the initialization parameters
           specific to this class.
 
-          ema_freeze_delay: int. number of steps before batch normalization mv_mean
-            and mv_variance will be frozen and used in the folded layer.
+          ema_freeze_delay: int or None. number of steps before batch normalization
+            mv_mean and mv_variance will be frozen and used in the folded layer.
           folding_mode: string
             "ema_stats_folding": mimic tflite which uses the ema statistics to
               fold the kernel to suppress quantization induced jitter then performs
@@ -95,16 +89,8 @@ class QConv2DBatchnorm(QConv2D):
               after enough training steps switch to moving_mean and moving_variance
               for kernel folding.
         """
-        kwargs.pop("synchronized", None)
-
-        # intialization the qconv2d part of the composite layer
-        super().__init__(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            data_format=data_format,
-            dilation_rate=dilation_rate,
+        super(QDenseBatchnorm, self).__init__(
+            units=units,
             activation=activation,
             use_bias=use_bias,
             kernel_initializer=kernel_initializer,
@@ -116,7 +102,9 @@ class QConv2DBatchnorm(QConv2D):
             bias_constraint=bias_constraint,
             kernel_quantizer=kernel_quantizer,
             bias_quantizer=bias_quantizer,
-            **kwargs,
+            kernel_range=kernel_range,
+            bias_range=bias_range,
+            **kwargs
         )
 
         # initialization of batchnorm part of the composite layer
@@ -142,14 +130,9 @@ class QConv2DBatchnorm(QConv2D):
         self.folding_mode = folding_mode
 
     def build(self, input_shape):
-        super(QConv2DBatchnorm, self).build(input_shape)
+        super(QDenseBatchnorm, self).build(input_shape)
 
-        if self.data_format == "channels_last":
-            # BN sees only C_out; shape rank doesn’t matter as long as last dim is C_out
-            bn_input_shape = (input_shape[0], 1, 1, self.filters)
-        else:  # channels_first
-            bn_input_shape = (input_shape[0], self.filters, 1, 1)
-
+        bn_input_shape = tuple([None] * (len(input_shape) - 1) + [self.units])
         self.batchnorm.build(bn_input_shape)
 
         # self._iteration (i.e., training_steps) is initialized with -1. When
@@ -160,36 +143,30 @@ class QConv2DBatchnorm(QConv2D):
             -1, trainable=False, name="iteration", dtype="int64"
         )
 
-    def call(self, inputs, training=False):
-        # numpy value, mark the layer is in training
+    def call(self, inputs, training=None):
+        # default
         if training is None:
-            training = False  # pylint: disable=protected-access
+            training = False
 
-        # checking if to update batchnorm params
+        # Determine whether BatchNormalization layers should run in training mode.
         if (self.ema_freeze_delay is None) or (self.ema_freeze_delay < 0):
-            # if ema_freeze_delay is None or a negative value, do not freeze bn stats
             bn_training = Kops.cast(training, dtype=bool)
         else:
             bn_training = Kops.logical_and(
-                training, Kops.less_equal(self._iteration, self.ema_freeze_delay)
+                training, knp.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
         kernel = self.kernel
 
-        # run conv to produce output for the following batchnorm
-        conv_outputs = keras.ops.conv(
-            inputs,
-            kernel,
-            strides=self.strides,
-            padding=self.padding,
-            data_format=self.data_format,
-            dilation_rate=self.dilation_rate,
+        # execute qdense output
+        qdense_outputs = keras.ops.dot(
+            inputs, kernel
         )
 
         if self.use_bias:
             bias = self.bias
-            conv_outputs = bias_add_portable(
-                conv_outputs, bias, data_format=self.data_format
+            qdense_outputs = bias_add_portable(
+                qdense_outputs, bias, data_format="channels_last"
             )
         else:
             bias = 0
@@ -206,7 +183,7 @@ class QConv2DBatchnorm(QConv2D):
         mm_prev = self.batchnorm.moving_mean
         mv_prev = self.batchnorm.moving_variance
 
-        _ = self.batchnorm(conv_outputs, training=training)
+        _ = self.batchnorm(qdense_outputs, training=training)
 
         gamma = Kops.where(bn_training, self.batchnorm.gamma, gamma_prev)
         beta = Kops.where(bn_training, self.batchnorm.beta, beta_prev)
@@ -218,21 +195,26 @@ class QConv2DBatchnorm(QConv2D):
         self.batchnorm.moving_mean.assign(moving_mean)
         self.batchnorm.moving_variance.assign(moving_variance)
 
-        if training:
-            self._iteration.assign_add(Kops.array(1, "int64"))
+        self._iteration.assign_add(
+            keras.ops.where(
+                Kops.cast(training, bool),
+                knp.array(1, dtype="int64"),
+                knp.array(0, dtype="int64")
+            )
+        )
 
-        # calcuate mean and variance from current batch
-        bn_shape = conv_outputs.shape
+        # calculate mean and variance from current batch
+        bn_shape = qdense_outputs.shape
         ndims = len(bn_shape)
         axes = self.batchnorm.axis
         if isinstance(axes, int):
             axes = [axes]
 
         reduction_axes = [i for i in range(ndims) if i not in axes]
-
         keep_dims = len(axes) > 1
+
         mean, variance = keras.ops.moments(  # pylint: disable=protected-access
-            keras.ops.cast(conv_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
+            keras.ops.cast(qdense_outputs, self.batchnorm.compute_dtype),  # pylint: disable=protected-access
             reduction_axes,
             keepdims=keep_dims,
         )
@@ -305,15 +287,8 @@ class QConv2DBatchnorm(QConv2D):
         applied_kernel = q_folded_kernel
         applied_bias = q_folded_bias
 
-        # calculate conv2d output using the quantized folded kernel
-        folded_outputs = keras.ops.conv(
-            inputs,
-            applied_kernel,
-            strides=self.strides,
-            padding=self.padding,
-            data_format=self.data_format,
-            dilation_rate=self.dilation_rate,
-        )
+        # calculate qdense output using the quantized folded kernel
+        folded_outputs = keras.ops.dot(inputs, applied_kernel)
 
         if training and self.folding_mode == "ema_stats_folding":
             batch_inv = 1 / keras.ops.sqrt(variance + self.batchnorm.epsilon)
@@ -325,8 +300,9 @@ class QConv2DBatchnorm(QConv2D):
             folded_outputs = folded_outputs * y_corr
 
         folded_outputs = bias_add_portable(
-            folded_outputs, applied_bias, data_format=self.data_format
+            folded_outputs, applied_bias, data_format="channels_last"
         )
+
         if self.activation is not None:
             return self.activation(folded_outputs)
 
@@ -351,10 +327,9 @@ class QConv2DBatchnorm(QConv2D):
 
     def get_quantization_config(self):
         return {
-            "kernel_quantizer": str(self.kernel_quantizer_internal),
+            "depthwise_quantizer": str(self.depthwise_quantizer_internal),
             "bias_quantizer": str(self.bias_quantizer_internal),
             "activation": str(self.activation),
-            "filters": str(self.filters),
         }
 
     def get_quantizers(self):
@@ -362,10 +337,8 @@ class QConv2DBatchnorm(QConv2D):
 
     def get_folded_weights(self):
         """Function to get the batchnorm folded weights.
-
         This function converts the weights by folding batchnorm parameters into
-        the weight of QConv2D. The high-level equation:
-
+        the weight of QDense. The high-level equation:
         W_fold = gamma * W / sqrt(variance + epsilon)
         bias_fold = gamma * (bias - moving_mean) / sqrt(variance + epsilon) + beta
         """

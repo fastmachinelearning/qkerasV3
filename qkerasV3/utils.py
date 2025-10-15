@@ -42,6 +42,7 @@ from .qconvolutional import (
     QSeparableConv2D,
 )
 from .qdepthwiseconv2d_batchnorm import QDepthwiseConv2DBatchnorm
+from .qdense_batchnorm import QDenseBatchnorm
 from .qlayers import Clip, QActivation, QAdaptiveActivation, QDense, QInitializer
 from .qmac import QScaleShift
 from .qnormalization import QBatchNormalization
@@ -80,6 +81,7 @@ REGISTERED_LAYERS = [
     "QDepthwiseConv2DBatchnorm",
     "QAveragePooling2D",
     "QGlobalAveragePooling2D",
+    "QDenseBatchnorm",
 ]
 
 
@@ -256,7 +258,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
 
             if any(
                 isinstance(layer, t)
-                for t in [QConv2DBatchnorm, QDepthwiseConv2DBatchnorm]
+                for t in [QConv2DBatchnorm, QDenseBatchnorm, QDepthwiseConv2DBatchnorm]
             ):
                 qs = layer.get_quantizers()
                 ws = layer.get_folded_weights()
@@ -398,7 +400,7 @@ def model_save_quantized_weights(model, filename=None, custom_objects={}):
                 saved_weights[layer.name]["scales"] = scales
             if not any(
                 isinstance(layer, t)
-                for t in [QConv2DBatchnorm, QDepthwiseConv2DBatchnorm]
+                for t in [QConv2DBatchnorm, QDenseBatchnorm, QDepthwiseConv2DBatchnorm]
             ):
                 # Set layer weights in the format that software inference uses
                 layer.set_weights(weights)
@@ -1110,6 +1112,8 @@ def _add_supported_quantized_objects(custom_objects):
 
     custom_objects["QConv2DBatchnorm"] = QConv2DBatchnorm
     custom_objects["QDepthwiseConv2DBatchnorm"] = QDepthwiseConv2DBatchnorm
+
+    custom_objects["QDenseBatchnorm"] = QDenseBatchnorm
 
     custom_objects["QAveragePooling2D"] = QAveragePooling2D
     custom_objects["QGlobalAveragePooling2D"] = QGlobalAveragePooling2D

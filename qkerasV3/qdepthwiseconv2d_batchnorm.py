@@ -215,15 +215,15 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
 
         _ = self.batchnorm(conv_outputs, training=training)
 
-        gamma_keep = Kops.where(bn_training, self.batchnorm.gamma, gamma_prev)
-        beta_keep = Kops.where(bn_training, self.batchnorm.beta, beta_prev)
-        mm_keep = Kops.where(bn_training, self.batchnorm.moving_mean, mm_prev)
-        mv_keep = Kops.where(bn_training, self.batchnorm.moving_variance, mv_prev)
+        gamma = Kops.where(bn_training, self.batchnorm.gamma, gamma_prev)
+        beta = Kops.where(bn_training, self.batchnorm.beta, beta_prev)
+        moving_mean = Kops.where(bn_training, self.batchnorm.moving_mean, mm_prev)
+        moving_variance = Kops.where(bn_training, self.batchnorm.moving_variance, mv_prev)
 
-        self.batchnorm.gamma.assign(gamma_keep)
-        self.batchnorm.beta.assign(beta_keep)
-        self.batchnorm.moving_mean.assign(mm_keep)
-        self.batchnorm.moving_variance.assign(mv_keep)
+        self.batchnorm.gamma.assign(gamma)
+        self.batchnorm.beta.assign(beta)
+        self.batchnorm.moving_mean.assign(moving_mean)
+        self.batchnorm.moving_variance.assign(moving_variance)
 
         self._iteration.assign_add(
             keras.ops.where(
@@ -243,11 +243,6 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         keep_dims = len(axes) > 1
 
         mean, variance = keras.ops.moments(conv_outputs, reduction_axes, keepdims=keep_dims)
-
-        gamma = self.batchnorm.gamma
-        beta = self.batchnorm.beta
-        moving_mean = self.batchnorm.moving_mean
-        moving_variance = self.batchnorm.moving_variance
 
         if self.folding_mode not in ["batch_stats_folding", "ema_stats_folding"]:
             raise ValueError(f"mode {self.folding_mode} not supported!")
@@ -306,7 +301,7 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
             data_format=self.data_format,
         )
 
-        if training is True and self.folding_mode == "ema_stats_folding":
+        if training and self.folding_mode == "ema_stats_folding":
             y_corr = keras.ops.where(
                 Kops.cast(bn_training, bool),
                 knp.sqrt(moving_variance + self.batchnorm.epsilon) * keras.ops.rsqrt(variance + self.batchnorm.epsilon),
