@@ -27,7 +27,7 @@ from keras.utils import to_categorical
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import MinMaxScaler
 
-from qkerasV3.autoqkeras import AutoQKerasScheduler
+from qkeras.autoqkeras import AutoQKerasScheduler
 
 # set random seed
 keras.utils.set_random_seed(812)

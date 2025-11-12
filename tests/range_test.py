@@ -20,7 +20,7 @@ import keras.ops.numpy as knp
 import pytest
 from numpy.testing import assert_allclose
 
-from qkerasV3 import quantized_bits, quantized_relu
+from qkeras import quantized_bits, quantized_relu
 
 # set random seed
 keras.utils.set_random_seed(812)

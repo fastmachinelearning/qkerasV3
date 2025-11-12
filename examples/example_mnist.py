@@ -25,8 +25,8 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 
-from qkerasV3 import *
-from qkerasV3.utils import model_save_quantized_weights
+from qkeras import *
+from qkeras.utils import model_save_quantized_weights
 
 NB_EPOCH = 10
 BATCH_SIZE = 64

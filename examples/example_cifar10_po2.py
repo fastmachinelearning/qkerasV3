@@ -25,7 +25,7 @@ from keras.models import Model
 from keras.optimizers import *
 from keras.utils import to_categorical
 
-from qkerasV3 import *
+from qkeras import *
 
 NB_EPOCH = 50
 BATCH_SIZE = 64

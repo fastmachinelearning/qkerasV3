@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 from keras import ops
 
-from qkerasV3 import quantizer_registry
+from qkeras import quantizer_registry
 
 # Keep it deterministic
 keras.utils.set_random_seed(812)

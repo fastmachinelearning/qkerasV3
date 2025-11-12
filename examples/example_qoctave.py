@@ -20,7 +20,7 @@ from keras import ops as Kops
 from keras.layers import Activation, Input, UpSampling2D
 from keras.models import Model
 
-from qkerasV3 import *  # pylint: disable=wildcard-import
+from qkeras import *  # pylint: disable=wildcard-import
 
 
 def create_model():

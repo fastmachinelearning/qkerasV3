@@ -27,7 +27,7 @@ from keras import layers
 from keras.models import Model
 from numpy.testing import assert_array_equal
 
-from qkerasV3 import (
+from qkeras import (
     QActivation,
     QBatchNormalization,
     QConv2D,
@@ -36,7 +36,7 @@ from qkerasV3 import (
     quantized_bits,
     quantized_po2,
 )
-from qkerasV3.utils import (
+from qkeras.utils import (
     add_bn_fusing_weights,
     clone_model_and_freeze_auto_po2_scale,
     convert_to_folded_model,

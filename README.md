@@ -1,10 +1,10 @@
-# QKerasV3
+# qkeras
 
 ## Fork notice
-This repository is a hard fork of the original QKeras project. The upstream project appears unmaintained, so this fork is independently maintained and not affiliated with the original authors or their organizations. The PyPI distribution is published as qkeras-v3 and the import namespace is qkerasV3. We aim to keep reasonable compatibility while updating dependencies (Keras/TF) and fixing issues; some breaking changes are documented in the CHANGELOG.
+This repository is a hard fork of the original QKeras project. The upstream project appears unmaintained, so this fork is independently maintained and not affiliated with the original authors or their organizations. The PyPI distribution is published as qkeras-v3 and the import namespace is qkeras. We aim to keep reasonable compatibility while updating dependencies (Keras/TF) and fixing issues; some breaking changes are documented in the CHANGELOG.
 Licensed under Apache-2.0. See LICENSE and NOTICE for attribution and details of modifications.
 
-[https://github.com/makoeppel/qkerasV3](https://github.com/makoeppel/qkerasV3)
+[https://github.com/makoeppel/qkeras](https://github.com/makoeppel/qkeras)
 
 ## Introduction
 
@@ -148,7 +148,7 @@ functions. They draw a random number with uniform distribution from
 _hard_sigmoid of the input x, and result is based on the expected
 value of the activation function. Please refer to the papers if you
 want to understand the underlying theory, or the documentation in
-qkerasV3/qlayers.py.
+qkeras/qlayers.py.
 
 The parameters "bits" specify the number of bits for the quantization,
 and "integer" specifies how many bits of "bits" are to the left of the
@@ -192,7 +192,7 @@ You can easily quantize this network as follows:
 
 ```python
 from keras.layers import *
-from qkerasV3 import *
+from qkeras import *
 
 x = x_in = Input(shape)
 x = QConv2D(18, (3, 3),
@@ -262,9 +262,9 @@ performance. QTools energy consumption on a 45nm process is based on the
 data published in this work.
 
 - Examples:
-Example of how to generate data type map can be found in qkerasV3/qtools/
+Example of how to generate data type map can be found in qkeras/qtools/
 examples/example_generate_json.py. Example of how to generate energy consumption
-estimation can be found in qkerasV3/qtools/examples/example_get_energy.py
+estimation can be found in qkeras/qtools/examples/example_get_energy.py
 
 
 ## AutoQKeras

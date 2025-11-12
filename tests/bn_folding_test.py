@@ -29,7 +29,7 @@ from keras.models import Model
 from keras.utils import to_categorical
 from numpy.testing import assert_allclose, assert_equal, assert_raises
 
-from qkerasV3 import (
+from qkeras import (
     QActivation,
     QConv2D,
     QConv2DBatchnorm,
@@ -39,7 +39,7 @@ from qkerasV3 import (
     bn_folding_utils,
     QDenseBatchnorm,
 )
-from qkerasV3.utils import (
+from qkeras.utils import (
     _add_supported_quantized_objects,
     load_qmodel,
     quantized_model_from_json,
@@ -798,7 +798,7 @@ def test_same_training_and_prediction(model_name):
 def test_populate_bias_quantizer_from_accumulator():
     """Test populate_bias_quantizer_from_accumulator function.
 
-    Define a qkerasV3 model with a QConv2DBatchnorm layer. Set bias quantizer in the
+    Define a qkeras model with a QConv2DBatchnorm layer. Set bias quantizer in the
     layer as None. Call populate_bias_quantizer_from_accumulator function
     to automatically generate bias quantizer type from the MAC accumulator type.
     Set the bias quantizer accordingly in the model.
@@ -810,7 +810,7 @@ def test_populate_bias_quantizer_from_accumulator():
 
     x_shape = (2, 2, 1)
 
-    # get a qkerasV3 model with QConv2DBatchnorm layer. Set bias quantizer in the
+    # get a qkeras model with QConv2DBatchnorm layer. Set bias quantizer in the
     # layer as None.
     x = x_in = layers.Input(x_shape, name="input")
     x1 = QConv2D(

@@ -24,8 +24,8 @@ from keras.layers import *
 from keras.models import *
 from numpy.testing import assert_equal
 
-from qkerasV3 import *
-from qkerasV3.callbacks import QNoiseScheduler
+from qkeras import *
+from qkeras.callbacks import QNoiseScheduler
 
 # set random seed
 keras.utils.set_random_seed(812)

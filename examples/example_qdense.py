@@ -24,7 +24,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 
-from qkerasV3 import QActivation, QDense, print_qstats, quantized_bits, ternary
+from qkeras import QActivation, QDense, print_qstats, quantized_bits, ternary
 
 OPTIMIZER = Adam()
 NB_EPOCH = 1

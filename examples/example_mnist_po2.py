@@ -24,7 +24,7 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 
-from qkerasV3 import *  # pylint: disable=wildcard-import
+from qkeras import *  # pylint: disable=wildcard-import
 
 NB_EPOCH = 5
 BATCH_SIZE = 64

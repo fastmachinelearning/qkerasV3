@@ -27,8 +27,8 @@ from keras.layers import Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_equal
 
-from qkerasV3 import QActivation, QDense
-from qkerasV3.utils import load_qmodel
+from qkeras import QActivation, QDense
+from qkeras.utils import load_qmodel
 
 # set random seed
 keras.utils.set_random_seed(812)

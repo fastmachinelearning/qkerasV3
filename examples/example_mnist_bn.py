@@ -29,7 +29,7 @@ from keras.optimizers import *
 from keras.utils import to_categorical
 from six.moves import zip
 
-from qkerasV3 import *
+from qkeras import *
 
 TRAIN = 1
 NB_EPOCH = 2

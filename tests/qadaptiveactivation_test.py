@@ -24,8 +24,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from qkerasV3.qlayers import QAdaptiveActivation
-from qkerasV3.quantizers import _get_integer_bits
+from qkeras.qlayers import QAdaptiveActivation
+from qkeras.quantizers import _get_integer_bits
 
 # set random seed
 keras.utils.set_random_seed(812)

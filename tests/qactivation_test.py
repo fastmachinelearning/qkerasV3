@@ -21,7 +21,7 @@ import pytest
 from keras import backend as K
 from numpy.testing import assert_allclose
 
-from qkerasV3 import (
+from qkeras import (
     binary,
     hard_sigmoid,
     quantized_bits,
@@ -37,7 +37,7 @@ from qkerasV3 import (
     stochastic_ternary,
     ternary,
 )
-from qkerasV3.quantizers import _default_sigmoid_type
+from qkeras.quantizers import _default_sigmoid_type
 
 
 @pytest.mark.parametrize(

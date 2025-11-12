@@ -22,8 +22,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_equal
 
-from qkerasV3 import binary, get_weight_scale, ternary
-from qkerasV3.quantizers import _get_integer_bits
+from qkeras import binary, get_weight_scale, ternary
+from qkeras.quantizers import _get_integer_bits
 
 # expected value if input is uniform distribution is:
 #   - alpha = m/2.0 for binary

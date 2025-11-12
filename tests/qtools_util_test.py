@@ -21,9 +21,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
-from qkerasV3 import quantizers
-from qkerasV3.qtools import qtools_util, quantized_operators
-from qkerasV3.qtools.quantized_operators import (
+from qkeras import quantizers
+from qkeras.qtools import qtools_util, quantized_operators
+from qkeras.qtools.quantized_operators import (
     quantizer_factory as quantizer_factory_module,
 )
 
@@ -55,12 +55,12 @@ def test_adjust_multiplier_for_auto_po2(
     multiplier_factory = quantized_operators.MultiplierFactory()
     quantizer_factory = quantizer_factory_module.QuantizerFactory()
 
-    qkerasV3_input_quantizer = quantizers.quantized_bits(4, 2, 1)
+    qkeras_input_quantizer = quantizers.quantized_bits(4, 2, 1)
 
     # Generate the weight quantizer.
     if weight_quantizer_scale_type in ["auto_po2", "post_training_scale"]:
         # Compute the scale for auto_po2 quantizer.
-        qkerasV3_weight_quantizer = quantizers.quantized_bits(
+        qkeras_weight_quantizer = quantizers.quantized_bits(
             bits=w_bits,
             integer=w_int_bits,
             keep_negative=True,
@@ -70,22 +70,22 @@ def test_adjust_multiplier_for_auto_po2(
         weight_arr = np.array([1.07, -1.7, 3.06, 1.93, 0.37, -2.43, 6.3, -2.9]).reshape(
             (2, 4)
         )
-        qkerasV3_weight_quantizer(weight_arr)
+        qkeras_weight_quantizer(weight_arr)
 
         if weight_quantizer_scale_type == "post_training_scale":
             # Set the post_training_scale as fixed scale.
-            auto_po2_scale = keras.ops.convert_to_numpy(qkerasV3_weight_quantizer.scale)
-            qkerasV3_weight_quantizer = quantizers.quantized_bits(
+            auto_po2_scale = keras.ops.convert_to_numpy(qkeras_weight_quantizer.scale)
+            qkeras_weight_quantizer = quantizers.quantized_bits(
                 bits=w_bits,
                 integer=w_int_bits,
                 alpha="auto_po2",
                 post_training_scale=auto_po2_scale,
             )
     else:
-        qkerasV3_weight_quantizer = quantizers.quantized_bits(w_bits, w_int_bits)
+        qkeras_weight_quantizer = quantizers.quantized_bits(w_bits, w_int_bits)
 
-    input_quantizer = quantizer_factory.make_quantizer(qkerasV3_input_quantizer)
-    weight_quantizer = quantizer_factory.make_quantizer(qkerasV3_weight_quantizer)
+    input_quantizer = quantizer_factory.make_quantizer(qkeras_input_quantizer)
+    weight_quantizer = quantizer_factory.make_quantizer(qkeras_weight_quantizer)
 
     multiplier = multiplier_factory.make_multiplier(weight_quantizer, input_quantizer)
 
@@ -94,7 +94,7 @@ def test_adjust_multiplier_for_auto_po2(
         multiplier.output.int_bits, expected_int_bits_before_adjustment
     )
 
-    qtools_util.adjust_multiplier_for_auto_po2(multiplier, qkerasV3_weight_quantizer)
+    qtools_util.adjust_multiplier_for_auto_po2(multiplier, qkeras_weight_quantizer)
     print(f"after adjustment: {multiplier.output.bits}, {multiplier.output.int_bits}")
     assert_equal(multiplier.output.bits, expected_bits_after_adjustment)
     assert_equal(

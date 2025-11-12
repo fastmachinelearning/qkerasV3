@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
-from qkerasV3 import QDepthwiseConv2DTranspose, quantized_bits
+from qkeras import QDepthwiseConv2DTranspose, quantized_bits
 
 # set random seed
 keras.utils.set_random_seed(812)

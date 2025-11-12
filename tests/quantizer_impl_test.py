@@ -23,8 +23,8 @@ import pytest
 from keras import ops as Kops
 from numpy.testing import assert_equal
 
-from qkerasV3 import quantizers
-from qkerasV3.qtools.quantized_operators import quantizer_impl
+from qkeras import quantizers
+from qkeras.qtools.quantized_operators import quantizer_impl
 
 # set random seed
 keras.utils.set_random_seed(812)
@@ -41,26 +41,26 @@ def _get_min_max_po2_exponent(x):
 
 # pylint: disable=invalid-name
 def test_QuantizedBits():
-    qkerasV3_quantizer = quantizers.quantized_bits()
+    qkeras_quantizer = quantizers.quantized_bits()
     qtools_quantizer = quantizer_impl.QuantizedBits()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        symmetric=qkerasV3_quantizer.symmetric,
-        alpha=qkerasV3_quantizer.alpha,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        scale_axis=qkerasV3_quantizer.scale_axis,
-        qnoise_factor=qkerasV3_quantizer.qnoise_factor,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        symmetric=qkeras_quantizer.symmetric,
+        alpha=qkeras_quantizer.alpha,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        scale_axis=qkeras_quantizer.scale_axis,
+        qnoise_factor=qkeras_quantizer.qnoise_factor,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_QuantizedBits_ElementsPerScale():
     """Tests quantized_bits with elements_per_scale."""
 
-    qkerasV3_quantizer = quantizers.quantized_bits(
+    qkeras_quantizer = quantizers.quantized_bits(
         alpha="auto_po2",
         elements_per_scale=[1, 1],
         scale_axis=[1, 2],
@@ -69,16 +69,16 @@ def test_QuantizedBits_ElementsPerScale():
     )
 
     qtools_quantizer = quantizer_impl.QuantizedBits()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        symmetric=qkerasV3_quantizer.symmetric,
-        alpha=qkerasV3_quantizer.alpha,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        scale_axis=qkerasV3_quantizer.scale_axis,
-        qnoise_factor=qkerasV3_quantizer.qnoise_factor,
-        elements_per_scale=qkerasV3_quantizer.elements_per_scale,
-        min_po2_exponent=qkerasV3_quantizer.min_po2_exponent,
-        max_po2_exponent=qkerasV3_quantizer.max_po2_exponent,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        symmetric=qkeras_quantizer.symmetric,
+        alpha=qkeras_quantizer.alpha,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        scale_axis=qkeras_quantizer.scale_axis,
+        qnoise_factor=qkeras_quantizer.qnoise_factor,
+        elements_per_scale=qkeras_quantizer.elements_per_scale,
+        min_po2_exponent=qkeras_quantizer.min_po2_exponent,
+        max_po2_exponent=qkeras_quantizer.max_po2_exponent,
     )
 
     # for quantized_bits the scale is multiplied by the integer scale as well
@@ -107,155 +107,155 @@ def test_QuantizedBits_ElementsPerScale():
 
 
 def test_QuantizedTanh():
-    qkerasV3_quantizer = quantizers.quantized_tanh()
+    qkeras_quantizer = quantizers.quantized_tanh()
     qtools_quantizer = quantizer_impl.QuantizedTanh()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        symmetric=qkerasV3_quantizer.symmetric,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        symmetric=qkeras_quantizer.symmetric,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_QuantizedUlaw():
-    qkerasV3_quantizer = quantizers.quantized_ulaw()
+    qkeras_quantizer = quantizers.quantized_ulaw()
     qtools_quantizer = quantizer_impl.QuantizedUlaw()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        symmetric=qkerasV3_quantizer.symmetric, u=qkerasV3_quantizer.u
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        symmetric=qkeras_quantizer.symmetric, u=qkeras_quantizer.u
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_Binary():
-    qkerasV3_quantizer = quantizers.binary()
+    qkeras_quantizer = quantizers.binary()
     qtools_quantizer = quantizer_impl.Binary()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        alpha=qkerasV3_quantizer.alpha,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        alpha=qkeras_quantizer.alpha,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_StochasticBinary():
-    qkerasV3_quantizer = quantizers.stochastic_binary()
+    qkeras_quantizer = quantizers.stochastic_binary()
     qtools_quantizer = quantizer_impl.StochasticBinary()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        alpha=qkerasV3_quantizer.alpha,
-        temperature=qkerasV3_quantizer.temperature,
-        use_real_sigmoid=qkerasV3_quantizer.use_real_sigmoid,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        alpha=qkeras_quantizer.alpha,
+        temperature=qkeras_quantizer.temperature,
+        use_real_sigmoid=qkeras_quantizer.use_real_sigmoid,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_Bernoulli():
-    qkerasV3_quantizer = quantizers.bernoulli()
+    qkeras_quantizer = quantizers.bernoulli()
     qtools_quantizer = quantizer_impl.Bernoulli()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        alpha=qkerasV3_quantizer.alpha,
-        temperature=qkerasV3_quantizer.temperature,
-        use_real_sigmoid=qkerasV3_quantizer.use_real_sigmoid,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        alpha=qkeras_quantizer.alpha,
+        temperature=qkeras_quantizer.temperature,
+        use_real_sigmoid=qkeras_quantizer.use_real_sigmoid,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_QuantizedRelu():
-    qkerasV3_quantizer = quantizers.quantized_relu()
+    qkeras_quantizer = quantizers.quantized_relu()
     qtools_quantizer = quantizer_impl.QuantizedRelu()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        use_sigmoid=qkerasV3_quantizer.use_sigmoid,
-        negative_slope=qkerasV3_quantizer.negative_slope,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        relu_upper_bound=qkerasV3_quantizer.relu_upper_bound,
-        is_quantized_clip=qkerasV3_quantizer.is_quantized_clip,
-        qnoise_factor=qkerasV3_quantizer.qnoise_factor,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        use_sigmoid=qkeras_quantizer.use_sigmoid,
+        negative_slope=qkeras_quantizer.negative_slope,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        relu_upper_bound=qkeras_quantizer.relu_upper_bound,
+        is_quantized_clip=qkeras_quantizer.is_quantized_clip,
+        qnoise_factor=qkeras_quantizer.qnoise_factor,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_Ternary():
-    qkerasV3_quantizer = quantizers.ternary()
+    qkeras_quantizer = quantizers.ternary()
     qtools_quantizer = quantizer_impl.Ternary()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        alpha=qkerasV3_quantizer.alpha,
-        threshold=qkerasV3_quantizer.threshold,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        number_of_unrolls=qkerasV3_quantizer.number_of_unrolls,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        alpha=qkeras_quantizer.alpha,
+        threshold=qkeras_quantizer.threshold,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        number_of_unrolls=qkeras_quantizer.number_of_unrolls,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_StochasticTernary():
-    qkerasV3_quantizer = quantizers.stochastic_ternary()
+    qkeras_quantizer = quantizers.stochastic_ternary()
     qtools_quantizer = quantizer_impl.StochasticTernary()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        alpha=qkerasV3_quantizer.alpha,
-        threshold=qkerasV3_quantizer.threshold,
-        temperature=qkerasV3_quantizer.temperature,
-        use_real_sigmoid=qkerasV3_quantizer.use_real_sigmoid,
-        number_of_unrolls=qkerasV3_quantizer.number_of_unrolls,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        alpha=qkeras_quantizer.alpha,
+        threshold=qkeras_quantizer.threshold,
+        temperature=qkeras_quantizer.temperature,
+        use_real_sigmoid=qkeras_quantizer.use_real_sigmoid,
+        number_of_unrolls=qkeras_quantizer.number_of_unrolls,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_PowerOfTwo():
-    qkerasV3_quantizer = quantizers.quantized_po2()
+    qkeras_quantizer = quantizers.quantized_po2()
     qtools_quantizer = quantizer_impl.PowerOfTwo(is_signed=True)
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
         negative_slope=None,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        quadratic_approximation=qkerasV3_quantizer.quadratic_approximation,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        quadratic_approximation=qkeras_quantizer.quadratic_approximation,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_ReluPowerOfTwo():
-    qkerasV3_quantizer = quantizers.quantized_relu_po2()
+    qkeras_quantizer = quantizers.quantized_relu_po2()
     qtools_quantizer = quantizer_impl.ReluPowerOfTwo()
-    qtools_quantizer.convert_qkerasV3_quantizer(qkerasV3_quantizer)
-    new_quantizer = qtools_quantizer.convert_to_qkerasV3_quantizer(
-        negative_slope=qkerasV3_quantizer.negative_slope,
-        use_stochastic_rounding=qkerasV3_quantizer.use_stochastic_rounding,
-        quadratic_approximation=qkerasV3_quantizer.quadratic_approximation,
+    qtools_quantizer.convert_qkeras_quantizer(qkeras_quantizer)
+    new_quantizer = qtools_quantizer.convert_to_qkeras_quantizer(
+        negative_slope=qkeras_quantizer.negative_slope,
+        use_stochastic_rounding=qkeras_quantizer.use_stochastic_rounding,
+        quadratic_approximation=qkeras_quantizer.quadratic_approximation,
     )
 
     result = new_quantizer.__dict__
     for key, val in result.items():
-        assert_equal(val, qkerasV3_quantizer.__dict__[key])
+        assert_equal(val, qkeras_quantizer.__dict__[key])
 
 
 def test_GetScale_PerChannelScale():

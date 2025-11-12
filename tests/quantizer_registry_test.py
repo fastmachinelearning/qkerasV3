@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Unit tests for qkerasV3 quantizer registry."""
+"""Unit tests for qkeras quantizer registry."""
 
 import keras
 import pytest
 from numpy.testing import assert_equal
 
-from qkerasV3 import quantizer_registry
+from qkeras import quantizer_registry
 
 # set random seed
 keras.utils.set_random_seed(812)

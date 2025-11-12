@@ -21,7 +21,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_equal
 
-from qkerasV3.quantizers import quantized_bits, quantized_relu
+from qkeras.quantizers import quantized_bits, quantized_relu
 
 # set random seed
 keras.utils.set_random_seed(812)

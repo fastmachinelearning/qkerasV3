@@ -18,7 +18,7 @@
 import keras
 import pytest
 
-from qkerasV3 import *
+from qkeras import *
 
 # set random seed
 keras.utils.set_random_seed(812)

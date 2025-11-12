@@ -27,7 +27,7 @@ from keras.layers import Activation, Flatten, Input
 from keras.models import Model
 from numpy.testing import assert_allclose, assert_array_equal, assert_equal
 
-from qkerasV3 import (
+from qkeras import (
     QActivation,
     QConv1D,
     QConv2D,
@@ -42,7 +42,7 @@ from qkerasV3 import (
     quantized_relu,
     ternary,
 )
-from qkerasV3.utils import (
+from qkeras.utils import (
     load_qmodel,
     model_save_quantized_weights,
     quantized_model_from_json,

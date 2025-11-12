@@ -21,7 +21,7 @@ import keras
 import keras.ops.numpy as knp
 import pytest
 
-from qkerasV3 import (
+from qkeras import (
     QActivation,
     QAdaptiveActivation,
     QBatchNormalization,
@@ -30,15 +30,15 @@ from qkerasV3 import (
     QDepthwiseConv2D,
     quantizers,
 )
-from qkerasV3.qtools import generate_layer_data_type_map, interface, qgraph, run_qtools
-from qkerasV3.qtools import settings as qtools_settings
-from qkerasV3.qtools.DnC import divide_and_conquer
-from qkerasV3.qtools.quantized_operators import (
+from qkeras.qtools import generate_layer_data_type_map, interface, qgraph, run_qtools
+from qkeras.qtools import settings as qtools_settings
+from qkeras.qtools.DnC import divide_and_conquer
+from qkeras.qtools.quantized_operators import (
     adder_impl,
     divider_factory,
     quantizer_impl,
 )
-from qkerasV3.utils import model_save_quantized_weights
+from qkeras.utils import model_save_quantized_weights
 
 # set random seed
 keras.utils.set_random_seed(812)
@@ -1011,9 +1011,9 @@ def test_auto_po2():
 
 def test_big_bias_quantizer():
     q1 = quantizer_impl.QuantizedBits()
-    q1.convert_qkerasV3_quantizer(quantizers.quantized_bits(8, 3))
+    q1.convert_qkeras_quantizer(quantizers.quantized_bits(8, 3))
     q2 = quantizer_impl.QuantizedBits()
-    q2.convert_qkerasV3_quantizer(quantizers.quantized_bits(16, 4))
+    q2.convert_qkeras_quantizer(quantizers.quantized_bits(16, 4))
     r = adder_impl.FixedPointAdder(q1, q2)
 
     # int_bits = max(q1.int_bits, q2.int_bits) + 1
