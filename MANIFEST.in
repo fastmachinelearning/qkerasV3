@@ -1,2 +1,4 @@
 include *.txt
 recursive-include docs *.txt
+exclude *.egg-info
+prune **/*.egg-info

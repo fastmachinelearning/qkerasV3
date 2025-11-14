@@ -7,7 +7,7 @@ name = "qkeras-v3"
 version = "1.0.0"
 description = "Quantization package for KerasV3"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = { file = "LICENSE" }
 authors = [
     { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
     { name = "Marius Snella Köppel ", email = "mkoepp@phys.ethz.ch" },
@@ -20,20 +20,21 @@ maintainers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "numpy",
-    "scipy",
-    "pyparser",
-    "setuptools",
-    "tensorflow-model-optimization",
-    "networkx",
-    "scikit-learn",
-    "tqdm",
-    "ruff",
-    "jax",
-    "torch",
+    "numpy~=1.23",
+    "scipy>=1.16.3",
+    "pyparser>=1.0",
+    "setuptools>=61.0",
+    "networkx>=3.5",
+    "scikit-learn>=1.7.2",
+    "keras>=3.12.0",
+    "tqdm>=4.67.1",
+    "ruff>=0.14.4",
     "tensorflow",
+    "tensorflow-model-optimization>=0.8.0",
     "keras-tuner",
-    "tf_keras"
+    "tf_keras",
+    #"torch",
+    #"jax"
 ]
 
 classifiers = [
@@ -49,7 +50,6 @@ Issues = "https://github.com/makoeppel/qkerasV3"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }
-license-files = ["LICENSE", "NOTICE"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -q"
