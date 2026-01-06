@@ -45,9 +45,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/makoeppel/qkerasV3"
-Repository = "https://github.com/makoeppel/qkerasV3"
-Issues = "https://github.com/makoeppel/qkerasV3"
+Homepage = "https://github.com/fastmachinelearning/qkerasV3"
+Repository = "https://github.com/fastmachinelearning/qkerasV3"
+Issues = "https://github.com/fastmachinelearning/qkerasV3"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }
