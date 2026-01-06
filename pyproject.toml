@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qkeras-v3"
-version = "1.0.3"
+version = "1.1.0"
 description = "Quantization package for KerasV3"
 readme = "README.md"
 license = { file = "LICENSE" }
