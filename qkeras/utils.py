@@ -26,11 +26,6 @@ import networkx as nx
 import six
 from keras import KerasTensor, Model, layers, models, optimizers
 from keras import ops as Kops
-from tensorflow_model_optimization.python.core.sparsity.keras import (
-    prunable_layer,
-    prune_registry,
-    pruning_wrapper,
-)
 
 from .qconv2d_batchnorm import QConv2DBatchnorm
 from .qconvolutional import (
@@ -1216,15 +1211,7 @@ def print_model_sparsity(model):
     print(f"Model Sparsity Summary ({model.name})")
     print("--")
     for layer in model.layers:
-        if isinstance(layer, pruning_wrapper.PruneLowMagnitude):
-            prunable_weights = layer.layer.get_prunable_weights()
-        elif isinstance(layer, prunable_layer.PrunableLayer):
-            prunable_weights = layer.get_prunable_weights()
-        elif prune_registry.PruneRegistry.supports(layer):
-            weight_names = prune_registry.PruneRegistry._weight_names(layer)
-            prunable_weights = [getattr(layer, weight) for weight in weight_names]
-        else:
-            prunable_weights = None
+        prunable_weights = None
         if prunable_weights:
             print(
                 "{}: {}".format(

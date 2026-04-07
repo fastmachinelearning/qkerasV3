@@ -12,7 +12,7 @@ permissions:
 jobs:
   docs:
     name: Docs (Sphinx)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -38,5 +38,4 @@ jobs:
         env:
           KERAS_BACKEND: tensorflow
         run: |
-          cd docs
-          make html
+          sphinx-build -b html docs/source docs/build/html

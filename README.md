@@ -278,19 +278,6 @@ examples/example_generate_json.py. Example of how to generate energy consumption
 estimation can be found in qkeras/qtools/examples/example_get_energy.py
 
 
-## AutoQKeras
-
-AutoQKeras allows the automatic quantization and rebalancing of deep neural
-networks by treating quantization and rebalancing of an existing deep neural
-network as a hyperparameter search in Keras-Tuner using random search,
-hyperband or gaussian processes.
-
-In order to contain the explosion of hyperparameters, users can group tasks by
-patterns, and perform distribute training using available resources.
-
-Extensive documentation is present in notebook/AutoQKeras.ipynb.
-
-
 ## Linting
 We use Ruff or linting (Pyflakes, pycodestyle, pyupgrade, isort, Pylint rules). The config lives in `pyproject.toml`, so you can run it from the project root:
 

@@ -20,9 +20,6 @@ import keras
 from keras import activations, constraints, initializers, layers, regularizers
 from keras import backend as K
 from keras.saving import register_keras_serializable
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
-    PrunableLayer,
-)
 
 from .ops_portable import is_nested
 from .qlayers import get_auto_range_constraint_initializer
@@ -196,7 +193,7 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
 
 
 @register_keras_serializable(package="qkeras")
-class QSimpleRNN(layers.RNN, PrunableLayer):
+class QSimpleRNN(layers.RNN):
     """
     Class for the QSimpleRNN layer.
 
@@ -703,7 +700,7 @@ class QLSTMCell(layers.LSTMCell):
 
 
 @register_keras_serializable(package="qkeras")
-class QLSTM(layers.RNN, PrunableLayer):
+class QLSTM(layers.RNN):
     """
     Class for the QLSTM layer.
 
@@ -1260,7 +1257,7 @@ class QGRUCell(layers.GRUCell):
 
 
 @register_keras_serializable(package="qkeras")
-class QGRU(layers.RNN, PrunableLayer):
+class QGRU(layers.RNN):
     """
     Class for the QGRU layer.
 

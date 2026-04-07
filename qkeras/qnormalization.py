@@ -23,16 +23,13 @@ import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
-    PrunableLayer,
-)
 
 from .ops_portable import constant_bool_value
 from .qlayers import get_auto_range_constraint_initializer, get_quantizer
 
 
 @register_keras_serializable(package="qkeras")
-class QBatchNormalization(layers.BatchNormalization, PrunableLayer):
+class QBatchNormalization(layers.BatchNormalization):
     """Quantized Batch Normalization layer.
     For training, mean and variance are not quantized.
     For inference, the quantized moving mean and moving variance are used.

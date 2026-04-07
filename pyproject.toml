@@ -32,8 +32,6 @@ dependencies = [
     "pyparsing",
     "tensorflow",
     "tensorflow-model-optimization",
-    "keras-tuner",
-    "tf_keras",
     #"torch",
     #"jax"
 ]

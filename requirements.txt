@@ -16,7 +16,5 @@ scikit-learn
 tqdm
 ruff
 tensorflow_datasets
-# jax
-# torch
-keras-tuner
-tf_keras
+jax
+torch

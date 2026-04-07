@@ -44,9 +44,6 @@ from keras import backend as K
 from keras import ops as Kops
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
-    PrunableLayer,
-)
 
 from .ops_portable import bias_add_portable
 from .quantizers import *
@@ -153,7 +150,7 @@ class QInitializer(initializers.Initializer):
 
 
 @register_keras_serializable(package="qkeras")
-class QActivation(layers.Layer, PrunableLayer):
+class QActivation(layers.Layer):
     """Implements quantized activation layers."""
 
     # TODO(lishanok): Implement activation type conversion outside of the class.
@@ -162,31 +159,14 @@ class QActivation(layers.Layer, PrunableLayer):
     def __init__(self, activation, **kwargs):
         super().__init__(**kwargs)
 
-        self.activation = activation
-
-        if not isinstance(activation, six.string_types):
-            self.quantizer = activation
-            if hasattr(self.quantizer, "__name__"):
-                self.__name__ = self.quantizer.__name__
-            elif hasattr(self.quantizer, "name"):
-                self.__name__ = self.quantizer.name
-            elif hasattr(self.quantizer, "__class__"):
-                self.__name__ = self.quantizer.__class__.__name__
-            return
-
-        self.__name__ = activation
-
-        try:
-            self.quantizer = get_quantizer(activation)
-        except KeyError:
-            raise ValueError(f"invalid activation '{activation}'")
+        self.activation = get_quantizer(activation)
 
     def call(self, inputs):
-        return self.quantizer(inputs)
+        return self.activation(inputs)
 
     def get_config(self):
         config = {"activation": self.activation}
-        base_config = super(QActivation, self).get_config()
+        base_config = super().get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
     @classmethod
@@ -216,7 +196,7 @@ class QActivation(layers.Layer, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QAdaptiveActivation(layers.Layer, PrunableLayer):
+class QAdaptiveActivation(layers.Layer):
     """[EXPERIMENTAL] Implements an adaptive quantized activation layer using EMA.
 
     This layer calculates an exponential moving average of min and max of the
@@ -602,7 +582,7 @@ class Clip(constraints.Constraint):
 
 
 @register_keras_serializable(package="qkeras")
-class QDense(layers.Dense, PrunableLayer):
+class QDense(layers.Dense):
     """Implements a quantized Dense layer."""
 
     # Most of these parameters follow the implementation of Dense in

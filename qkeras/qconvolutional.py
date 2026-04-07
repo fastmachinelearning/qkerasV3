@@ -21,9 +21,6 @@ import keras.ops.numpy as knp
 from keras import constraints, initializers, layers, regularizers
 from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
-from tensorflow_model_optimization.python.core.sparsity.keras.prunable_layer import (
-    PrunableLayer,
-)
 
 from .ops_portable import bias_add_portable
 from .qlayers import QActivation, get_auto_range_constraint_initializer
@@ -82,7 +79,7 @@ def deconv_output_length(
 
 
 @register_keras_serializable(package="qkeras")
-class QConv1D(layers.Conv1D, PrunableLayer):
+class QConv1D(layers.Conv1D):
     """1D convolution layer (e.g. spatial convolution over images)."""
 
     # most of these parameters follow the implementation of Conv1D in Keras,
@@ -227,7 +224,7 @@ class QConv1D(layers.Conv1D, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QConv2D(layers.Conv2D, PrunableLayer):
+class QConv2D(layers.Conv2D):
     """2D convolution layer (e.g. spatial convolution over images)."""
 
     # most of these parameters follow the implementation of Conv2D in Keras,
@@ -423,7 +420,7 @@ class QConv2D(layers.Conv2D, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
+class QConv2DTranspose(layers.Conv2DTranspose):
     """2D convolution layer (e.g. spatial convolution over images)."""
 
     # most of these parameters follow the implementation of Conv2DTranspose
@@ -554,7 +551,7 @@ class QConv2DTranspose(layers.Conv2DTranspose, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
+class QSeparableConv1D(layers.SeparableConv1D):
     """Depthwise separable 1D convolution."""
 
     # most of these parameters follow the implementation of SeparableConv1D
@@ -743,7 +740,7 @@ class QSeparableConv1D(layers.SeparableConv1D, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
+class QSeparableConv2D(layers.SeparableConv2D):
     """Depthwise separable 2D convolution."""
 
     # most of these parameters follow the implementation of SeparableConv2D
@@ -915,7 +912,7 @@ class QSeparableConv2D(layers.SeparableConv2D, PrunableLayer):
 
 
 @register_keras_serializable(package="qkeras")
-class QDepthwiseConv2D(layers.DepthwiseConv2D, PrunableLayer):
+class QDepthwiseConv2D(layers.DepthwiseConv2D):
     """Creates quantized depthwise conv2d. Copied from mobilenet."""
 
     # most of these parameters follow the implementation of DepthwiseConv2D
