@@ -1,11 +1,15 @@
 import os
 import sys
+from datetime import datetime
 
 # Make your package importable for autodoc
 sys.path.insert(0, os.path.abspath("../.."))
 
-project = "qkeras-v3"
+project = "qkerasV3"
 author = "qkerasV3 contributors"
+copyright = f"{datetime.now().year}, {author}"
+
+# -- General configuration ------------------------------------------------
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -13,24 +17,52 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx_autodoc_typehints",
-    "myst_parser",  # for Markdown pages
-    # Optional: render notebooks (recommended if you want notebooks/ in docs)
-    # "myst_nb",
+    "myst_nb",
 ]
 
+templates_path = ["_templates"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+]
+
+# Automatically generate autosummary pages
 autosummary_generate = True
 
-# Your docstrings look closer to Google-style ("Returns:" etc.)
+# Docstring parsing
+# The repository uses docstrings that look closest to Google style ("Returns:", etc.)
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
 
-html_theme = "sphinx_rtd_theme"
+# Show type hints in the description (avoids overly noisy signatures)
+autodoc_typehints = "description"
 
-# Keras 3 backend selection for doc builds
-os.environ["KERAS_BACKEND"] = "tensorflow"
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": False,
+    "private-members": False,
+    "show-inheritance": True,
+}
 
-# Helps avoid TF trying to allocate GPU stuff in CI (usually not needed, but safe)
+# -- MyST / notebook configuration ---------------------------------------
+
+myst_enable_extensions = [
+    "colon_fence",
+    "deflist",
+]
+
+# Do not execute notebooks during documentation builds
+nb_execution_mode = "off"
+
+# -- Keras / TensorFlow configuration ------------------------------------
+
+# qkerasV3 currently supports TensorFlow backend via Keras 3.
+# Setting this here makes autodoc imports stable in CI/RTD.
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
-# Optional: if importing qkeras triggers heavy imports, you can mock modules here:
-# autodoc_mock_imports = ["tensorflow"]
+# -- Options for HTML output ---------------------------------------------
+
+html_theme = "sphinx_rtd_theme"
+html_static_path = ["_static"]

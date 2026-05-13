@@ -104,7 +104,7 @@ def test_conversion_from_relu_activation_to_qr_qactivation():
     }
     qq = model_quantize(m, d, 4)
     assert qq.layers[2].__class__.__name__ == "QActivation"
-    assert str(qq.layers[2].quantizer) == "ternary()"
+    assert str(qq.layers[2].activation) == "ternary()"
     assert qq.layers[4].__class__.__name__ == "Activation"
 
 
@@ -116,7 +116,7 @@ def test_conversion_from_relu_activation_to_qadaptiveactivation():
     }
     qq = model_quantize(m, d, 4)
     assert qq.layers[2].__class__.__name__ == "QAdaptiveActivation"
-    assert str(qq.layers[2].quantizer).startswith("quantized_relu(8,")
+    assert str(qq.layers[2].activation).startswith("quantized_relu(8,")
     assert qq.layers[4].__class__.__name__ == "Activation"
 
 
@@ -130,13 +130,13 @@ def test_conversion_qadaptiveactivation_with_preference():
     # Test with QActivation preference
     qq1 = model_quantize(m, d, 4, prefer_qadaptiveactivation=False)
     assert qq1.layers[2].__class__.__name__ == "QActivation"
-    assert str(qq1.layers[2].quantizer).startswith("quantized_relu(8,")
+    assert str(qq1.layers[2].activation).startswith("quantized_relu(8,")
     assert qq1.layers[4].__class__.__name__ == "Activation"
 
     # Test with QAdaptiveActivation preference
     qq2 = model_quantize(m, d, 4, prefer_qadaptiveactivation=True)
     assert qq2.layers[2].__class__.__name__ == "QAdaptiveActivation"
-    assert str(qq2.layers[2].quantizer).startswith("quantized_relu(8,")
+    assert str(qq2.layers[2].activation).startswith("quantized_relu(8,")
     assert qq2.layers[4].__class__.__name__ == "Activation"
 
 
@@ -196,7 +196,7 @@ def test_folded_layer_conversion():
     assert qq3.layers[1].__class__.__name__ == "QConv2D"
     assert str(qq3.layers[1].quantizers[0]).startswith("binary")
     assert qq3.layers[2].__class__.__name__ == "BatchNormalization"
-    assert str(qq3.layers[3].quantizer).startswith("quantized_relu")
+    assert str(qq3.layers[3].activation).startswith("quantized_relu")
     assert qq3.layers[6].__class__.__name__ == "QDepthwiseConv2D"
     assert str(qq3.layers[6].quantizers[0]).startswith("binary")
 

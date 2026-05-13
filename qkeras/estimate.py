@@ -346,7 +346,7 @@ def create_activation_cache(model):
     for l in model.layers:
         output_cache[l.output] = l
         if isinstance(l, QActivation) or isinstance(l, QAdaptiveActivation):
-            output_cache[l.output] = l.quantizer
+            output_cache[l.output] = l.activation
         elif isinstance(l, layers.InputLayer):
             # assume the input is 8-bit positive value
             output_cache[l.output] = input_quantizer

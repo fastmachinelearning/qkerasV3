@@ -72,13 +72,14 @@ def test_QNoiseScheduler():
         ],
     )
 
-    # QConv2D has a kernel_quantizer and a bias_quantizer, and QActivation has a
+    # QConv2D has a kernel_quantizer and a bias_quantizer
+    # the QActivation is now activation
     # quantizer.
     num_quantizers_with_qnoise_factor = 0
     for quantizer in gradual_qnoise_callback_0.quantizers:
         if hasattr(quantizer, "qnoise_factor"):
             num_quantizers_with_qnoise_factor += 1
-    assert_equal(num_quantizers_with_qnoise_factor, 3)  # Test "step"
+    assert_equal(num_quantizers_with_qnoise_factor, 2)  # Test "step"
 
     qnoise_factor = [
         np.array(d.qnoise_factor) for d in gradual_qnoise_callback_0.quantizers
@@ -216,7 +217,7 @@ def test_QNoiseScheduler():
     ]
     val = 1 - knp.power((5.0 - 2.0) / (5.0 - 1.0), 3)
     assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
-    assert_equal(len(gradual_qnoise_callback_6.quantizers), 3)  # Test "epoch"
+    assert_equal(len(gradual_qnoise_callback_6.quantizers), 2)  # Test "epoch"
 
 
 if __name__ == "__main__":

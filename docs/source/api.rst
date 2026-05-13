@@ -1,8 +1,1 @@
-API Reference
-=============
-
-.. autosummary::
-   :toctree: generated
-   :recursive:
-
-   qkeras
+.. include:: api/index.rst
