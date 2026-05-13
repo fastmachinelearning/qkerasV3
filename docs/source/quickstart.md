@@ -3,7 +3,7 @@
 This page shows a minimal end-to-end example using quantized layers.
 
 ```{tip}
-Always set the backend before importing `keras` / `qkeras`:
+Always set the backend before importing:
 `export KERAS_BACKEND=tensorflow`
 ```
 

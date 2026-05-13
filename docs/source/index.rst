@@ -12,8 +12,8 @@ qkerasV3 is a Keras 3–compatible continuation of QKeras, focused on quantizati
 
       export KERAS_BACKEND=tensorflow
 
-   In the current version v1.1.x AutoQKeras is not working.
-   There will be an update in the the future to support this feature again using the sklearn gridsearch API.
+   In the current version v1.1.x AutoQKeras and Pruning are not working.
+   There will be an update in the the future to support this feature again.
 
 .. toctree::
    :maxdepth: 2
