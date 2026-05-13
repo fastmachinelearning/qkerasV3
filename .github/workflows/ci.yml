@@ -41,9 +41,19 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install hls4ml
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install .
-          pip install hls4ml
+
+      - name: Show versions
+        run: |
+          python -m pip freeze | sort
+          python - <<'PY'
+          import keras, tensorflow as tf, numpy as np
+          print("keras", keras.__version__)
+          print("tensorflow", tf.__version__)
+          print("numpy", np.__version__)
+          PY
 
       - name: Run tests
         env:
