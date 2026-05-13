@@ -1,21 +1,16 @@
 # qkeras
 
-## Beta Test Phase
-The current test version can be installed via:
-
-```python
-pip install \
-  --index-url https://test.pypi.org/simple/ \
-  --extra-index-url https://pypi.org/simple \
-  qkeras-v3==1.0.3
-```
-For one month (14.11.-14.12.2025) this will be the beta release before a first release (1.1.0) will be pushed.
-
 ## Fork notice
 This repository is a hard fork of the original QKeras project. The upstream project appears unmaintained, so this fork is independently maintained and not affiliated with the original authors or their organizations. The PyPI distribution is published as qkeras-v3 and the import namespace is qkeras. We aim to keep reasonable compatibility while updating dependencies (Keras/TF) and fixing issues; some breaking changes are documented in the CHANGELOG.
 Licensed under Apache-2.0. See LICENSE and NOTICE for attribution and details of modifications.
 
 [https://github.com/makoeppel/qkeras](https://github.com/makoeppel/qkeras)
+
+## Installation
+
+```python
+pip install qkeras-v3
+```
 
 ## Introduction
 
