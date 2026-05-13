@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qkeras-v3"
-version = "1.0.3"
+version = "1.1.0"
 description = "Quantization package for KerasV3"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -32,8 +32,6 @@ dependencies = [
     "pyparsing",
     "tensorflow",
     "tensorflow-model-optimization",
-    "keras-tuner",
-    "tf_keras",
     #"torch",
     #"jax"
 ]
@@ -45,9 +43,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/makoeppel/qkerasV3"
-Repository = "https://github.com/makoeppel/qkerasV3"
-Issues = "https://github.com/makoeppel/qkerasV3"
+Homepage = "https://github.com/fastmachinelearning/qkerasV3"
+Repository = "https://github.com/fastmachinelearning/qkerasV3"
+Issues = "https://github.com/fastmachinelearning/qkerasV3"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }

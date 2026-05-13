@@ -31,3 +31,6 @@ htmlcov/
 # macOS / Windows
 .DS_Store
 Thumbs.db
+
+# docs
+docs/source/api/generated/*

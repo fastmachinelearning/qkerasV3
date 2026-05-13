@@ -376,18 +376,10 @@ def GraphPropagateActivationsToEdges(graph, debug=False):
                     print("  activation_name:", activation_name)
                     print("  q_activation_class_name:", q_activation_class_name)
 
-                # if current layer is QA
-                if graph.nodes[u]["type"][0] in ["QActivation"] or graph.nodes[u][
-                    "type"
-                ][0] in ["QAdaptiveActivation"]:
-                    result = layer.quantizer
-
-                # if current layer is not QA layer but has QA specified within
-                elif hasattr(layer, "activation"):
-                    if activation_name == "linear":
-                        result = None
-                    else:
-                        result = layer.activation
+                if activation_name == "linear":
+                    result = None
+                else:
+                    result = layer.activation
 
             if debug:
                 print(f"  {u}->{v}: {result}")

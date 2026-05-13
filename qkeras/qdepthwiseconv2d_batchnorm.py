@@ -95,7 +95,12 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
               after enough training steps switch to moving_mean and moving_variance
               for kernel folding.
         """
+        # pop legacy kwargs
         kwargs.pop("synchronized", None)
+        kwargs.pop("renorm", None)
+        kwargs.pop("renorm_clipping", None)
+        kwargs.pop("renorm_momentum", None)
+
         # intialization the QDepthwiseConv2d part of the composite layer
         super().__init__(
             kernel_size=kernel_size,

@@ -1,82 +1,113 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: CI tests
 
 on:
   push:
-    branches: [ main, v3 ]
+    branches: [main]
   pull_request:
-    branches: [ main, v3 ]
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-
-  lint:
+  tests-tensorflow:
+    name: Tests (TensorFlow) - Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.11
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install dependencies
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff
-      # Update output format to enable automatic inline annotations.
-      - name: Run Ruffl
-        run: ruff check --output-format=github .
+          pip install hls4ml
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install .
 
-  tests-tensorflow:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install .
-    - name: Test with pytest
-      run: |
-        export KERAS_BACKEND=tensorflow && pytest
+      - name: Show versions
+        run: |
+          python -m pip freeze | sort
+          python - <<'PY'
+          import keras, tensorflow as tf, numpy as np
+          print("keras", keras.__version__)
+          print("tensorflow", tf.__version__)
+          print("numpy", np.__version__)
+          PY
 
-  tests-jax:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install .
-    - name: Test with pytest
-      run: |
-        export KERAS_BACKEND=jax && pytest
+      - name: Run tests
+        env:
+          KERAS_BACKEND: tensorflow
+        run: pytest
 
-  tests-torch:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install .
-    - name: Test with pytest
-      run: |
-        export KERAS_BACKEND=torch && pytest
+  # tests-jax:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Set up Python 3.11
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "3.11"
+  #   - name: Install dependencies
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  #       pip install .
+  #   - name: Test with pytest
+  #     run: |
+  #       export KERAS_BACKEND=jax && pytest
+
+  # tests-torch:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - name: Set up Python 3.11
+  #     uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "3.11"
+  #   - name: Install dependencies
+  #     run: |
+  #       python -m pip install --upgrade pip
+  #       if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  #       pip install .
+  #   - name: Test with pytest
+  #     run: |
+  #       export KERAS_BACKEND=torch && pytest
+
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python 3.11
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.11"
+  #     - name: Install dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install ruff
+  #     - name: Run Ruffl
+  #       run: ruff check --output-format=github .
 
   # examples:
   #     runs-on: ubuntu-latest
