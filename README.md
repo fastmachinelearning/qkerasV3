@@ -1,11 +1,5 @@
 # qkeras
 
-## Fork notice
-This repository is a hard fork of the original QKeras project. The upstream project appears unmaintained, so this fork is independently maintained and not affiliated with the original authors or their organizations. The PyPI distribution is published as qkeras-v3 and the import namespace is qkeras. We aim to keep reasonable compatibility while updating dependencies (Keras/TF) and fixing issues; some breaking changes are documented in the CHANGELOG.
-Licensed under Apache-2.0. See LICENSE and NOTICE for attribution and details of modifications.
-
-[https://github.com/makoeppel/qkeras](https://github.com/makoeppel/qkeras)
-
 ## Installation
 
 ```python
@@ -307,3 +301,6 @@ https://github.com/BertMoons/QuantizedNeuralNetworks-Keras-Tensorflow
 
 Copyright (c) 2017, Bert Moons where it applies
 
+## Fork notice
+This repository is a hard fork of the original QKeras project. The upstream project appears unmaintained, so this fork is independently maintained and not affiliated with the original authors or their organizations. The PyPI distribution is published as qkeras-v3 and the import namespace is qkeras. We aim to keep reasonable compatibility while updating dependencies (Keras/TF) and fixing issues; some breaking changes are documented in the CHANGELOG.
+Licensed under Apache-2.0. See LICENSE and NOTICE for attribution and details of modifications.

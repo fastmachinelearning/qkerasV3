@@ -43,7 +43,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/fastmachinelearning/qkerasV3"
+Homepage = "https://qkerasv3.readthedocs.io/en/latest/index.html"
 Repository = "https://github.com/fastmachinelearning/qkerasV3"
 Issues = "https://github.com/fastmachinelearning/qkerasV3"
 
