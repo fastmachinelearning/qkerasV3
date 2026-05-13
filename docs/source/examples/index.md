@@ -1,4 +1,4 @@
-# General
+# Examples
 This repository contains runnable example scripts in `examples/`:
 
 ## `example_act.py`

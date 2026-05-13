@@ -1,6 +1,5 @@
 # Copyright 2020 Google LLC
 #
-#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -13,37 +12,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Quantized Recurrent layers."""
-
+"""Quantized recurrent layers for Keras 3 / qkerasV3."""
 
 import keras
 from keras import activations, constraints, initializers, layers, regularizers
-from keras import backend as K
-from keras.saving import register_keras_serializable
+from keras.saving import register_keras_serializable, serialize_keras_object
 
 from .ops_portable import is_nested
 from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
 
 
+ops = keras.ops
+
+
+def _serialize_quantizer(quantizer):
+    if quantizer is None:
+        return None
+    return serialize_keras_object(quantizer)
+
+
+def _dot(x, kernel):
+    return ops.matmul(x, kernel)
+
+
+def _bias_add(x, bias):
+    return x + bias
+
+
+def _get_dropout_mask(cell, inputs, count):
+    if 0.0 < cell.dropout < 1.0:
+        mask = cell.get_dropout_mask(inputs)
+        if isinstance(mask, (list, tuple)):
+            return list(mask)
+        return [mask for _ in range(count)]
+    return [None for _ in range(count)]
+
+
+def _get_recurrent_dropout_mask(cell, state, count):
+    if 0.0 < cell.recurrent_dropout < 1.0:
+        mask = cell.get_recurrent_dropout_mask(state)
+        if isinstance(mask, (list, tuple)):
+            return list(mask)
+        return [mask for _ in range(count)]
+    return [None for _ in range(count)]
+
+
 @register_keras_serializable(package="qkeras")
 class QSimpleRNNCell(layers.SimpleRNNCell):
-    """
-    Cell class for the QSimpleRNNCell layer.
-
-    Most of these parameters follow the implementation of SimpleRNNCell in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer, and state_quantizer.
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-    We refer the reader to the documentation of SimpleRNNCell in Keras for the
-    other parameters.
-
-    """
+    """Quantized SimpleRNN cell."""
 
     def __init__(
         self,
@@ -65,6 +82,7 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
         state_quantizer=None,
         dropout=0.0,
         recurrent_dropout=0.0,
+        seed=None,
         **kwargs,
     ):
         self.kernel_quantizer = kernel_quantizer
@@ -72,10 +90,10 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
         self.bias_quantizer = bias_quantizer
         self.state_quantizer = state_quantizer
 
-        self.kernel_quantizer_internal = get_quantizer(self.kernel_quantizer)
-        self.recurrent_quantizer_internal = get_quantizer(self.recurrent_quantizer)
-        self.bias_quantizer_internal = get_quantizer(self.bias_quantizer)
-        self.state_quantizer_internal = get_quantizer(self.state_quantizer)
+        self.kernel_quantizer_internal = get_quantizer(kernel_quantizer)
+        self.recurrent_quantizer_internal = get_quantizer(recurrent_quantizer)
+        self.bias_quantizer_internal = get_quantizer(bias_quantizer)
+        self.state_quantizer_internal = get_quantizer(state_quantizer)
 
         self.quantizers = [
             self.kernel_quantizer_internal,
@@ -84,35 +102,29 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
             self.state_quantizer_internal,
         ]
 
-        if hasattr(self.kernel_quantizer_internal, "_set_trainable_parameter"):
-            self.kernel_quantizer_internal._set_trainable_parameter()
-
-        if hasattr(self.recurrent_quantizer_internal, "_set_trainable_parameter"):
-            self.recurrent_quantizer_internal._set_trainable_parameter()
+        for quantizer in [
+            self.kernel_quantizer_internal,
+            self.recurrent_quantizer_internal,
+        ]:
+            if hasattr(quantizer, "_set_trainable_parameter"):
+                quantizer._set_trainable_parameter()
 
         kernel_constraint, kernel_initializer = get_auto_range_constraint_initializer(
             self.kernel_quantizer_internal, kernel_constraint, kernel_initializer
         )
-
-        recurrent_constraint, recurrent_initializer = (
-            get_auto_range_constraint_initializer(
-                self.recurrent_quantizer_internal,
-                recurrent_constraint,
-                recurrent_initializer,
-            )
+        recurrent_constraint, recurrent_initializer = get_auto_range_constraint_initializer(
+            self.recurrent_quantizer_internal,
+            recurrent_constraint,
+            recurrent_initializer,
         )
-
         if use_bias:
             bias_constraint, bias_initializer = get_auto_range_constraint_initializer(
                 self.bias_quantizer_internal, bias_constraint, bias_initializer
             )
 
-        if activation is not None:
-            activation = get_quantizer(activation)
-
         super().__init__(
             units=units,
-            activation=activation,
+            activation=get_quantizer(activation) if activation is not None else None,
             use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             recurrent_initializer=recurrent_initializer,
@@ -125,167 +137,84 @@ class QSimpleRNNCell(layers.SimpleRNNCell):
             bias_constraint=bias_constraint,
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
+            seed=seed,
             **kwargs,
         )
 
     def call(self, inputs, states, training=False):
         prev_output = states[0] if is_nested(states) else states
 
-        dp_mask = self.get_dropout_mask_for_cell(inputs, training)
-        rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(prev_output, training)
-
         if self.state_quantizer:
-            quantized_prev_output = self.state_quantizer_internal(prev_output)
-        else:
-            quantized_prev_output = prev_output
+            prev_output = self.state_quantizer_internal(prev_output)
 
-        if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
-        else:
-            quantized_kernel = self.kernel
+        dp_mask = _get_dropout_mask(self, inputs, 1) if training else [None]
+        rec_dp_mask = _get_recurrent_dropout_mask(self, prev_output, 1) if training else [None]
 
-        if dp_mask is not None:
-            h = K.dot(inputs * dp_mask, quantized_kernel)
-        else:
-            h = K.dot(inputs, quantized_kernel)
+        quantized_kernel = (
+            self.kernel_quantizer_internal(self.kernel)
+            if self.kernel_quantizer
+            else self.kernel
+        )
+        quantized_recurrent = (
+            self.recurrent_quantizer_internal(self.recurrent_kernel)
+            if self.recurrent_quantizer
+            else self.recurrent_kernel
+        )
 
+        inputs_i = inputs * dp_mask[0] if dp_mask[0] is not None else inputs
+        prev_output_i = (
+            prev_output * rec_dp_mask[0]
+            if rec_dp_mask[0] is not None
+            else prev_output
+        )
+
+        h = _dot(inputs_i, quantized_kernel)
         if self.bias is not None:
-            if self.bias_quantizer:
-                quantized_bias = self.bias_quantizer_internal(self.bias)
-            else:
-                quantized_bias = self.bias
-
-            h = K.bias_add(h, quantized_bias)
-
-        if rec_dp_mask is not None:
-            quantized_prev_output = quantized_prev_output * rec_dp_mask
-
-        if self.recurrent_quantizer:
-            quantized_recurrent = self.recurrent_quantizer_internal(
-                self.recurrent_kernel
+            quantized_bias = (
+                self.bias_quantizer_internal(self.bias) if self.bias_quantizer else self.bias
             )
-        else:
-            quantized_recurrent = self.recurrent_kernel
+            h = _bias_add(h, quantized_bias)
 
-        output = h + K.dot(quantized_prev_output, quantized_recurrent)
-
+        output = h + _dot(prev_output_i, quantized_recurrent)
         if self.activation is not None:
             output = self.activation(output)
         return output, [output]
 
     def get_config(self):
-        config = {
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-        }
-        base_config = super(QSimpleRNNCell, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = super().get_config()
+        config.update(
+            {
+                "kernel_quantizer": _serialize_quantizer(self.kernel_quantizer_internal),
+                "recurrent_quantizer": _serialize_quantizer(
+                    self.recurrent_quantizer_internal
+                ),
+                "bias_quantizer": _serialize_quantizer(self.bias_quantizer_internal),
+                "state_quantizer": _serialize_quantizer(self.state_quantizer_internal),
+            }
+        )
+        return config
 
 
 @register_keras_serializable(package="qkeras")
 class QSimpleRNN(layers.RNN):
-    """
-    Class for the QSimpleRNN layer.
+    """Quantized SimpleRNN layer."""
 
-    Most of these parameters follow the implementation of SimpleRNN in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer and state_quantizer.
-
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-
-    We refer the reader to the documentation of SimpleRNN in Keras for the
-    other parameters.
-
-    """
-
-    def __init__(
-        self,
-        units,
-        activation="quantized_tanh",
-        use_bias=True,
-        kernel_initializer="glorot_uniform",
-        recurrent_initializer="orthogonal",
-        bias_initializer="zeros",
-        kernel_regularizer=None,
-        recurrent_regularizer=None,
-        bias_regularizer=None,
-        activity_regularizer=None,
-        kernel_constraint=None,
-        recurrent_constraint=None,
-        bias_constraint=None,
-        kernel_quantizer=None,
-        recurrent_quantizer=None,
-        bias_quantizer=None,
-        state_quantizer=None,
-        dropout=0.0,
-        recurrent_dropout=0.0,
-        return_sequences=False,
-        return_state=False,
-        go_backwards=False,
-        stateful=False,
-        unroll=False,
-        **kwargs,
-    ):
-        if "enable_caching_device" in kwargs:
-            cell_kwargs = {"enable_caching_device": kwargs.pop("enable_caching_device")}
-        else:
-            cell_kwargs = {}
-
+    def __init__(self, units, activity_regularizer=None, **kwargs):
+        rnn_kwargs = _pop_rnn_kwargs(kwargs)
         cell = QSimpleRNNCell(
             units,
-            activation=activation,
-            use_bias=use_bias,
-            kernel_initializer=kernel_initializer,
-            recurrent_initializer=recurrent_initializer,
-            bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer,
-            recurrent_regularizer=recurrent_regularizer,
-            bias_regularizer=bias_regularizer,
-            kernel_constraint=kernel_constraint,
-            recurrent_constraint=recurrent_constraint,
-            bias_constraint=bias_constraint,
-            kernel_quantizer=kernel_quantizer,
-            recurrent_quantizer=recurrent_quantizer,
-            bias_quantizer=bias_quantizer,
-            state_quantizer=state_quantizer,
-            dropout=dropout,
-            recurrent_dropout=recurrent_dropout,
-            dtype=kwargs.get("dtype"),
-            trainable=kwargs.get("trainable", True),
-            **cell_kwargs,
-        )
-
-        super().__init__(
-            cell,
-            return_sequences=return_sequences,
-            return_state=return_state,
-            go_backwards=go_backwards,
-            stateful=stateful,
-            unroll=unroll,
             **kwargs,
         )
+        super().__init__(cell, **rnn_kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [layers.InputSpec(ndim=3)]
 
-    def call(self, inputs, mask=None, training=False, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
-        return super(QSimpleRNN, self).call(
-            inputs, mask=mask, training=training, initial_state=initial_state
+    def call(self, sequences, initial_state=None, mask=None, training=False):
+        return super().call(
+            sequences,
+            initial_state=initial_state,
+            mask=mask,
+            training=training,
         )
 
     def compute_output_shape(self, inputs_shape):
@@ -297,185 +226,33 @@ class QSimpleRNN(layers.RNN):
     def get_prunable_weights(self):
         return [self.cell.kernel, self.cell.recurrent_kernel]
 
-    @property
-    def units(self):
-        return self.cell.units
-
-    @property
-    def activation(self):
-        return self.cell.activation
-
-    @property
-    def use_bias(self):
-        return self.cell.use_bias
-
-    @property
-    def kernel_initializer(self):
-        return self.cell.kernel_initializer
-
-    @property
-    def recurrent_initializer(self):
-        return self.cell.recurrent_initializer
-
-    @property
-    def bias_initializer(self):
-        return self.cell.bias_initializer
-
-    @property
-    def kernel_regularizer(self):
-        return self.cell.kernel_regularizer
-
-    @property
-    def recurrent_regularizer(self):
-        return self.cell.recurrent_regularizer
-
-    @property
-    def bias_regularizer(self):
-        return self.cell.bias_regularizer
-
-    @property
-    def kernel_constraint(self):
-        return self.cell.kernel_constraint
-
-    @property
-    def recurrent_constraint(self):
-        return self.cell.recurrent_constraint
-
-    @property
-    def bias_constraint(self):
-        return self.cell.bias_constraint
-
-    @property
-    def kernel_quantizer_internal(self):
-        return self.cell.kernel_quantizer_internal
-
-    @property
-    def recurrent_quantizer_internal(self):
-        return self.cell.recurrent_quantizer_internal
-
-    @property
-    def bias_quantizer_internal(self):
-        return self.cell.bias_quantizer_internal
-
-    @property
-    def state_quantizer_internal(self):
-        return self.cell.state_quantizer_internal
-
-    @property
-    def kernel_quantizer(self):
-        return self.cell.kernel_quantizer
-
-    @property
-    def recurrent_quantizer(self):
-        return self.cell.recurrent_quantizer
-
-    @property
-    def bias_quantizer(self):
-        return self.cell.bias_quantizer
-
-    @property
-    def state_quantizer(self):
-        return self.cell.state_quantizer
-
-    @property
-    def dropout(self):
-        return self.cell.dropout
-
-    @property
-    def recurrent_dropout(self):
-        return self.cell.recurrent_dropout
-
-    def get_config(self):
-        config = {
-            "units": self.units,
-            "activation": activations.serialize(
-                self.activation  # Google internal code, commented out by copybara
-            ),
-            "use_bias": self.use_bias,
-            "kernel_initializer": initializers.serialize(
-                self.kernel_initializer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_initializer": initializers.serialize(
-                self.recurrent_initializer  # Google internal code, commented out by copybara
-            ),
-            "bias_initializer": initializers.serialize(
-                self.bias_initializer  # Google internal code, commented out by copybara
-            ),
-            "kernel_regularizer": regularizers.serialize(
-                self.kernel_regularizer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_regularizer": regularizers.serialize(
-                self.recurrent_regularizer  # Google internal code, commented out by copybara
-            ),
-            "bias_regularizer": regularizers.serialize(
-                self.bias_regularizer  # Google internal code, commented out by copybara
-            ),
-            "activity_regularizer": regularizers.serialize(
-                self.activity_regularizer  # Google internal code, commented out by copybara
-            ),
-            "kernel_constraint": constraints.serialize(
-                self.kernel_constraint  # Google internal code, commented out by copybara
-            ),
-            "recurrent_constraint": constraints.serialize(
-                self.recurrent_constraint  # Google internal code, commented out by copybara
-            ),
-            "bias_constraint": constraints.serialize(
-                self.bias_constraint  # Google internal code, commented out by copybara
-            ),
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "dropout": self.dropout,
-            "recurrent_dropout": self.recurrent_dropout,
-        }
-        base_config = super(QSimpleRNN, self).get_config()
-        del base_config["cell"]
-        return dict(list(base_config.items()) + list(config.items()))
-
     def get_quantization_config(self):
         return {
-            "kernel_quantizer": str(self.kernel_quantizer_internal),
-            "recurrent_quantizer": str(self.recurrent_quantizer_internal),
-            "bias_quantizer": str(self.bias_quantizer_internal),
-            "state_quantizer": str(self.state_quantizer_internal),
-            "activation": str(self.activation),
+            "kernel_quantizer": str(self.cell.kernel_quantizer_internal),
+            "recurrent_quantizer": str(self.cell.recurrent_quantizer_internal),
+            "bias_quantizer": str(self.cell.bias_quantizer_internal),
+            "state_quantizer": str(self.cell.state_quantizer_internal),
+            "activation": str(self.cell.activation),
         }
+
+    def get_config(self):
+        base_config = super().get_config()
+        base_config.pop("cell", None)
+        base_config.update(_cell_config(self.cell))
+        base_config["activity_regularizer"] = regularizers.serialize(
+            self.activity_regularizer
+        )
+        return base_config
 
     @classmethod
     def from_config(cls, config):
         config.pop("implementation", None)
-        config.pop("seed", None)
         return cls(**config)
 
 
 @register_keras_serializable(package="qkeras")
 class QLSTMCell(layers.LSTMCell):
-    """
-    Cell class for the QLSTMCell layer.
-
-    Most of these parameters follow the implementation of LSTMCell in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer, state_quantizer.
-
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-    We refer the reader to the documentation of LSTMCell in Keras for the
-    other parameters.
-
-    """
+    """Quantized LSTM cell."""
 
     def __init__(
         self,
@@ -500,18 +277,19 @@ class QLSTMCell(layers.LSTMCell):
         dropout=0.0,
         recurrent_dropout=0.0,
         implementation=1,
+        seed=None,
         **kwargs,
     ):
+        implementation = 1 if implementation == 0 else implementation
         self.kernel_quantizer = kernel_quantizer
         self.recurrent_quantizer = recurrent_quantizer
         self.bias_quantizer = bias_quantizer
         self.state_quantizer = state_quantizer
 
-        self.kernel_quantizer_internal = get_quantizer(self.kernel_quantizer)
-        self.recurrent_quantizer_internal = get_quantizer(self.recurrent_quantizer)
-        self.bias_quantizer_internal = get_quantizer(self.bias_quantizer)
-        self.state_quantizer_internal = get_quantizer(self.state_quantizer)
-
+        self.kernel_quantizer_internal = get_quantizer(kernel_quantizer)
+        self.recurrent_quantizer_internal = get_quantizer(recurrent_quantizer)
+        self.bias_quantizer_internal = get_quantizer(bias_quantizer)
+        self.state_quantizer_internal = get_quantizer(state_quantizer)
         self.quantizers = [
             self.kernel_quantizer_internal,
             self.recurrent_quantizer_internal,
@@ -519,44 +297,39 @@ class QLSTMCell(layers.LSTMCell):
             self.state_quantizer_internal,
         ]
 
-        if hasattr(self.kernel_quantizer_internal, "_set_trainable_parameter"):
-            self.kernel_quantizer_internal._set_trainable_parameter()
-
-        if hasattr(self.recurrent_quantizer_internal, "_set_trainable_parameter"):
-            self.recurrent_quantizer_internal._set_trainable_parameter()
+        for quantizer in [
+            self.kernel_quantizer_internal,
+            self.recurrent_quantizer_internal,
+        ]:
+            if hasattr(quantizer, "_set_trainable_parameter"):
+                quantizer._set_trainable_parameter()
 
         kernel_constraint, kernel_initializer = get_auto_range_constraint_initializer(
             self.kernel_quantizer_internal, kernel_constraint, kernel_initializer
         )
-
-        recurrent_constraint, recurrent_initializer = (
-            get_auto_range_constraint_initializer(
-                self.recurrent_quantizer_internal,
-                recurrent_constraint,
-                recurrent_initializer,
-            )
+        recurrent_constraint, recurrent_initializer = get_auto_range_constraint_initializer(
+            self.recurrent_quantizer_internal,
+            recurrent_constraint,
+            recurrent_initializer,
         )
-
         if use_bias:
             bias_constraint, bias_initializer = get_auto_range_constraint_initializer(
                 self.bias_quantizer_internal, bias_constraint, bias_initializer
             )
 
-        if activation is not None:
-            activation = get_quantizer(activation)
-
-        if recurrent_activation is not None:
-            recurrent_activation = get_quantizer(recurrent_activation)
-
         super().__init__(
             units=units,
-            activation=activation,
+            activation=get_quantizer(activation) if activation is not None else None,
+            recurrent_activation=(
+                get_quantizer(recurrent_activation)
+                if recurrent_activation is not None
+                else None
+            ),
             use_bias=use_bias,
-            recurrent_activation=recurrent_activation,
             kernel_initializer=kernel_initializer,
             recurrent_initializer=recurrent_initializer,
             bias_initializer=bias_initializer,
-            unit_forget_bias=True,
+            unit_forget_bias=unit_forget_bias,
             kernel_regularizer=kernel_regularizer,
             recurrent_regularizer=recurrent_regularizer,
             bias_regularizer=bias_regularizer,
@@ -565,31 +338,30 @@ class QLSTMCell(layers.LSTMCell):
             bias_constraint=bias_constraint,
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
-            implementation=implementation,
+            seed=seed,
             **kwargs,
         )
 
+        self.implementation = implementation
+
     def _compute_carry_and_output(self, x, h_tm1, c_tm1, quantized_recurrent):
-        """Computes carry and output using split kernels."""
         x_i, x_f, x_c, x_o = x
         h_tm1_i, h_tm1_f, h_tm1_c, h_tm1_o = h_tm1
         i = self.recurrent_activation(
-            x_i + K.dot(h_tm1_i, quantized_recurrent[:, : self.units])
+            x_i + _dot(h_tm1_i, quantized_recurrent[:, : self.units])
         )
         f = self.recurrent_activation(
-            x_f + K.dot(h_tm1_f, quantized_recurrent[:, self.units : self.units * 2])
+            x_f + _dot(h_tm1_f, quantized_recurrent[:, self.units : self.units * 2])
         )
         c = f * c_tm1 + i * self.activation(
-            x_c
-            + K.dot(h_tm1_c, quantized_recurrent[:, self.units * 2 : self.units * 3])
+            x_c + _dot(h_tm1_c, quantized_recurrent[:, self.units * 2 : self.units * 3])
         )
         o = self.recurrent_activation(
-            x_o + K.dot(h_tm1_o, quantized_recurrent[:, self.units * 3 :])
+            x_o + _dot(h_tm1_o, quantized_recurrent[:, self.units * 3 :])
         )
         return c, o
 
     def _compute_carry_and_output_fused(self, z, c_tm1):
-        """Computes carry and output using fused kernels."""
         z0, z1, z2, z3 = z
         i = self.recurrent_activation(z0)
         f = self.recurrent_activation(z1)
@@ -598,213 +370,112 @@ class QLSTMCell(layers.LSTMCell):
         return c, o
 
     def call(self, inputs, states, training=False):
-        h_tm1_tmp = states[0]  # previous memory state
-        c_tm1_tmp = states[1]  # previous carry state
+        h_tm1 = states[0]
+        c_tm1 = states[1]
 
         if self.state_quantizer:
-            c_tm1 = self.state_quantizer_internal(c_tm1_tmp)
-            h_tm1 = self.state_quantizer_internal(h_tm1_tmp)
-        else:
-            c_tm1 = c_tm1_tmp
-            h_tm1 = h_tm1_tmp
+            h_tm1 = self.state_quantizer_internal(h_tm1)
+            c_tm1 = self.state_quantizer_internal(c_tm1)
 
-        dp_mask = self.get_dropout_mask_for_cell(inputs, training, count=4)
-        rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(h_tm1, training, count=4)
+        dp_mask = _get_dropout_mask(self, inputs, 4) if training else [None] * 4
+        rec_dp_mask = (
+            _get_recurrent_dropout_mask(self, h_tm1, 4) if training else [None] * 4
+        )
 
-        if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
-        else:
-            quantized_kernel = self.kernel
-        if self.recurrent_quantizer:
-            quantized_recurrent = self.recurrent_quantizer_internal(
-                self.recurrent_kernel
+        quantized_kernel = (
+            self.kernel_quantizer_internal(self.kernel)
+            if self.kernel_quantizer
+            else self.kernel
+        )
+        quantized_recurrent = (
+            self.recurrent_quantizer_internal(self.recurrent_kernel)
+            if self.recurrent_quantizer
+            else self.recurrent_kernel
+        )
+        quantized_bias = None
+        if self.use_bias:
+            quantized_bias = (
+                self.bias_quantizer_internal(self.bias) if self.bias_quantizer else self.bias
             )
-        else:
-            quantized_recurrent = self.recurrent_kernel
-        if self.bias_quantizer:
-            quantized_bias = self.bias_quantizer_internal(self.bias)
-        else:
-            quantized_bias = self.bias
 
         if self.implementation == 1:
-            if 0 < self.dropout < 1.0:
-                inputs_i = inputs * dp_mask[0]
-                inputs_f = inputs * dp_mask[1]
-                inputs_c = inputs * dp_mask[2]
-                inputs_o = inputs * dp_mask[3]
-            else:
-                inputs_i = inputs
-                inputs_f = inputs
-                inputs_c = inputs
-                inputs_o = inputs
-            k_i, k_f, k_c, k_o = keras.ops.split(
-                quantized_kernel, num_or_size_splits=4, axis=1
+            inputs_i = inputs * dp_mask[0] if dp_mask[0] is not None else inputs
+            inputs_f = inputs * dp_mask[1] if dp_mask[1] is not None else inputs
+            inputs_c = inputs * dp_mask[2] if dp_mask[2] is not None else inputs
+            inputs_o = inputs * dp_mask[3] if dp_mask[3] is not None else inputs
+
+            k_i, k_f, k_c, k_o = ops.split(quantized_kernel, 4, axis=1)
+            x_i = _dot(inputs_i, k_i)
+            x_f = _dot(inputs_f, k_f)
+            x_c = _dot(inputs_c, k_c)
+            x_o = _dot(inputs_o, k_o)
+
+            if self.use_bias:
+                b_i, b_f, b_c, b_o = ops.split(quantized_bias, 4, axis=0)
+                x_i = _bias_add(x_i, b_i)
+                x_f = _bias_add(x_f, b_f)
+                x_c = _bias_add(x_c, b_c)
+                x_o = _bias_add(x_o, b_o)
+
+            h_tm1_i = h_tm1 * rec_dp_mask[0] if rec_dp_mask[0] is not None else h_tm1
+            h_tm1_f = h_tm1 * rec_dp_mask[1] if rec_dp_mask[1] is not None else h_tm1
+            h_tm1_c = h_tm1 * rec_dp_mask[2] if rec_dp_mask[2] is not None else h_tm1
+            h_tm1_o = h_tm1 * rec_dp_mask[3] if rec_dp_mask[3] is not None else h_tm1
+
+            c, o = self._compute_carry_and_output(
+                (x_i, x_f, x_c, x_o),
+                (h_tm1_i, h_tm1_f, h_tm1_c, h_tm1_o),
+                c_tm1,
+                quantized_recurrent,
             )
-            x_i = K.dot(inputs_i, k_i)
-            x_f = K.dot(inputs_f, k_f)
-            x_c = K.dot(inputs_c, k_c)
-            x_o = K.dot(inputs_o, k_o)
-            if self.use_bias:
-                b_i, b_f, b_c, b_o = keras.ops.split(
-                    quantized_bias, num_or_size_splits=4, axis=0
-                )
-                x_i = K.bias_add(x_i, b_i)
-                x_f = K.bias_add(x_f, b_f)
-                x_c = K.bias_add(x_c, b_c)
-                x_o = K.bias_add(x_o, b_o)
-
-            if 0 < self.recurrent_dropout < 1.0:
-                h_tm1_i = h_tm1 * rec_dp_mask[0]
-                h_tm1_f = h_tm1 * rec_dp_mask[1]
-                h_tm1_c = h_tm1 * rec_dp_mask[2]
-                h_tm1_o = h_tm1 * rec_dp_mask[3]
-            else:
-                h_tm1_i = h_tm1
-                h_tm1_f = h_tm1
-                h_tm1_c = h_tm1
-                h_tm1_o = h_tm1
-            x = (x_i, x_f, x_c, x_o)
-            h_tm1 = (h_tm1_i, h_tm1_f, h_tm1_c, h_tm1_o)
-            c, o = self._compute_carry_and_output(x, h_tm1, c_tm1, quantized_recurrent)
         else:
-            if 0.0 < self.dropout < 1.0:
-                inputs = inputs * dp_mask[0]
-            z = K.dot(inputs, quantized_kernel)
-            z += K.dot(h_tm1, quantized_recurrent)
+            inputs_i = inputs * dp_mask[0] if dp_mask[0] is not None else inputs
+            h_i = h_tm1 * rec_dp_mask[0] if rec_dp_mask[0] is not None else h_tm1
+            z = _dot(inputs_i, quantized_kernel) + _dot(h_i, quantized_recurrent)
             if self.use_bias:
-                z = K.bias_add(z, quantized_bias)
-
-            z = keras.ops.split(z, num_or_size_splits=4, axis=1)
+                z = _bias_add(z, quantized_bias)
+            z = ops.split(z, 4, axis=1)
             c, o = self._compute_carry_and_output_fused(z, c_tm1)
 
         h = o * self.activation(c)
         return h, [h, c]
 
     def get_config(self):
-        config = {
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-        }
-        base_config = super(QLSTMCell, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = super().get_config()
+        config.update(
+            {
+                "implementation": self.implementation,
+                "kernel_quantizer": _serialize_quantizer(self.kernel_quantizer_internal),
+                "recurrent_quantizer": _serialize_quantizer(
+                    self.recurrent_quantizer_internal
+                ),
+                "bias_quantizer": _serialize_quantizer(self.bias_quantizer_internal),
+                "state_quantizer": _serialize_quantizer(self.state_quantizer_internal),
+            }
+        )
+        return config
 
 
 @register_keras_serializable(package="qkeras")
 class QLSTM(layers.RNN):
-    """
-    Class for the QLSTM layer.
+    """Quantized LSTM layer."""
 
-    Most of these parameters follow the implementation of LSTM in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer, state_quantizer.
-
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-    We refer the reader to the documentation of LSTM in Keras for the
-    other parameters.
-
-    """
-
-    def __init__(
-        self,
-        units,
-        activation="quantized_tanh",
-        recurrent_activation="hard_sigmoid",
-        use_bias=True,
-        kernel_initializer="glorot_uniform",
-        recurrent_initializer="orthogonal",
-        bias_initializer="zeros",
-        unit_forget_bias=True,
-        kernel_regularizer=None,
-        recurrent_regularizer=None,
-        bias_regularizer=None,
-        activity_regularizer=None,
-        kernel_constraint=None,
-        recurrent_constraint=None,
-        bias_constraint=None,
-        kernel_quantizer=None,
-        recurrent_quantizer=None,
-        bias_quantizer=None,
-        state_quantizer=None,
-        dropout=0.0,
-        recurrent_dropout=0.0,
-        implementation=1,
-        return_sequences=False,
-        return_state=False,
-        go_backwards=False,
-        stateful=False,
-        unroll=False,
-        **kwargs,
-    ):
-        if implementation == 0:
-            print(
-                "`implementation=0` has been deprecated, "
-                "and now defaults to `implementation=1`."
-                "Please update your layer call."
-            )
-
-        if "enable_caching_device" in kwargs:
-            cell_kwargs = {"enable_caching_device": kwargs.pop("enable_caching_device")}
-        else:
-            cell_kwargs = {}
-
+    def __init__(self, units, activity_regularizer=None, **kwargs):
+        rnn_kwargs = _pop_rnn_kwargs(kwargs)
         cell = QLSTMCell(
             units,
-            activation=activation,
-            recurrent_activation=recurrent_activation,
-            use_bias=use_bias,
-            kernel_initializer=kernel_initializer,
-            recurrent_initializer=recurrent_initializer,
-            unit_forget_bias=unit_forget_bias,
-            bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer,
-            recurrent_regularizer=recurrent_regularizer,
-            bias_regularizer=bias_regularizer,
-            kernel_constraint=kernel_constraint,
-            recurrent_constraint=recurrent_constraint,
-            bias_constraint=bias_constraint,
-            kernel_quantizer=kernel_quantizer,
-            recurrent_quantizer=recurrent_quantizer,
-            bias_quantizer=bias_quantizer,
-            state_quantizer=state_quantizer,
-            dropout=dropout,
-            recurrent_dropout=recurrent_dropout,
-            implementation=implementation,
-            dtype=kwargs.get("dtype"),
-            trainable=kwargs.get("trainable", True),
-            **cell_kwargs,
-        )
-
-        super().__init__(
-            cell,
-            return_sequences=return_sequences,
-            return_state=return_state,
-            go_backwards=go_backwards,
-            stateful=stateful,
-            unroll=unroll,
             **kwargs,
         )
+        super().__init__(cell, **rnn_kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [layers.InputSpec(ndim=3)]
 
-    def call(self, inputs, mask=None, training=False, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
-        return super(QLSTM, self).call(
-            inputs, mask=mask, training=training, initial_state=initial_state
+    def call(self, sequences, initial_state=None, mask=None, training=False):
+        return super().call(
+            sequences,
+            initial_state=initial_state,
+            mask=mask,
+            training=training,
         )
 
     def compute_output_shape(self, inputs_shape):
@@ -816,205 +487,35 @@ class QLSTM(layers.RNN):
     def get_prunable_weights(self):
         return [self.cell.kernel, self.cell.recurrent_kernel]
 
-    @property
-    def units(self):
-        return self.cell.units
-
-    @property
-    def activation(self):
-        return self.cell.activation
-
-    @property
-    def recurrent_activation(self):
-        return self.cell.recurrent_activation
-
-    @property
-    def use_bias(self):
-        return self.cell.use_bias
-
-    @property
-    def kernel_initializer(self):
-        return self.cell.kernel_initializer
-
-    @property
-    def recurrent_initializer(self):
-        return self.cell.recurrent_initializer
-
-    @property
-    def bias_initializer(self):
-        return self.cell.bias_initializer
-
-    @property
-    def unit_forget_bias(self):
-        return self.cell.unit_forget_bias
-
-    @property
-    def kernel_regularizer(self):
-        return self.cell.kernel_regularizer
-
-    @property
-    def recurrent_regularizer(self):
-        return self.cell.recurrent_regularizer
-
-    @property
-    def bias_regularizer(self):
-        return self.cell.bias_regularizer
-
-    @property
-    def kernel_constraint(self):
-        return self.cell.kernel_constraint
-
-    @property
-    def recurrent_constraint(self):
-        return self.cell.recurrent_constraint
-
-    @property
-    def bias_constraint(self):
-        return self.cell.bias_constraint
-
-    @property
-    def kernel_quantizer_internal(self):
-        return self.cell.kernel_quantizer_internal
-
-    @property
-    def recurrent_quantizer_internal(self):
-        return self.cell.recurrent_quantizer_internal
-
-    @property
-    def bias_quantizer_internal(self):
-        return self.cell.bias_quantizer_internal
-
-    @property
-    def state_quantizer_internal(self):
-        return self.cell.state_quantizer_internal
-
-    @property
-    def kernel_quantizer(self):
-        return self.cell.kernel_quantizer
-
-    @property
-    def recurrent_quantizer(self):
-        return self.cell.recurrent_quantizer
-
-    @property
-    def bias_quantizer(self):
-        return self.cell.bias_quantizer
-
-    @property
-    def state_quantizer(self):
-        return self.cell.state_quantizer
-
-    @property
-    def dropout(self):
-        return self.cell.dropout
-
-    @property
-    def recurrent_dropout(self):
-        return self.cell.recurrent_dropout
-
-    @property
-    def implementation(self):
-        return self.cell.implementation
-
-    def get_config(self):
-        config = {
-            "units": self.units,
-            "activation": activations.serialize(
-                self.activation  # Google internal code, commented out by copybara
-            ),
-            "recurrent_activation": activations.serialize(
-                self.recurrent_activation  # Google internal code, commented out by copybara
-            ),
-            "use_bias": self.use_bias,
-            "kernel_initializer": initializers.serialize(
-                self.kernel_initializer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_initializer": initializers.serialize(
-                self.recurrent_initializer  # Google internal code, commented out by copybara
-            ),
-            "bias_initializer": initializers.serialize(
-                self.bias_initializer  # Google internal code, commented out by copybara
-            ),
-            "unit_forget_bias": self.unit_forget_bias,
-            "kernel_regularizer": regularizers.serialize(
-                self.kernel_regularizer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_regularizer": regularizers.serialize(
-                self.recurrent_regularizer  # Google internal code, commented out by copybara
-            ),
-            "bias_regularizer": regularizers.serialize(
-                self.bias_regularizer  # Google internal code, commented out by copybara
-            ),
-            "activity_regularizer": regularizers.serialize(
-                self.activity_regularizer  # Google internal code, commented out by copybara
-            ),
-            "kernel_constraint": constraints.serialize(
-                self.kernel_constraint  # Google internal code, commented out by copybara
-            ),
-            "recurrent_constraint": constraints.serialize(
-                self.recurrent_constraint  # Google internal code, commented out by copybara
-            ),
-            "bias_constraint": constraints.serialize(
-                self.bias_constraint  # Google internal code, commented out by copybara
-            ),
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "dropout": self.dropout,
-            "recurrent_dropout": self.recurrent_dropout,
-            "implementation": self.implementation,
-        }
-        base_config = super(QLSTM, self).get_config()
-        del base_config["cell"]
-        return dict(list(base_config.items()) + list(config.items()))
-
     def get_quantization_config(self):
         return {
-            "kernel_quantizer": str(self.kernel_quantizer_internal),
-            "recurrent_quantizer": str(self.recurrent_quantizer_internal),
-            "bias_quantizer": str(self.bias_quantizer_internal),
-            "state_quantizer": str(self.state_quantizer_internal),
-            "activation": str(self.activation),
-            "recurrent_activation": str(self.recurrent_activation),
+            "kernel_quantizer": str(self.cell.kernel_quantizer_internal),
+            "recurrent_quantizer": str(self.cell.recurrent_quantizer_internal),
+            "bias_quantizer": str(self.cell.bias_quantizer_internal),
+            "state_quantizer": str(self.cell.state_quantizer_internal),
+            "activation": str(self.cell.activation),
+            "recurrent_activation": str(self.cell.recurrent_activation),
         }
+
+    def get_config(self):
+        base_config = super().get_config()
+        base_config.pop("cell", None)
+        base_config.update(_cell_config(self.cell))
+        base_config["activity_regularizer"] = regularizers.serialize(
+            self.activity_regularizer
+        )
+        return base_config
 
     @classmethod
     def from_config(cls, config):
-        if "implementation" in config and config["implementation"] == 0:
+        if config.get("implementation") == 0:
             config["implementation"] = 1
-        config.pop("seed", None)  # <- Seed sicher entfernen
         return cls(**config)
 
 
 @register_keras_serializable(package="qkeras")
 class QGRUCell(layers.GRUCell):
-    """
-    Cell class for the QGRUCell layer.
-
-    Most of these parameters follow the implementation of GRUCell in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer and state_quantizer.
-
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-
-    We refer the reader to the documentation of GRUCell in Keras for the
-    other parameters.
-
-    """
+    """Quantized GRU cell."""
 
     def __init__(
         self,
@@ -1039,18 +540,19 @@ class QGRUCell(layers.GRUCell):
         recurrent_dropout=0.0,
         implementation=1,
         reset_after=False,
+        seed=None,
         **kwargs,
     ):
+        implementation = 1 if implementation == 0 else implementation
         self.kernel_quantizer = kernel_quantizer
         self.recurrent_quantizer = recurrent_quantizer
         self.bias_quantizer = bias_quantizer
         self.state_quantizer = state_quantizer
 
-        self.kernel_quantizer_internal = get_quantizer(self.kernel_quantizer)
-        self.recurrent_quantizer_internal = get_quantizer(self.recurrent_quantizer)
-        self.bias_quantizer_internal = get_quantizer(self.bias_quantizer)
-        self.state_quantizer_internal = get_quantizer(self.state_quantizer)
-
+        self.kernel_quantizer_internal = get_quantizer(kernel_quantizer)
+        self.recurrent_quantizer_internal = get_quantizer(recurrent_quantizer)
+        self.bias_quantizer_internal = get_quantizer(bias_quantizer)
+        self.state_quantizer_internal = get_quantizer(state_quantizer)
         self.quantizers = [
             self.kernel_quantizer_internal,
             self.recurrent_quantizer_internal,
@@ -1058,39 +560,34 @@ class QGRUCell(layers.GRUCell):
             self.state_quantizer_internal,
         ]
 
-        if hasattr(self.kernel_quantizer_internal, "_set_trainable_parameter"):
-            self.kernel_quantizer_internal._set_trainable_parameter()
-
-        if hasattr(self.recurrent_quantizer_internal, "_set_trainable_parameter"):
-            self.recurrent_quantizer_internal._set_trainable_parameter()
+        for quantizer in [
+            self.kernel_quantizer_internal,
+            self.recurrent_quantizer_internal,
+        ]:
+            if hasattr(quantizer, "_set_trainable_parameter"):
+                quantizer._set_trainable_parameter()
 
         kernel_constraint, kernel_initializer = get_auto_range_constraint_initializer(
             self.kernel_quantizer_internal, kernel_constraint, kernel_initializer
         )
-
-        recurrent_constraint, recurrent_initializer = (
-            get_auto_range_constraint_initializer(
-                self.recurrent_quantizer_internal,
-                recurrent_constraint,
-                recurrent_initializer,
-            )
+        recurrent_constraint, recurrent_initializer = get_auto_range_constraint_initializer(
+            self.recurrent_quantizer_internal,
+            recurrent_constraint,
+            recurrent_initializer,
         )
-
         if use_bias:
             bias_constraint, bias_initializer = get_auto_range_constraint_initializer(
                 self.bias_quantizer_internal, bias_constraint, bias_initializer
             )
 
-        if activation is not None:
-            activation = get_quantizer(activation)
-
-        if recurrent_activation is not None:
-            recurrent_activation = get_quantizer(recurrent_activation)
-
         super().__init__(
             units=units,
-            activation=activation,
-            recurrent_activation=recurrent_activation,
+            activation=get_quantizer(activation) if activation is not None else None,
+            recurrent_activation=(
+                get_quantizer(recurrent_activation)
+                if recurrent_activation is not None
+                else None
+            ),
             use_bias=use_bias,
             kernel_initializer=kernel_initializer,
             recurrent_initializer=recurrent_initializer,
@@ -1103,126 +600,103 @@ class QGRUCell(layers.GRUCell):
             bias_constraint=bias_constraint,
             dropout=dropout,
             recurrent_dropout=recurrent_dropout,
-            implementation=implementation,
             reset_after=reset_after,
+            seed=seed,
             **kwargs,
         )
 
-    def call(self, inputs, states, training=False):
-        # previous memory
-        h_tm1_tmp = states[0] if is_nested(states) else states
+        self.implementation = implementation
 
-        dp_mask = self.get_dropout_mask_for_cell(inputs, training, count=3)
-        rec_dp_mask = self.get_recurrent_dropout_mask_for_cell(
-            h_tm1_tmp, training, count=3
+    def call(self, inputs, states, training=False):
+        h_tm1 = states[0] if is_nested(states) else states
+        if self.state_quantizer:
+            h_tm1 = self.state_quantizer_internal(h_tm1)
+
+        dp_mask = _get_dropout_mask(self, inputs, 3) if training else [None] * 3
+        rec_dp_mask = (
+            _get_recurrent_dropout_mask(self, h_tm1, 3) if training else [None] * 3
         )
 
-        if self.state_quantizer:
-            h_tm1 = self.state_quantizer_internal(h_tm1_tmp)
-        else:
-            h_tm1 = h_tm1_tmp
-
-        if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
-        else:
-            quantized_kernel = self.kernel
-        if self.recurrent_quantizer:
-            quantized_recurrent = self.recurrent_quantizer_internal(
-                self.recurrent_kernel
-            )
-        else:
-            quantized_recurrent = self.kernel
+        quantized_kernel = (
+            self.kernel_quantizer_internal(self.kernel)
+            if self.kernel_quantizer
+            else self.kernel
+        )
+        quantized_recurrent = (
+            self.recurrent_quantizer_internal(self.recurrent_kernel)
+            if self.recurrent_quantizer
+            else self.recurrent_kernel
+        )
 
         if self.use_bias:
-            if self.bias_quantizer:
-                quantized_bias = self.bias_quantizer_internal(self.bias)
+            quantized_bias = (
+                self.bias_quantizer_internal(self.bias) if self.bias_quantizer else self.bias
+            )
+            if self.reset_after:
+                input_bias, recurrent_bias = ops.unstack(quantized_bias)
             else:
-                quantized_bias = self.bias
-
-            if not self.reset_after:
                 input_bias, recurrent_bias = quantized_bias, None
-            else:
-                input_bias, recurrent_bias = keras.ops.unstack(quantized_bias)
+        else:
+            input_bias = recurrent_bias = None
 
         if self.implementation == 1:
-            if 0.0 < self.dropout < 1.0:
-                inputs_z = inputs * dp_mask[0]
-                inputs_r = inputs * dp_mask[1]
-                inputs_h = inputs * dp_mask[2]
-            else:
-                inputs_z = inputs
-                inputs_r = inputs
-                inputs_h = inputs
+            inputs_z = inputs * dp_mask[0] if dp_mask[0] is not None else inputs
+            inputs_r = inputs * dp_mask[1] if dp_mask[1] is not None else inputs
+            inputs_h = inputs * dp_mask[2] if dp_mask[2] is not None else inputs
 
-            x_z = K.dot(inputs_z, quantized_kernel[:, : self.units])
-            x_r = K.dot(inputs_r, quantized_kernel[:, self.units : self.units * 2])
-            x_h = K.dot(inputs_h, quantized_kernel[:, self.units * 2 :])
+            x_z = _dot(inputs_z, quantized_kernel[:, : self.units])
+            x_r = _dot(inputs_r, quantized_kernel[:, self.units : self.units * 2])
+            x_h = _dot(inputs_h, quantized_kernel[:, self.units * 2 :])
 
             if self.use_bias:
-                x_z = K.bias_add(x_z, input_bias[: self.units])
-                x_r = K.bias_add(x_r, input_bias[self.units : self.units * 2])
-                x_h = K.bias_add(x_h, input_bias[self.units * 2 :])
+                x_z = _bias_add(x_z, input_bias[: self.units])
+                x_r = _bias_add(x_r, input_bias[self.units : self.units * 2])
+                x_h = _bias_add(x_h, input_bias[self.units * 2 :])
 
-            if 0.0 < self.recurrent_dropout < 1.0:
-                h_tm1_z = h_tm1 * rec_dp_mask[0]
-                h_tm1_r = h_tm1 * rec_dp_mask[1]
-                h_tm1_h = h_tm1 * rec_dp_mask[2]
-            else:
-                h_tm1_z = h_tm1
-                h_tm1_r = h_tm1
-                h_tm1_h = h_tm1
+            h_tm1_z = h_tm1 * rec_dp_mask[0] if rec_dp_mask[0] is not None else h_tm1
+            h_tm1_r = h_tm1 * rec_dp_mask[1] if rec_dp_mask[1] is not None else h_tm1
+            h_tm1_h = h_tm1 * rec_dp_mask[2] if rec_dp_mask[2] is not None else h_tm1
 
-            recurrent_z = K.dot(h_tm1_z, quantized_recurrent[:, : self.units])
-            recurrent_r = K.dot(
+            recurrent_z = _dot(h_tm1_z, quantized_recurrent[:, : self.units])
+            recurrent_r = _dot(
                 h_tm1_r, quantized_recurrent[:, self.units : self.units * 2]
             )
+
             if self.reset_after and self.use_bias:
-                recurrent_z = K.bias_add(recurrent_z, recurrent_bias[: self.units])
-                recurrent_r = K.bias_add(
+                recurrent_z = _bias_add(recurrent_z, recurrent_bias[: self.units])
+                recurrent_r = _bias_add(
                     recurrent_r, recurrent_bias[self.units : self.units * 2]
                 )
 
             z = self.recurrent_activation(x_z + recurrent_z)
             r = self.recurrent_activation(x_r + recurrent_r)
 
-            # reset gate applied after/before matrix multiplication
             if self.reset_after:
-                recurrent_h = K.dot(h_tm1_h, quantized_recurrent[:, self.units * 2 :])
+                recurrent_h = _dot(h_tm1_h, quantized_recurrent[:, self.units * 2 :])
                 if self.use_bias:
-                    recurrent_h = K.bias_add(
-                        recurrent_h, recurrent_bias[self.units * 2 :]
-                    )
+                    recurrent_h = _bias_add(recurrent_h, recurrent_bias[self.units * 2 :])
                 recurrent_h = r * recurrent_h
             else:
-                recurrent_h = K.dot(
-                    r * h_tm1_h, quantized_recurrent[:, self.units * 2 :]
-                )
+                recurrent_h = _dot(r * h_tm1_h, quantized_recurrent[:, self.units * 2 :])
 
             hh = self.activation(x_h + recurrent_h)
         else:
-            if 0.0 < self.dropout < 1.0:
-                inputs = inputs * dp_mask[0]
+            inputs_i = inputs * dp_mask[0] if dp_mask[0] is not None else inputs
+            h_i = h_tm1 * rec_dp_mask[0] if rec_dp_mask[0] is not None else h_tm1
 
-            # inputs projected by all gate matrices at once
-            matrix_x = K.dot(inputs, quantized_kernel)
+            matrix_x = _dot(inputs_i, quantized_kernel)
             if self.use_bias:
-                # biases: bias_z_i, bias_r_i, bias_h_i
-                matrix_x = K.bias_add(matrix_x, input_bias)
-
-            x_z, x_r, x_h = keras.ops.split(matrix_x, 3, axis=-1)
+                matrix_x = _bias_add(matrix_x, input_bias)
+            x_z, x_r, x_h = ops.split(matrix_x, 3, axis=-1)
 
             if self.reset_after:
-                # hidden state projected by all gate matrices at once
-                matrix_inner = K.dot(h_tm1, quantized_recurrent)
+                matrix_inner = _dot(h_i, quantized_recurrent)
                 if self.use_bias:
-                    matrix_inner = K.bias_add(matrix_inner, recurrent_bias)
+                    matrix_inner = _bias_add(matrix_inner, recurrent_bias)
             else:
-                # hidden state projected separately for update/reset and new
-                matrix_inner = K.dot(h_tm1, quantized_recurrent[:, : 2 * self.units])
+                matrix_inner = _dot(h_i, quantized_recurrent[:, : 2 * self.units])
 
-            recurrent_z, recurrent_r, recurrent_h = keras.ops.split(
-                matrix_inner, [self.units, self.units, -1], axis=-1
-            )
+            recurrent_z, recurrent_r, recurrent_h = ops.split(matrix_inner, 3, axis=-1)
 
             z = self.recurrent_activation(x_z + recurrent_z)
             r = self.recurrent_activation(x_r + recurrent_r)
@@ -1230,139 +704,49 @@ class QGRUCell(layers.GRUCell):
             if self.reset_after:
                 recurrent_h = r * recurrent_h
             else:
-                recurrent_h = K.dot(r * h_tm1, quantized_recurrent[:, 2 * self.units :])
+                recurrent_h = _dot(r * h_i, quantized_recurrent[:, 2 * self.units :])
 
             hh = self.activation(x_h + recurrent_h)
-        # previous and candidate state mixed by update gate
-        h = z * h_tm1 + (1 - z) * hh
+
+        h = z * h_tm1 + (1.0 - z) * hh
         return h, [h]
 
     def get_config(self):
-        config = {
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-        }
-        base_config = super(QGRUCell, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
+        config = super().get_config()
+        config.update(
+            {
+                "implementation": self.implementation,
+                "kernel_quantizer": _serialize_quantizer(self.kernel_quantizer_internal),
+                "recurrent_quantizer": _serialize_quantizer(
+                    self.recurrent_quantizer_internal
+                ),
+                "bias_quantizer": _serialize_quantizer(self.bias_quantizer_internal),
+                "state_quantizer": _serialize_quantizer(self.state_quantizer_internal),
+            }
+        )
+        return config
 
 
 @register_keras_serializable(package="qkeras")
 class QGRU(layers.RNN):
-    """
-    Class for the QGRU layer.
+    """Quantized GRU layer."""
 
-    Most of these parameters follow the implementation of GRU in
-    Keras, with the exception of kernel_quantizer, recurrent_quantizer,
-    bias_quantizer and state_quantizer.
-
-
-    kernel_quantizer: quantizer function/class for kernel
-    recurrent_quantizer: quantizer function/class for recurrent kernel
-    bias_quantizer: quantizer function/class for bias
-    state_quantizer: quantizer function/class for states
-
-
-    We refer the reader to the documentation of GRU in Keras for the
-    other parameters.
-
-    """
-
-    def __init__(
-        self,
-        units,
-        activation="quantized_tanh",
-        recurrent_activation="hard_sigmoid",
-        use_bias=True,
-        kernel_initializer="glorot_uniform",
-        recurrent_initializer="orthogonal",
-        bias_initializer="zeros",
-        kernel_regularizer=None,
-        recurrent_regularizer=None,
-        bias_regularizer=None,
-        activity_regularizer=None,
-        kernel_constraint=None,
-        recurrent_constraint=None,
-        bias_constraint=None,
-        kernel_quantizer=None,
-        recurrent_quantizer=None,
-        bias_quantizer=None,
-        state_quantizer=None,
-        dropout=0.0,
-        recurrent_dropout=0.0,
-        implementation=1,
-        return_sequences=False,
-        return_state=False,
-        go_backwards=False,
-        stateful=False,
-        unroll=False,
-        reset_after=False,
-        **kwargs,
-    ):
-        if implementation == 0:
-            print(
-                "`implementation=0` has been deprecated, "
-                "and now defaults to `implementation=1`."
-                "Please update your layer call."
-            )
-
-        if "enable_caching_device" in kwargs:
-            cell_kwargs = {"enable_caching_device": kwargs.pop("enable_caching_device")}
-        else:
-            cell_kwargs = {}
-
+    def __init__(self, units, activity_regularizer=None, **kwargs):
+        rnn_kwargs = _pop_rnn_kwargs(kwargs)
         cell = QGRUCell(
             units,
-            activation=activation,
-            recurrent_activation=recurrent_activation,
-            use_bias=use_bias,
-            kernel_initializer=kernel_initializer,
-            recurrent_initializer=recurrent_initializer,
-            bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer,
-            recurrent_regularizer=recurrent_regularizer,
-            bias_regularizer=bias_regularizer,
-            kernel_constraint=kernel_constraint,
-            recurrent_constraint=recurrent_constraint,
-            bias_constraint=bias_constraint,
-            kernel_quantizer=kernel_quantizer,
-            recurrent_quantizer=recurrent_quantizer,
-            bias_quantizer=bias_quantizer,
-            state_quantizer=state_quantizer,
-            dropout=dropout,
-            recurrent_dropout=recurrent_dropout,
-            implementation=implementation,
-            reset_after=reset_after,
-            dtype=kwargs.get("dtype"),
-            trainable=kwargs.get("trainable", True),
-            **cell_kwargs,
-        )
-
-        super().__init__(
-            cell,
-            return_sequences=return_sequences,
-            return_state=return_state,
-            go_backwards=go_backwards,
-            stateful=stateful,
-            unroll=unroll,
             **kwargs,
         )
+        super().__init__(cell, **rnn_kwargs)
         self.activity_regularizer = regularizers.get(activity_regularizer)
-        self.input_spec = [keras.layers.InputSpec(ndim=3)]
+        self.input_spec = [layers.InputSpec(ndim=3)]
 
-    def call(self, inputs, mask=None, training=False, initial_state=None):
-        self._maybe_reset_cell_dropout_mask(self.cell)
-        return super(QGRU, self).call(
-            inputs, mask=mask, training=training, initial_state=initial_state
+    def call(self, sequences, initial_state=None, mask=None, training=False):
+        return super().call(
+            sequences,
+            initial_state=initial_state,
+            mask=mask,
+            training=training,
         )
 
     def compute_output_shape(self, inputs_shape):
@@ -1374,212 +758,108 @@ class QGRU(layers.RNN):
     def get_prunable_weights(self):
         return [self.cell.kernel, self.cell.recurrent_kernel]
 
-    @property
-    def units(self):
-        return self.cell.units
-
-    @property
-    def activation(self):
-        return self.cell.activation
-
-    @property
-    def recurrent_activation(self):
-        return self.cell.recurrent_activation
-
-    @property
-    def use_bias(self):
-        return self.cell.use_bias
-
-    @property
-    def kernel_initializer(self):
-        return self.cell.kernel_initializer
-
-    @property
-    def recurrent_initializer(self):
-        return self.cell.recurrent_initializer
-
-    @property
-    def bias_initializer(self):
-        return self.cell.bias_initializer
-
-    @property
-    def kernel_regularizer(self):
-        return self.cell.kernel_regularizer
-
-    @property
-    def recurrent_regularizer(self):
-        return self.cell.recurrent_regularizer
-
-    @property
-    def bias_regularizer(self):
-        return self.cell.bias_regularizer
-
-    @property
-    def kernel_constraint(self):
-        return self.cell.kernel_constraint
-
-    @property
-    def recurrent_constraint(self):
-        return self.cell.recurrent_constraint
-
-    @property
-    def bias_constraint(self):
-        return self.cell.bias_constraint
-
-    @property
-    def kernel_quantizer_internal(self):
-        return self.cell.kernel_quantizer_internal
-
-    @property
-    def recurrent_quantizer_internal(self):
-        return self.cell.recurrent_quantizer_internal
-
-    @property
-    def bias_quantizer_internal(self):
-        return self.cell.bias_quantizer_internal
-
-    @property
-    def state_quantizer_internal(self):
-        return self.cell.state_quantizer_internal
-
-    @property
-    def kernel_quantizer(self):
-        return self.cell.kernel_quantizer
-
-    @property
-    def recurrent_quantizer(self):
-        return self.cell.recurrent_quantizer
-
-    @property
-    def bias_quantizer(self):
-        return self.cell.bias_quantizer
-
-    @property
-    def state_quantizer(self):
-        return self.cell.state_quantizer
-
-    @property
-    def dropout(self):
-        return self.cell.dropout
-
-    @property
-    def recurrent_dropout(self):
-        return self.cell.recurrent_dropout
-
-    @property
-    def implementation(self):
-        return self.cell.implementation
-
-    @property
-    def reset_after(self):
-        return self.cell.reset_after
-
-    def get_config(self):
-        config = {
-            "units": self.units,
-            "activation": activations.serialize(
-                self.activation  # Google internal code, commented out by copybara
-            ),
-            "recurrent_activation": activations.serialize(
-                self.recurrent_activation  # Google internal code, commented out by copybara
-            ),
-            "use_bias": self.use_bias,
-            "kernel_initializer": initializers.serialize(
-                self.kernel_initializer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_initializer": initializers.serialize(
-                self.recurrent_initializer  # Google internal code, commented out by copybara
-            ),
-            "bias_initializer": initializers.serialize(
-                self.bias_initializer  # Google internal code, commented out by copybara
-            ),
-            "kernel_regularizer": regularizers.serialize(
-                self.kernel_regularizer  # Google internal code, commented out by copybara
-            ),
-            "recurrent_regularizer": regularizers.serialize(
-                self.recurrent_regularizer  # Google internal code, commented out by copybara
-            ),
-            "bias_regularizer": regularizers.serialize(
-                self.bias_regularizer  # Google internal code, commented out by copybara
-            ),
-            "activity_regularizer": regularizers.serialize(
-                self.activity_regularizer  # Google internal code, commented out by copybara
-            ),
-            "kernel_constraint": constraints.serialize(
-                self.kernel_constraint  # Google internal code, commented out by copybara
-            ),
-            "recurrent_constraint": constraints.serialize(
-                self.recurrent_constraint  # Google internal code, commented out by copybara
-            ),
-            "bias_constraint": constraints.serialize(
-                self.bias_constraint  # Google internal code, commented out by copybara
-            ),
-            "kernel_quantizer": constraints.serialize(
-                self.kernel_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "recurrent_quantizer": constraints.serialize(
-                self.recurrent_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "bias_quantizer": constraints.serialize(
-                self.bias_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "state_quantizer": constraints.serialize(
-                self.state_quantizer_internal  # Google internal code, commented out by copybara
-            ),
-            "dropout": self.dropout,
-            "recurrent_dropout": self.recurrent_dropout,
-            "implementation": self.implementation,
-            "reset_after": self.reset_after,
-        }
-        base_config = super(QGRU, self).get_config()
-        del base_config["cell"]
-        return dict(list(base_config.items()) + list(config.items()))
-
     def get_quantization_config(self):
         return {
-            "kernel_quantizer": str(self.kernel_quantizer_internal),
-            "recurrent_quantizer": str(self.recurrent_quantizer_internal),
-            "bias_quantizer": str(self.bias_quantizer_internal),
-            "state_quantizer": str(self.state_quantizer_internal),
-            "activation": str(self.activation),
-            "recurrent_activation": str(self.recurrent_activation),
+            "kernel_quantizer": str(self.cell.kernel_quantizer_internal),
+            "recurrent_quantizer": str(self.cell.recurrent_quantizer_internal),
+            "bias_quantizer": str(self.cell.bias_quantizer_internal),
+            "state_quantizer": str(self.cell.state_quantizer_internal),
+            "activation": str(self.cell.activation),
+            "recurrent_activation": str(self.cell.recurrent_activation),
         }
+
+    def get_config(self):
+        base_config = super().get_config()
+        base_config.pop("cell", None)
+        base_config.update(_cell_config(self.cell))
+        base_config["activity_regularizer"] = regularizers.serialize(
+            self.activity_regularizer
+        )
+        return base_config
 
     @classmethod
     def from_config(cls, config):
-        if "implementation" in config and config["implementation"] == 0:
+        if config.get("implementation") == 0:
             config["implementation"] = 1
-        config.pop("seed", None)
         return cls(**config)
 
 
 @register_keras_serializable(package="qkeras")
 class QBidirectional(layers.Bidirectional):
-    """
-    Class for the QBidirecitonal wrapper.
-
-    Most of these parameters follow the implementation of Bidirectional in
-    Keras.
-
-    We refer the reader to the documentation of Bidirectional in Keras for the
-    other parameters.
-
-    """
+    """Quantized bidirectional wrapper."""
 
     def get_quantizers(self):
-        """
-        Returns quantizers in the order they were created.
-        """
-        return (
-            self.forward_layer.get_quantizers() + self.backward_layer.get_quantizers()
-        )
+        return self.forward_layer.get_quantizers() + self.backward_layer.get_quantizers()
 
     @property
     def activation(self):
-        return self.layer.activation
+        return self.forward_layer.activation
 
     def get_quantization_config(self):
         return {
-            "layer": self.layer.get_quantization_config(),
+            "layer": self.forward_layer.get_quantization_config(),
             "backward_layer": self.backward_layer.get_quantization_config(),
         }
+
+
+def _pop_rnn_kwargs(kwargs):
+    rnn_keys = [
+        "return_sequences",
+        "return_state",
+        "go_backwards",
+        "stateful",
+        "unroll",
+        "zero_output_for_mask",
+    ]
+    rnn_kwargs = {key: kwargs.pop(key) for key in rnn_keys if key in kwargs}
+    kwargs.pop("enable_caching_device", None)
+    return rnn_kwargs
+
+
+def _cell_config(cell):
+    config = cell.get_config()
+    config.pop("name", None)
+    config.pop("trainable", None)
+    config.pop("dtype", None)
+    return config
+
+
+# Backward-compatible layer properties. Kept outside class bodies to reduce
+# duplication and keep qkeras/hls4ml-style accessors working.
+def _delegate_property(name):
+    return property(lambda self: getattr(self.cell, name))
+
+
+for _cls in [QSimpleRNN, QLSTM, QGRU]:
+    for _name in [
+        "units",
+        "activation",
+        "use_bias",
+        "kernel_initializer",
+        "recurrent_initializer",
+        "bias_initializer",
+        "kernel_regularizer",
+        "recurrent_regularizer",
+        "bias_regularizer",
+        "kernel_constraint",
+        "recurrent_constraint",
+        "bias_constraint",
+        "kernel_quantizer_internal",
+        "recurrent_quantizer_internal",
+        "bias_quantizer_internal",
+        "state_quantizer_internal",
+        "kernel_quantizer",
+        "recurrent_quantizer",
+        "bias_quantizer",
+        "state_quantizer",
+        "dropout",
+        "recurrent_dropout",
+    ]:
+        setattr(_cls, _name, _delegate_property(_name))
+
+for _cls in [QLSTM, QGRU]:
+    setattr(_cls, "recurrent_activation", _delegate_property("recurrent_activation"))
+    setattr(_cls, "implementation", _delegate_property("implementation"))
+
+setattr(QLSTM, "unit_forget_bias", _delegate_property("unit_forget_bias"))
+setattr(QGRU, "reset_after", _delegate_property("reset_after"))
