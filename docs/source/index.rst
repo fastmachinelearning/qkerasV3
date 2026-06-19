@@ -1,11 +1,11 @@
-qkerasV3 Documentation
+QKerasV3 Documentation
 =====================
 
-qkerasV3 is a Keras 3–compatible continuation of QKeras, focused on quantization-aware training and model compression.
+QKerasV3 is a Keras 3–compatible continuation of QKeras, focused on quantization-aware training and model compression.
 
 .. important::
 
-   qkerasV3 currently supports **TensorFlow** as the Keras backend.
+   QKerasV3 currently supports **TensorFlow** as the Keras backend.
    Set the backend before importing:
 
    .. code-block:: bash

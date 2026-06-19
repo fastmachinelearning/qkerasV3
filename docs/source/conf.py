@@ -5,8 +5,8 @@ from datetime import datetime
 # Make your package importable for autodoc
 sys.path.insert(0, os.path.abspath("../.."))
 
-project = "qkerasV3"
-author = "qkerasV3 contributors"
+project = "QKerasV3"
+author = "QKerasV3 contributors"
 copyright = f"{datetime.now().year}, {author}"
 
 # -- General configuration ------------------------------------------------
@@ -57,7 +57,7 @@ nb_execution_mode = "off"
 
 # -- Keras / TensorFlow configuration ------------------------------------
 
-# qkerasV3 currently supports TensorFlow backend via Keras 3.
+# QKerasV3 currently supports TensorFlow backend via Keras 3.
 # Setting this here makes autodoc imports stable in CI/RTD.
 os.environ.setdefault("KERAS_BACKEND", "tensorflow")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")

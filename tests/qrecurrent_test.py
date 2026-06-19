@@ -1,4 +1,4 @@
-"""Tests for qkerasV3 recurrent layers.
+"""Tests for QKerasV3 recurrent layers.
 
 These tests are intentionally backend-light and should run with Keras 3 on the
 TensorFlow backend. They cover construction, forward passes, serialization, and

@@ -1,7 +1,7 @@
 API Reference
 =============
 
-This section documents the public API surface of **qkerasV3**.
+This section documents the public API surface of **QKerasV3**.
 
 .. note::
 

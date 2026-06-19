@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Quantized recurrent layers for Keras 3 / qkerasV3."""
+"""Quantized recurrent layers for Keras 3 / QKerasV3."""
 
 import keras
 from keras import activations, constraints, initializers, layers, regularizers

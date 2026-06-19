@@ -1,10 +1,10 @@
 # Installation
 
-qkerasV3 is published on PyPI as **`qkeras-v3`** and imported as **`qkeras`**.
+QKerasV3 is published on PyPI as **`qkeras-v3`** and imported as **`qkeras`**.
 
 ## Supported backends
 
-qkerasV3 currently supports **TensorFlow** via **Keras 3**.
+QKerasV3 currently supports **TensorFlow** via **Keras 3**.
 
 Before importing `qkeras`, ensure the Keras backend is set:
 

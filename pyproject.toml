@@ -14,8 +14,8 @@ authors = [
     { name = "Mattia Cerrato", email = "mcerrato@uni-mainz.de" },
 ]
 maintainers = [
-    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
     { name = "Marius Snella Köppel ", email = "mkoepp@phys.ethz.ch" },
+    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
     { name = "Mattia Cerrato", email = "mcerrato@uni-mainz.de" },
 ]
 requires-python = ">=3.10"
