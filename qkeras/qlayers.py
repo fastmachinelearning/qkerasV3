@@ -470,8 +470,9 @@ class QAdaptiveActivation(layers.Layer):
         ema_max_next = Kops.cast(self.ema_max, self.ema_max.dtype) * decay + Kops.cast(new_max, self.ema_max.dtype) * (one - decay)
         # 4) Conditionally apply the update with where (pure tensor op):
         #    Shapes: is_ema_training is scalar -> broadcasts over vectors like (3,)
-        ema_min_applied = Kops.where(is_ema_training, ema_min_next, self.ema_min)
-        ema_max_applied = Kops.where(is_ema_training, ema_max_next, self.ema_max)
+
+        ema_min_applied = Kops.where(is_ema_training, ema_min_next, self.ema_min.value)
+        ema_max_applied = Kops.where(is_ema_training, ema_max_next, self.ema_max.value)
         # 5) Now assign once (outside of any traced cond):
         self.ema_min.assign(ema_min_applied)
         self.ema_max.assign(ema_max_applied)

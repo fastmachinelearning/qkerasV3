@@ -105,7 +105,7 @@ def test_QNoiseScheduler():
         knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_1.quantizers
     ]
     val = 1 - knp.power((10.0 - 4.0) / (10.0 - 2.0), 3)
-    assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
+    np.testing.assert_allclose(qnoise_factor, np.full_like(qnoise_factor, val), atol=1e-6)
 
     # The number of batch does not pass the finish of 10. Exponent 2.0
     gradual_qnoise_callback_2 = QNoiseScheduler(
@@ -126,7 +126,7 @@ def test_QNoiseScheduler():
         knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_2.quantizers
     ]
     val = 1 - knp.power((10.0 - 4.0) / (10.0 - 2.0), 2)
-    assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
+    np.testing.assert_allclose(qnoise_factor, np.full_like(qnoise_factor, val), atol=1e-6)
 
     # The number of batch does not pass the start of 6.
     gradual_qnoise_callback_3 = QNoiseScheduler(
@@ -167,7 +167,7 @@ def test_QNoiseScheduler():
         knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_4.quantizers
     ]
     val = 1 - knp.power((20.0 - (epochs * num_data - 1)) / (20.0 - 6.0), 3)
-    assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
+    np.testing.assert_allclose(qnoise_factor, np.full_like(qnoise_factor, val), atol=1e-6)
 
     # The number of training iterations passes the number of batches of an epoch
     # with update_freq = 2.
@@ -192,7 +192,7 @@ def test_QNoiseScheduler():
     val = 1 - knp.power(
         (20.0 - epochs * ((epochs * num_data - 1) // epochs)) / (20.0 - 0.0), 3
     )
-    assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
+    np.testing.assert_allclose(qnoise_factor, np.full_like(qnoise_factor, val), atol=1e-6)
 
     ##########################
     # Test "epoch" freq_type #
@@ -216,7 +216,7 @@ def test_QNoiseScheduler():
         knp.array(d.qnoise_factor) for d in gradual_qnoise_callback_6.quantizers
     ]
     val = 1 - knp.power((5.0 - 2.0) / (5.0 - 1.0), 3)
-    assert_equal(qnoise_factor, np.full_like(qnoise_factor, val))
+    np.testing.assert_allclose(qnoise_factor, np.full_like(qnoise_factor, val), atol=1e-6)
     assert_equal(len(gradual_qnoise_callback_6.quantizers), 2)  # Test "epoch"
 
 

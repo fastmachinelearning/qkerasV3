@@ -213,17 +213,17 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         # Therefore, we have to call self.batchnorm with `training`
         # first to perform a forward pass and then use `bn_training`
         # later in keras.ops.where to assign the correct values.
-        gamma_prev = self.batchnorm.gamma
-        beta_prev = self.batchnorm.beta
-        mm_prev = self.batchnorm.moving_mean
-        mv_prev = self.batchnorm.moving_variance
+        gamma_prev = self.batchnorm.gamma.value
+        beta_prev = self.batchnorm.beta.value
+        mm_prev = self.batchnorm.moving_mean.value
+        mv_prev = self.batchnorm.moving_variance.value
 
         _ = self.batchnorm(conv_outputs, training=training)
 
-        gamma = Kops.where(bn_training, self.batchnorm.gamma, gamma_prev)
-        beta = Kops.where(bn_training, self.batchnorm.beta, beta_prev)
-        moving_mean = Kops.where(bn_training, self.batchnorm.moving_mean, mm_prev)
-        moving_variance = Kops.where(bn_training, self.batchnorm.moving_variance, mv_prev)
+        gamma = Kops.where(bn_training, self.batchnorm.gamma.value, gamma_prev)
+        beta = Kops.where(bn_training, self.batchnorm.beta.value, beta_prev)
+        moving_mean = Kops.where(bn_training, self.batchnorm.moving_mean.value, mm_prev)
+        moving_variance = Kops.where(bn_training, self.batchnorm.moving_variance.value, mv_prev)
 
         self.batchnorm.gamma.assign(gamma)
         self.batchnorm.beta.assign(beta)
