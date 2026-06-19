@@ -81,6 +81,7 @@ def test_quantizer_accepts_numpy_input_and_returns_tensor(quantizer_name):
     # Should convert NumPy to backend tensor internally
     assert ops.is_tensor(y), f"{quantizer_name} should return a tensor when given NumPy input"
     assert y.shape == (5,)
+    y = keras.ops.convert_to_numpy(y)
     assert dtype_name(y) == "float32"
     assert dtype_name(y) == dtype_name(x_np)
 

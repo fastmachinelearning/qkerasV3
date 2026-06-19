@@ -16,7 +16,7 @@
 """Test range values that are used for codebook computation"""
 
 import keras
-import keras.ops.numpy as knp
+import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
@@ -29,14 +29,14 @@ keras.utils.set_random_seed(812)
 @pytest.mark.parametrize(
     "bits, integer, expected_values",
     [
-        (3, 0, knp.array([0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875])),
-        (3, 1, knp.array([0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75])),
-        (3, 2, knp.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5])),
-        (3, 3, knp.array([0, 1, 2, 3, 4, 5, 6, 7])),
+        (3, 0, np.array([0.0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875])),
+        (3, 1, np.array([0.0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75])),
+        (3, 2, np.array([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5])),
+        (3, 3, np.array([0, 1, 2, 3, 4, 5, 6, 7])),
         (
             6,
             1,
-            knp.array(
+            np.array(
                 [
                     0.0,
                     0.03125,
@@ -111,20 +111,20 @@ def test_quantized_relu_range(bits, integer, expected_values):
     """Test quantized_relu range function."""
     q = quantized_relu(bits, integer)
     result = q.range()
-    assert_allclose(result, expected_values, rtol=1e-05)
+    assert_allclose(keras.ops.convert_to_numpy(result), expected_values, rtol=1e-05)
 
 
 @pytest.mark.parametrize(
     "bits, integer, expected_values",
     [
-        (3, 0, knp.array([0.0, 0.25, 0.5, 0.75, -1.0, -0.75, -0.5, -0.25])),
-        (3, 1, knp.array([0.0, 0.5, 1.0, 1.5, -2.0, -1.5, -1.0, -0.5])),
-        (3, 2, knp.array([0.0, 1.0, 2.0, 3.0, -4.0, -3.0, -2.0, -1.0])),
-        (3, 3, knp.array([0.0, 2.0, 4.0, 6.0, -8.0, -6.0, -4.0, -2.0])),
+        (3, 0, np.array([0.0, 0.25, 0.5, 0.75, -1.0, -0.75, -0.5, -0.25])),
+        (3, 1, np.array([0.0, 0.5, 1.0, 1.5, -2.0, -1.5, -1.0, -0.5])),
+        (3, 2, np.array([0.0, 1.0, 2.0, 3.0, -4.0, -3.0, -2.0, -1.0])),
+        (3, 3, np.array([0.0, 2.0, 4.0, 6.0, -8.0, -6.0, -4.0, -2.0])),
         (
             6,
             1,
-            knp.array(
+            np.array(
                 [
                     0.0,
                     0.0625,
@@ -199,7 +199,8 @@ def test_quantized_bits_range(bits, integer, expected_values):
     """Test quantized_bits range function."""
     q = quantized_bits(bits, integer)
     result = q.range()
-    assert_allclose(result, expected_values, rtol=1e-05)
+    result = q.range()
+    assert_allclose(keras.ops.convert_to_numpy(result), expected_values, rtol=1e-05)
 
 
 if __name__ == "__main__":

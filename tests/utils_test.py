@@ -374,8 +374,8 @@ def test_clone_model_and_freeze_auto_po2_scale():
 
     # Check if the new model's weights and scales are derived properly.
     assert_array_equal(
-        new_hw["conv"]["weights"][0],
-        knp.array(
+        keras.ops.convert_to_numpy(new_hw["conv"]["weights"][0]),
+        np.array(
             [
                 [[[0.5, 6, 0, 0.5]], [[1, 0, 0.5, 3.5]]],
                 [[[-2.0, 3.0, 3.5, -0.5]], [[-3.5, 1.0, -3.5, 3.5]]],
@@ -384,16 +384,18 @@ def test_clone_model_and_freeze_auto_po2_scale():
     )
 
     assert_array_equal(
-        new_hw["conv"]["scales"][0], knp.array([[[[0.25, 0.5, 0.25, 0.25]]]])
+        keras.ops.convert_to_numpy(new_hw["conv"]["scales"][0]),
+        np.array([[[[0.25, 0.5, 0.25, 0.25]]]])
     )
 
     assert_array_equal(
         keras.ops.convert_to_numpy(new_hw["dw_conv"]["weights"][0]).flatten(),
-        knp.array([0.0, 14, 8, 4, 0, 6, -2, 4, -2, -42, 46, -4, -42, 2, -8, 12]),
+        np.array([0.0, 14, 8, 4, 0, 6, -2, 4, -2, -42, 46, -4, -42, 2, -8, 12]),
     )
 
     assert_array_equal(
-        new_hw["dense"]["scales"][0], knp.array([[0.25, 0.25]])
+        keras.ops.convert_to_numpy(new_hw["dense"]["scales"][0]),
+        np.array([[0.25, 0.25]])
     )
 
 

@@ -389,8 +389,8 @@ def _get_scale_mean(
       along the specified scaling axis/axes.
     """
     # cast input to float64
-    x = keras.ops.cast(x, dtype="float64")
-    q = keras.ops.cast(q, dtype="float64")
+    x = keras.ops.cast(x, dtype=K.floatx())
+    q = keras.ops.cast(q, dtype=K.floatx())
 
     if elements_per_scale is not None:
         # Get the input shape
@@ -1408,7 +1408,7 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
                 # post-training quantizater scale. In order to retrain models with
                 # this scale value, we need to divide it by m to make it in the same
                 # value scale as x.
-                scale = self.scale / m
+                scale = keras.ops.convert_to_tensor(self.scale, dtype=keras.backend.floatx()) / m
             else:
                 # Calculate the scale.
                 scale = (Kops.max(abs(x), axis=axis, keepdims=True) * 2) / levels
@@ -1520,9 +1520,8 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         if unsigned_bits > 0:
             return max(
                 1.0,
-                np.array(
-                    knp.power(2.0, Kops.cast(self.integer, dtype="float32")),
-                    dtype="float32",
+                keras.ops.convert_to_numpy(
+                    knp.power(2.0, Kops.cast(self.integer, dtype="float32"))
                 ),
             )
         else:
@@ -1536,8 +1535,8 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         if unsigned_bits > 0:
             return -max(
                 1.0,
-                np.array(
-                    knp.power(2, Kops.cast(self.integer, dtype="float32")), dtype="float32"
+                keras.ops.convert_to_numpy(
+                    knp.power(2, Kops.cast(self.integer, dtype="float32"))
                 ),
             )
         else:
@@ -1556,9 +1555,8 @@ class quantized_bits(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
             (x - 2 ** (self.bits - 1)) - 2 ** (self.bits - 1),
             x,
         )
-        return p_and_n * np.array(
-            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32") + 1),
-            dtype="float32",
+        return p_and_n * keras.ops.convert_to_numpy(
+            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32") + 1)
         )
 
     @classmethod
@@ -2615,9 +2613,8 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         assert self.use_sigmoid == 0  # current unsupported
         assert self.negative_slope == 0  # # unsupported unsupported
         x = np.asarray(range(2**self.bits))
-        return x * np.array(
-            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32")),
-            dtype="float32",
+        return x * keras.ops.convert_to_numpy(
+            knp.power(2.0, -self.bits + Kops.cast(self.integer, dtype="float32"))
         )
 
     @classmethod

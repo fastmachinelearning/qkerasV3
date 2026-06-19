@@ -181,6 +181,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     variance = apply_quantizer(bn_layer.variance_quantizer_internal, bn_ws[idx])
 
     # Compute inv[i]
+    gamma = keras.ops.convert_to_tensor(gamma)
     inv = gamma * (1.0 / keras.ops.sqrt(variance + bn_layer.epsilon))
     inv = keras.ops.convert_to_numpy(inv)
     if bn_layer.inverse_quantizer_internal is not None:
