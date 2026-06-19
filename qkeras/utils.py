@@ -36,8 +36,8 @@ from .qconvolutional import (
     QSeparableConv1D,
     QSeparableConv2D,
 )
-from .qdepthwiseconv2d_batchnorm import QDepthwiseConv2DBatchnorm
 from .qdense_batchnorm import QDenseBatchnorm
+from .qdepthwiseconv2d_batchnorm import QDepthwiseConv2DBatchnorm
 from .qlayers import Clip, QActivation, QAdaptiveActivation, QDense, QInitializer
 from .qmac import QScaleShift
 from .qnormalization import QBatchNormalization

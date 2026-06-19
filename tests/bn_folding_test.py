@@ -34,10 +34,10 @@ from qkeras import (
     QConv2D,
     QConv2DBatchnorm,
     QDense,
+    QDenseBatchnorm,
     QDepthwiseConv2D,
     QDepthwiseConv2DBatchnorm,
     bn_folding_utils,
-    QDenseBatchnorm,
 )
 from qkeras.utils import (
     _add_supported_quantized_objects,

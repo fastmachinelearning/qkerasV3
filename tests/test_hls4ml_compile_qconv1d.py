@@ -67,6 +67,7 @@ def _quantizer(bits: int):
 def _build_model(case: QConv1DCase):
     import tensorflow as tf
     from tensorflow import keras
+
     from qkeras import QActivation, QConv1D, QDense
 
     inputs = keras.Input(shape=(case.input_len, case.in_ch), name="x")

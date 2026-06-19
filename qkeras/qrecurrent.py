@@ -15,13 +15,12 @@
 """Quantized recurrent layers for Keras 3 / QKerasV3."""
 
 import keras
-from keras import activations, constraints, initializers, layers, regularizers
+from keras import layers, regularizers
 from keras.saving import register_keras_serializable, serialize_keras_object
 
 from .ops_portable import is_nested
 from .qlayers import get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
-
 
 ops = keras.ops
 

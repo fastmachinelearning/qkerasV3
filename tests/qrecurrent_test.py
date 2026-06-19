@@ -5,13 +5,11 @@ TensorFlow backend. They cover construction, forward passes, serialization, and
 regressions that commonly break during Keras 2 -> Keras 3 migrations.
 """
 
+import keras
 import numpy as np
 import pytest
 
-import keras
-
-from qkeras.qrecurrent import QBidirectional, QGRU, QGRUCell, QLSTM, QSimpleRNN
-
+from qkeras.qrecurrent import QGRU, QLSTM, QBidirectional, QGRUCell, QSimpleRNN
 
 pytestmark = pytest.mark.filterwarnings(
     "ignore:.*The structure of `inputs` doesn't match.*:UserWarning"
