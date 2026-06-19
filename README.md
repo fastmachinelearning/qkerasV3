@@ -1,9 +1,10 @@
+# QKerasV3: Quantized Deep Learning for Keras 3
+
 [![Build Documentation](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/docs.yml)
 [![Build and Test Software](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/ci.yml)
 [![Readthedocs](https://app.readthedocs.org/projects/qkerasv3/badge/?version=latest)](https://qkerasv3.readthedocs.io/)
 
-
-# QKerasV3
+<img src="docs/source/images/logo.svg" alt="QKerasV3 Logo" width="400">
 
 ## Installation
 
