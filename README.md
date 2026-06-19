@@ -4,7 +4,7 @@
 [![Build and Test Software](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fastmachinelearning/qkerasV3/actions/workflows/ci.yml)
 [![Readthedocs](https://app.readthedocs.org/projects/qkerasv3/badge/?version=latest)](https://qkerasv3.readthedocs.io/)
 
-<img src="docs/source/images/logo.svg" alt="QKerasV3 Logo" width="400">
+<img src="docs/source/images/logo.svg" alt="QKerasV3 Logo" width="620">
 
 ## Installation
 
