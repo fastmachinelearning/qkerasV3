@@ -20,6 +20,7 @@ import os
 import tempfile
 
 import keras
+from keras.layers import Cropping2D
 import keras.ops.numpy as knp
 import numpy as np
 import pytest
@@ -57,7 +58,7 @@ def create_quantized_model():
         filters=2,
         kernel_size=(2, 2),
         strides=(1, 1),
-        padding="same",
+        padding="valid",
         name="conv2d_tran",
         depthwise_activation="quantized_bits(10, 6, 1)",
         pointwise_activation="quantized_bits(5, 3, 1)",
@@ -65,6 +66,7 @@ def create_quantized_model():
         pointwise_kernel_quantizer=quantized_bits(1, 0, 1, alpha=1.0),
         bias_quantizer=quantized_bits(2, 2, 1, alpha=1.0),
     )(x)
+    x = Cropping2D(cropping=((0, 1), (0, 1)))(x)
 
     model = keras.Model(inputs=img_input, outputs=x)
 
@@ -103,7 +105,7 @@ def test_qseparable_conv2d_transpose():
 
     actual_output = model.predict(inputs).astype("float16")
 
-    predicted = knp.array(
+    predicted = np.array(
         [
             [
                 [
@@ -236,7 +238,7 @@ def test_quantization_in_separable_conv2d_transpose():
     assert_equal(str(qs[3]), "quantized_bits(10,6,1)")
     assert_equal(str(qs[4]), "quantized_bits(5,3,1)")
 
-    expected = knp.array(
+    expected = np.array(
         [
             [
                 [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]],

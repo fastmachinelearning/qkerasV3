@@ -365,13 +365,17 @@ class QAdaptiveActivation(layers.Layer):
         else:
             num_channels = knp.array(1, dtype=np.int64)
 
+        # TODO: special backend treatment should be avoided in the future
+        if os.environ["KERAS_BACKEND"] == "torch" and type(num_channels) is not list:
+            num_channels = num_channels.tolist()
+
         # Initialize the moving mins and max
         if self.ema_min is None or self.ema_max is None:
             self.ema_min = keras.Variable(
-                knp.zeros(num_channels.tolist()), name="ema_min", trainable=False
+                knp.zeros(num_channels), name="ema_min", trainable=False
             )
             self.ema_max = keras.Variable(
-                knp.zeros(num_channels.tolist()), name="ema_max", trainable=False
+                knp.zeros(num_channels), name="ema_max", trainable=False
             )
 
         # Determine the parameters for the quantizer
@@ -379,7 +383,7 @@ class QAdaptiveActivation(layers.Layer):
 
         # Set up the initial integer bits and quantizer params
         self.quantizer.integer = keras.Variable(
-            knp.zeros(num_channels.tolist(), dtype="int32"),
+            knp.zeros(num_channels, dtype="int32"),
             name="quantizer_integer_bits",
             trainable=False,
         )
