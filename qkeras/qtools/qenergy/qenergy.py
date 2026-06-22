@@ -32,32 +32,44 @@ from qkeras.qtools.settings import cfg
 
 # all metrics converted to pJ/bit
 
+def safe_eval(fn, x):
+    """Safely converts any hardware-bound tensor to host memory using duck typing."""
+    # If it has a .detach or .cpu method, it's a tensor (PyTorch/MPS/CUDA)
+    if hasattr(x, "detach"):
+        x = x.detach()
+    if hasattr(x, "cpu"):
+        x = x.cpu()
+    if hasattr(x, "numpy"):
+        x = x.numpy()
+
+    return max(fn(x), 0)
+
 OP = {
     "fp32": {
-        "add": lambda x: max(cfg.fp32_add(x), 0),
-        "mul": lambda x: max(cfg.fp32_mul(x), 0),
+        "add": lambda x: safe_eval(cfg.fp32_add, x),
+        "mul": lambda x: safe_eval(cfg.fp32_mul, x),
     },
     "fp16": {
-        "add": lambda x: max(cfg.fp16_add(x), 0),
-        "mul": lambda x: max(cfg.fp16_mul(x), 0),
+        "add": lambda x: safe_eval(cfg.fp16_add, x),
+        "mul": lambda x: safe_eval(cfg.fp16_mul, x),
     },
     "fpm": {
-        "add": lambda x: max(cfg.fpm_add(x), 0),
-        "mux": lambda x: max(cfg.fpm_add(x), 0),
-        "xor": lambda x: max(cfg.fpm_add(x), 0),
-        "and": lambda x: max(cfg.fpm_add(x), 0),
-        "or": lambda x: max(cfg.fpm_add(x), 0),
-        "shifter": lambda x: max(cfg.fpm_add(x), 0),
-        "mul": lambda x: max(cfg.fpm_mul(x), 0),
+        "add": lambda x: safe_eval(cfg.fpm_add, x),
+        "mux": lambda x: safe_eval(cfg.fpm_add, x),
+        "xor": lambda x: safe_eval(cfg.fpm_add, x),
+        "and": lambda x: safe_eval(cfg.fpm_add, x),
+        "or": lambda x: safe_eval(cfg.fpm_add, x),
+        "shifter": lambda x: safe_eval(cfg.fpm_add, x),
+        "mul": lambda x: safe_eval(cfg.fpm_mul, x),
     },
     "sram": {
-        "rd": lambda x: max(cfg.sram_rd(x), 0),
-        "wr": lambda x: max(cfg.sram_rd(x), 0),
+        "rd": lambda x: safe_eval(cfg.sram_rd, x),
+        "wr": lambda x: safe_eval(cfg.sram_rd, x),
         "mul_factor": cfg.sram_mul_factor,
     },
     "dram": {
-        "rd": lambda x: max(cfg.dram_rd(x), 0),
-        "wr": lambda x: max(cfg.dram_rd(x), 0),
+        "rd": lambda x: safe_eval(cfg.dram_rd, x),
+        "wr": lambda x: safe_eval(cfg.dram_rd, x),
         "mul_factor": cfg.dram_mul_factor,
     },
 }

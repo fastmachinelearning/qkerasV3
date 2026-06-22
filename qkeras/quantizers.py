@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import re
+import os
 from typing import Any
 
 import keras
@@ -411,6 +412,9 @@ def _get_scale_mean(
 
         # Get the mean along the unroll axis/axes
         axes_of_mean = _get_scaling_axis(unrolled_scale_axis, len(unrolled_shape))
+        # TODO: special backend treatment should be avoided in the future
+        if os.environ["KERAS_BACKEND"] == "torch" and type(axes_of_mean) is not list:
+            axes_of_mean = axes_of_mean.tolist()
         qx = keras.ops.mean(x1 * q1, axis=axes_of_mean, keepdims=True)
         qq = keras.ops.mean(q1 * q1, axis=axes_of_mean, keepdims=True)
 
@@ -480,6 +484,11 @@ def _get_least_squares_scale(
     Returns:
       A scaling factor tensor or scalar for scaling tensor per channel.
     """
+
+    # TODO: needed since MPS devices dont support 32 bit for torch
+    # this could be fixed in the future
+    if hasattr(x, "astype") and os.environ["KERAS_BACKEND"] == "torch":
+        x = x.astype("float32")
 
     if isinstance(alpha, six.string_types) and "auto" in alpha:
         assert alpha in ["auto", "auto_po2"]
@@ -618,18 +627,18 @@ def stochastic_round_po2(x):
     # sampling in [2**left_val, 2**right_val].
     minval = 2**left_val
     maxval = 2**right_val
-    val = np.random.uniform(size=keras.ops.shape(y), low=minval, high=maxval)
+    val = keras.random.uniform(shape=keras.ops.shape(y), minval=minval, maxval=maxval)
     # use y as a threshold to keep the probabliy [2**left_val, y, 2**right_val]
     # so that the mean value of the sample should be y
     x_po2 = keras.ops.where(y < val, left_val, right_val)
     """
-  x_log2 = stochastic_round(keras.ops.log(y + eps) / log2)
-  sign = keras.ops.sign(x)
-  po2 = (
-      keras.ops.sign(x) *
-      Kops.cast(pow(2.0, Kops.cast(x_log2, dtype="float32")), dtype="float32")
-  )
-  """
+        x_log2 = stochastic_round(keras.ops.log(y + eps) / log2)
+        sign = keras.ops.sign(x)
+        po2 = (
+            keras.ops.sign(x) *
+            Kops.cast(pow(2.0, Kops.cast(x_log2, dtype="float32")), dtype="float32")
+        )
+    """
     return x_po2
 
 
@@ -2000,6 +2009,13 @@ class stochastic_ternary(ternary):  # pylint: disable=invalid-name
 
             r0 = np.random.uniform(size=keras.ops.shape(p0))
             r1 = np.random.uniform(size=keras.ops.shape(p1))
+
+            # convert to float32/64
+            p0 = Kops.cast(p0, dtype=K.floatx())
+            p1 = Kops.cast(p1, dtype=K.floatx())
+            r0 = Kops.cast(r0, dtype=K.floatx())
+            r1 = Kops.cast(r1, dtype=K.floatx())
+
             q0 = keras.ops.sign(p0 - r0)
             q0 += 1.0 - keras.ops.abs(q0)
             q1 = keras.ops.sign(p1 - r1)
@@ -2331,6 +2347,11 @@ class stochastic_binary(binary):  # pylint: disable=invalid-name
                 p = _sigmoid(self.temperature * x / std)
 
             r = np.random.uniform(size=keras.ops.shape(x))
+
+            # convert to float32/64
+            p = Kops.cast(p, dtype=K.floatx())
+            r = Kops.cast(r, dtype=K.floatx())
+
             q = keras.ops.sign(p - r)
             q += 1.0 - keras.ops.abs(q)
             q_non_stochastic = keras.ops.sign(x)

@@ -265,7 +265,7 @@ class QAdaptiveActivation(layers.Layer):
         if isinstance(current_step, keras.Variable):
             self.step = current_step
         elif current_step is None:
-            self.step = keras.Variable(-1, dtype="int64")
+            self.step = keras.Variable(-1.0)
             self.is_estimating_step_count = True
             print(
                 "[WARNING] QAdaptiveActivation is estimating it's own training "
@@ -275,7 +275,7 @@ class QAdaptiveActivation(layers.Layer):
                 file=sys.stderr,
             )
         else:
-            self.step = keras.Variable(current_step, dtype="int64")
+            self.step = keras.Variable(current_step)
             print(
                 "[WARNING] QAdaptiveActivation is disconnected from the optimizer "
                 "current step, which may lead to incorrect training. If you wish to"
@@ -368,10 +368,10 @@ class QAdaptiveActivation(layers.Layer):
         # Initialize the moving mins and max
         if self.ema_min is None or self.ema_max is None:
             self.ema_min = keras.Variable(
-                knp.zeros(num_channels), name="ema_min", trainable=False
+                knp.zeros(num_channels.tolist()), name="ema_min", trainable=False
             )
             self.ema_max = keras.Variable(
-                knp.zeros(num_channels), name="ema_max", trainable=False
+                knp.zeros(num_channels.tolist()), name="ema_max", trainable=False
             )
 
         # Determine the parameters for the quantizer
@@ -379,7 +379,7 @@ class QAdaptiveActivation(layers.Layer):
 
         # Set up the initial integer bits and quantizer params
         self.quantizer.integer = keras.Variable(
-            knp.zeros(num_channels, dtype="int32"),
+            knp.zeros(num_channels.tolist(), dtype="int32"),
             name="quantizer_integer_bits",
             trainable=False,
         )

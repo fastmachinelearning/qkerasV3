@@ -184,6 +184,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     gamma = keras.ops.convert_to_tensor(gamma)
     inv = gamma * (1.0 / keras.ops.sqrt(variance + bn_layer.epsilon))
     inv = keras.ops.convert_to_numpy(inv)
+    beta = keras.ops.convert_to_tensor(beta)
     if bn_layer.inverse_quantizer_internal is not None:
         quantizer = bn_layer.inverse_quantizer_internal
         inv = quantizer(inv)
@@ -197,6 +198,7 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
         prev_bias = cur_weights[-1]
     else:
         prev_bias = 0
+    prev_bias = keras.ops.convert_to_tensor(prev_bias)
     b_prime = inv * prev_bias + beta - inv * mean
 
     saved_weights[prev_layer.name]["enable_bn_fusing"] = True

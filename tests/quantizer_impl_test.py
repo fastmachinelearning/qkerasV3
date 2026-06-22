@@ -32,8 +32,8 @@ keras.utils.set_random_seed(812)
 
 def _get_min_max_po2_exponent(x):
     """Get min and max po2 exponent of x."""
-    x = keras.ops.cast(x, dtype="float64")
-    po2_x = Kops.log(x) / keras.ops.cast(knp.log(2.0), dtype="float64")
+    x = keras.ops.cast(x, dtype=keras.backend.floatx())
+    po2_x = Kops.log(x) / keras.ops.cast(knp.log(2.0), dtype=keras.backend.floatx())
     po2_x_min = Kops.convert_to_numpy(keras.ops.amin(po2_x))
     po2_x_max = Kops.convert_to_numpy(keras.ops.max(po2_x))
     return (po2_x_min, po2_x_max)
