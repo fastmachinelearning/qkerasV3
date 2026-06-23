@@ -57,47 +57,33 @@ need to be quantized afterwards.
 
 - Erwei Wang, James J. Davis, Daniele Moro, Piotr Zielinski, Claudionor Coelho, Satrajit Chatterjee, Peter Y. K. Cheung, George A. Constantinides, "Enabling Binary Neural Network Training on the Edge", https://arxiv.org/abs/2102.04270
 
-## Layers Implemented in QKeras
+## Layers Implemented in QKerasV3
 
-- QDense
+The following matrix tracks multi-backend framework support for quantization-aware training (QAT) layers in `qkerasV3`.
 
-- QConv1D
+| Layer Name | TensorFlow | JAX | PyTorch | Implementation Notes & Constraints |
+| :--- | :---: | :---: | :---: | :--- |
+| `QDense` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QConv1D` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QDepthwiseConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QSeparableConv1D` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QSeparableConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QMobileNetSeparableConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test. |
+| `QConv2DTranspose` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QActivation` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QAdaptiveActivation` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QAveragePooling2D` | ✅ Supported | ✅ Supported | ⚠️ Partial | Combines `AveragePooling2D` with a `QActivation` layer. PyTorch lacks native asymmetric padding (`padding="same"`) for all shapes. |
+| `QBatchNormalization` / `QConv2DBatchnorm` | ⚠️ Experimental | ⚠️ Experimental | ⚠️ Experimental | **Experimental Stage:** Stochastic activation functions often offset its regularization needs. JAX/Torch rely on Keras 3 epoch variable updates. |
+| `QOctaveConv2D` | ✅ Supported | ⚠️ Partial | ⚠️ Partial | Multi-frequency feature extraction relies on complex tensor splitting and slicing across backends.  TODO: needs a test. |
+| `QSimpleRNN` / `QSimpleRNNCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QLSTM` / `QLSTMCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QGRU` / `QGRUCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QBidirectional` | ✅ Supported | ✅ Supported | ✅ Supported | |
 
-- QConv2D
-
-- QDepthwiseConv2D
-
-- QSeparableConv1D (depthwise + pointwise convolution, without
-quantizing the activation values after the depthwise step)
-
-- QSeparableConv2D (depthwise + pointwise convolution, without
-quantizing the activation values after the depthwise step)
-
-- QMobileNetSeparableConv2D (extended from MobileNet SeparableConv2D
-implementation, quantizes the activation values after the depthwise step)
-
-- QConv2DTranspose
-
-- QActivation
-
-- QAdaptiveActivation
-
-- QAveragePooling2D (in fact, an AveragePooling2D stacked with a 
-QActivation layer for quantization of the result)
-
-- QBatchNormalization (is still in its experimental stage, as we
-have not seen the need to use this yet due to the normalization 
-and regularization effects of stochastic activation functions.)
-
-- QOctaveConv2D
-
-- QSimpleRNN, QSimpleRNNCell
-
-- QLSTM, QLSTMCell
-
-- QGRU, QGRUCell
-
-- QBidirectional
+**Legend:**
+* ✅ **Supported**: Tested and functions smoothly natively across the backend via Keras 3.
+* ⚠️ **Partial / Experimental / Conditional**: Functions, but exhibits structural constraints, layout edge cases, or relies on features currently in testing.
 
 It is worth noting that not all functionality is safe at this time to
 be used with other high-level operations, such as with layer
@@ -112,41 +98,33 @@ activation functions so that we can save and restore the network
 architecture, and duplicate them using Keras interface, but this
 interface has not been fully tested yet.
 
-## Activation Layers Implemented in QKeras
+## Activation Layers Implemented in QKerasV3
 
-- smooth_sigmoid(x)
+The following matrix tracks multi-backend framework support for quantization activation functions in `qkerasV3`.
 
-- hard_sigmoid(x)
+| Activation Function | TensorFlow | JAX | PyTorch | Implementation Notes & Constraints |
+| :--- | :---: | :---: | :---: | :--- |
+| `smooth_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `hard_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `binary_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `binary_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `smooth_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `hard_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_bits(bits=8, integer=0, symmetric=0, keep_negative=1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `bernoulli(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `stochastic_ternary(alpha=1.0, threshold=0.33)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `ternary(alpha=1.0, threshold=0.33)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `stochastic_binary(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `binary(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_relu(bits=8, integer=0, use_sigmoid=0, negative_slope=0.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_ulaw(bits=8, integer=0, symmetric=0, u=255.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_tanh(bits=8, integer=0, symmetric=0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_po2(bits=8, max_value=-1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `quantized_relu_po2(bits=8, max_value=-1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
 
-- binary_sigmoid(x)
-
-- binary_tanh(x)
-
-- smooth_tanh(x)
-
-- hard_tanh(x)
-
-- quantized_bits(bits=8, integer=0, symmetric=0, keep_negative=1)(x)
-
-- bernoulli(alpha=1.0)(x)
-
-- stochastic_ternary(alpha=1.0, threshold=0.33)(x)
-
-- ternary(alpha=1.0, threshold=0.33)(x)
-
-- stochastic_binary(alpha=1.0)(x)
-
-- binary(alpha=1.0)(x)
-
-- quantized_relu(bits=8, integer=0, use_sigmoid=0, negative_slope=0.0)(x)
-
-- quantized_ulaw(bits=8, integer=0, symmetric=0, u=255.0)(x)
-
-- quantized_tanh(bits=8, integer=0, symmetric=0)(x)
-
-- quantized_po2(bits=8, max_value=-1)(x)
-
-- quantized_relu_po2(bits=8, max_value=-1)(x)
+**Legend:**
+* ✅ **Supported**: Tested and functions smoothly natively across the backend via Keras 3.
+* ⚠️ **Partial / Experimental / Conditional**: Functions, but exhibits structural constraints, layout edge cases, or relies on features currently in testing.
 
 The stochastic_* functions, bernoulli as well as quantized_relu and
 quantized_tanh rely on stochastic versions of the activation
@@ -174,7 +152,7 @@ and for po2 type of quantizers, we need to specify the range of
 max_value.
 
 
-### Example
+## Example
 
 Suppose you have the following network.
 
@@ -272,6 +250,19 @@ Example of how to generate data type map can be found in qkeras/qtools/
 examples/example_generate_json.py. Example of how to generate energy consumption
 estimation can be found in qkeras/qtools/examples/example_get_energy.py
 
+## Unsupported Keras 3 Layers & Activations
+
+The following features exist in core Keras 3 but currently do not have a quantized equivalent wrapper or implementation in `qkerasV3`.
+
+* **`MultiHeadAttention` / `GroupQueryAttention` (Layer)**
+* **`ConvLSTM1D` / `ConvLSTM2D` / `ConvLSTM3D` (Layer)**
+* **`LayerNormalization` / `GroupNormalization` / `RMSNormalization` (Layer)**
+* **`PReLU` / `ELU` / `LeakyReLU` (Layer)**
+* **`AlphaDropout` / `GaussianNoise` / `GaussianDropout` (Layer)**
+* **`mish(x)` (Activation)**
+* **`swish(x)` / `gelu(x)` (Activation)**
+* **`exponential(x)` (Activation)**
+* **`silu(x)` (Activation)**
 
 ## Linting
 We use Ruff or linting (Pyflakes, pycodestyle, pyupgrade, isort, Pylint rules). The config lives in `pyproject.toml`, so you can run it from the project root:
