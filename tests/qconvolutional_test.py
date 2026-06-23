@@ -19,7 +19,6 @@ import os
 import tempfile
 
 import keras
-import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from keras.backend import clear_session
@@ -113,15 +112,15 @@ def test_qnetwork():
         all_weights = []
         for i, weights in enumerate(layer.get_weights()):
             input_shape = layer.input.shape
-            input_size = knp.prod(input_shape[1:]) if input_shape is not None else 1
+            input_size = np.prod(input_shape[1:]) if input_shape is not None else 1
 
             if len(layer.get_weights()) == 3 and i > 0:
-                input_size = input_size // knp.prod(layer.kernel_size)
+                input_size = input_size // np.prod(layer.kernel_size)
 
             shape = weights.shape
             assert input_size > 0, f"input size for {layer.name} {i}"
             all_weights.append(
-                10.0 * np.random.normal(0.0, knp.sqrt(2 / input_size), shape)
+                10.0 * np.random.normal(0.0, np.sqrt(2 / input_size), shape)
             )
 
         if all_weights:
@@ -132,16 +131,16 @@ def test_qnetwork():
     all_weights = []
     for layer in model.layers:
         for weights in layer.get_weights():
-            all_weights.append(knp.sum(weights))
-    all_weights = knp.array(all_weights)
+            all_weights.append(np.sum(weights))
+    all_weights = np.array(all_weights)
 
-    expected_weights = knp.array(
+    expected_weights = np.array(
         [2.0, -6.75, -0.625, -2.0, -0.25, -56.0, 1.125, -1.625, -1.125]
     )
-    assert knp.size(all_weights) == knp.size(expected_weights)
-    assert knp.all(all_weights == expected_weights)
+    assert np.size(all_weights) == np.size(expected_weights)
+    assert np.all(all_weights == expected_weights)
 
-    expected_output = knp.array(
+    expected_output = np.array(
         [
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
             [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
@@ -268,13 +267,13 @@ def test_qconv1d(layer_cls):
     for layer in model.layers:
         all_weights = []
         for i, weights in enumerate(layer.get_weights()):
-            input_size = knp.prod(layer.input.shape[1:])
+            input_size = np.prod(layer.input.shape[1:])
             if input_size is None:
                 input_size = 10 * 10
             shape = weights.shape
             assert input_size > 0, f"input size for {layer.name} {i}"
             all_weights.append(
-                10.0 * np.random.normal(0.0, knp.sqrt(2 / input_size), shape)
+                10.0 * np.random.normal(0.0, np.sqrt(2 / input_size), shape)
             )
         if all_weights:
             layer.set_weights(all_weights)
@@ -295,14 +294,15 @@ def test_qconv1d(layer_cls):
 
     inputs = np.random.rand(2, 4, 4)
     p = keras.ops.cast(model.predict(inputs), dtype="float16")
+    p = keras.ops.convert_to_numpy(p)
     if layer_cls == "QConv1D":
-        y = knp.array(
+        y = np.array(
             [
                 [[-2.441, 3.816], [-3.807, -1.426], [-2.684, -1.317], [-1.659, 0.9834]],
                 [[-4.99, 1.139], [-2.559, -1.216], [-2.285, 1.905], [-2.652, -0.467]],
             ], dtype="float16")
     else:
-        y = knp.array(
+        y = np.array(
             [
                 [[-2.275, -3.178], [-0.4358, -3.262], [1.987, 0.3987]],
                 [[-0.01251, -0.376], [0.3928, -1.328], [-1.243, -2.43]],
@@ -326,9 +326,9 @@ def test_qconv2dtranspose():
         name="conv2d_tran",
     )(x)
     model = Model(inputs=x, outputs=y)
-    data = knp.ones(shape=(1, 4, 4, 1))
-    kernel = knp.ones(shape=(3, 3, 1, 1))
-    bias = knp.ones(shape=(1,))
+    data = np.ones(shape=(1, 4, 4, 1))
+    kernel = np.ones(shape=(3, 3, 1, 1))
+    bias = np.ones(shape=(1,))
     model.get_layer("conv2d_tran").set_weights([kernel, bias])
     actual_output = model.predict(data)
     expected_output = (
@@ -348,7 +348,7 @@ def test_qconv2dtranspose():
 
 
 def test_masked_qconv2d_creates_correct_parameters():
-    mask = mask = knp.ones((5, 5), dtype=float)
+    mask = mask = np.ones((5, 5), dtype=keras.backend.floatx())
     model = keras.Sequential()
     model.add(keras.layers.Input(shape=(10, 10, 1)))
     model.add(QConv2D(mask=mask, filters=1, kernel_size=(5, 5), use_bias=False))
@@ -359,32 +359,32 @@ def test_masked_qconv2d_creates_correct_parameters():
     # Validate number of trainable params. This should be equal to one (5,5)
     # kernel.
     assert_equal(len(model.trainable_weights), 1)
-    num_trainable_params = knp.prod(model.trainable_weights[0].shape)
+    num_trainable_params = np.prod(model.trainable_weights[0].shape)
     assert_equal(keras.ops.convert_to_numpy(num_trainable_params), 25)
 
 
 def test_qconv2d_masks_weights():
     # Create an arbitrary mask.
-    mask = knp.array(
+    mask = np.array(
         [
             [1.0, 0.0, 1.0, 0.0, 1.0],
             [0.0, 0.0, 1.0, 0.0, 0.0],
             [1.0, 0.0, 1.0, 0.0, 1.0],
             [0.0, 0.0, 1.0, 0.0, 0.0],
             [1.0, 0.0, 1.0, 0.0, 1.0],
-        ], dtype=float
+        ], dtype=keras.backend.floatx()
     )
     model = keras.Sequential()
     model.add(keras.layers.Input(shape=(5, 5, 1)))
     model.add(QConv2D(mask=mask, filters=1, kernel_size=(5, 5), use_bias=False))
 
     # Set the weights to be all ones.
-    model.layers[0].set_weights([knp.ones((5, 5, 1, 1), dtype=float)])
+    model.layers[0].set_weights([np.ones((5, 5, 1, 1), dtype=keras.backend.floatx())])
 
     # Run inference on a all ones input.
-    output = model.predict(knp.ones((1, 5, 5, 1)))
+    output = model.predict(np.ones((1, 5, 5, 1)))
     # Output should just be summation of number of ones in the mask.
-    assert_array_equal(output, knp.array([[[[11.0]]]], dtype=float))
+    assert_array_equal(output, np.array([[[[11.0]]]], dtype=keras.backend.floatx()))
 
 
 def test_masked_qconv2d_load_restore_works():
@@ -392,7 +392,7 @@ def test_masked_qconv2d_load_restore_works():
     model.add(keras.layers.Input(shape=(10, 10, 1)))
     model.add(
         QConv2D(
-            mask=knp.ones((5, 5), dtype=float),
+            mask=np.ones((5, 5), dtype=keras.backend.floatx()),
             filters=1,
             kernel_size=(5, 5),
             use_bias=False,
@@ -430,7 +430,7 @@ def test_qconv2d_groups_works():
     )
     # Validate number of trainable params.
     assert_equal(len(model.trainable_weights), 2)
-    num_trainable_params = knp.prod(model.trainable_weights[0].shape) + knp.prod(
+    num_trainable_params = np.prod(model.trainable_weights[0].shape) + np.prod(
         model.trainable_weights[1].shape
     )
     expected_trainable_params = 36  # (5*3)*2 + 6

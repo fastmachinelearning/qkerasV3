@@ -16,7 +16,7 @@
 """Test activation from qlayers.py."""
 
 import keras
-import keras.ops.numpy as knp
+import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
@@ -33,7 +33,7 @@ keras.utils.set_random_seed(812)
             2,
             0,
             0.25,
-            knp.array(
+            np.array(
                 [
                     [
                         -3.0,
@@ -48,11 +48,11 @@ keras.utils.set_random_seed(812)
                         6.0,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [[-0.75, -0.5, -0.25, 0.0, 2.5, 3.375, 1.5, 1.0, 0.0, 3.875]],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
         (
@@ -60,7 +60,7 @@ keras.utils.set_random_seed(812)
             2,
             1,
             0.125,
-            knp.array(
+            np.array(
                 [
                     [
                         0.458069,
@@ -98,9 +98,9 @@ keras.utils.set_random_seed(812)
                         2.562500,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [
                     [
                         0.5,
@@ -138,7 +138,7 @@ keras.utils.set_random_seed(812)
                         2.5,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
         (
@@ -146,7 +146,7 @@ keras.utils.set_random_seed(812)
             2,
             1,
             0.125,
-            knp.array(
+            np.array(
                 [
                     [
                         -0.458069,
@@ -184,9 +184,9 @@ keras.utils.set_random_seed(812)
                         -2.562500,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [
                     [
                         0.0,
@@ -224,7 +224,7 @@ keras.utils.set_random_seed(812)
                         -0.25,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
     ],
@@ -245,7 +245,7 @@ def test_quantized_relu(
         (
             8,
             2**-4,
-            knp.array(
+            np.array(
                 [
                     [
                         -1.00000000e00,
@@ -270,9 +270,9 @@ def test_quantized_relu(
                         9.00000000e-01,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [
                     [
                         -0.0625,
@@ -297,13 +297,13 @@ def test_quantized_relu(
                         1.0,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
         (
             3,
             2**-4,
-            knp.array(
+            np.array(
                 [
                     [
                         -1.00000000e00,
@@ -328,9 +328,9 @@ def test_quantized_relu(
                         9.00000000e-01,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [
                     [
                         -0.0625,
@@ -355,13 +355,13 @@ def test_quantized_relu(
                         1.0,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
         (
             6,
             2**-3,
-            knp.array(
+            np.array(
                 [
                     [
                         -3.0,
@@ -376,9 +376,9 @@ def test_quantized_relu(
                         6.0,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
-            knp.array(
+            np.array(
                 [
                     [
                         -5.00000000e-01,
@@ -393,7 +393,7 @@ def test_quantized_relu(
                         8.00000000e00,
                     ]
                 ],
-                dtype=float,
+                dtype=keras.backend.floatx(),
             ),
         ),
     ],

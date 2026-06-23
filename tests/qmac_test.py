@@ -20,7 +20,7 @@ import os
 import tempfile
 
 import keras
-import keras.ops.numpy as knp
+import numpy as np
 import pytest
 from keras.layers import Input
 from keras.models import Model
@@ -52,10 +52,10 @@ def create_qmac_model(layer_cls, kwargs=None, input_data=None, weight_data=None)
                 "bias_quantizer": "quantized_bits(8,2,alpha=1.0)",
                 "activation": "quantized_bits(8,4,alpha=1.0)",
             },
-            knp.array([[1, 1], [2, 2]], dtype=float),
-            knp.array([[1.0]]),
-            knp.array([[4.0]]),
-            knp.array([[5, 5], [6, 6]], dtype=float),
+            np.array([[1, 1], [2, 2]], dtype=keras.backend.floatx()),
+            np.array([[1.0]]),
+            np.array([[4.0]]),
+            np.array([[5, 5], [6, 6]], dtype=keras.backend.floatx()),
         ),
     ],
 )

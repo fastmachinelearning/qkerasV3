@@ -20,7 +20,6 @@ import os
 import tempfile
 
 import keras
-import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from keras.layers import Input
@@ -60,12 +59,12 @@ def qdense_util(
                 "kernel_initializer": "glorot_uniform",
                 "bias_initializer": "zeros",
             },
-            knp.array([[1, 1, 1, 1]], dtype=float),
-            knp.array(
-                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=float
+            np.array([[1, 1, 1, 1]], dtype=keras.backend.floatx()),
+            np.array(
+                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=keras.backend.floatx()
             ),  # weight_data
-            knp.array([0, 0], dtype=float),  # bias
-            knp.array([[40, 80]], dtype=float),
+            np.array([0, 0], dtype=keras.backend.floatx()),  # bias
+            np.array([[40, 80]], dtype=keras.backend.floatx()),
         ),  # expected_output
         (
             {
@@ -76,12 +75,12 @@ def qdense_util(
                 "kernel_quantizer": "quantized_bits(2,0,alpha=1.0)",
                 "bias_quantizer": "quantized_bits(2,0)",
             },
-            knp.array([[1, 1, 1, 1]], dtype=float),
-            knp.array(
-                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=float
+            np.array([[1, 1, 1, 1]], dtype=keras.backend.floatx()),
+            np.array(
+                [[10, 20], [10, 20], [10, 20], [10, 20]], dtype=keras.backend.floatx()
             ),  # weight_data
-            knp.array([0, 0], dtype=float),  # bias
-            knp.array([[2, 2]], dtype=float),
+            np.array([0, 0], dtype=keras.backend.floatx()),  # bias
+            np.array([[2, 2]], dtype=keras.backend.floatx()),
         ),  # expected_output
     ],
 )

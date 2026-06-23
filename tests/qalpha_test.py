@@ -39,7 +39,7 @@ def test_binary_auto():
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x = np.random.uniform(-m, m, (N, 10)).astype(keras.backend.floatx())
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = binary(alpha="auto")
@@ -59,7 +59,7 @@ def test_binary_auto_po2():
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x = np.random.uniform(-m, m, (N, 10)).astype(keras.backend.floatx())
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer_ref = binary(alpha="auto")
@@ -84,7 +84,7 @@ def test_ternary_auto():
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x = np.random.uniform(-m, m, (N, 10)).astype(keras.backend.floatx())
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer = ternary(alpha="auto")
@@ -103,7 +103,7 @@ def test_ternary_auto_po2():
     m_list = [1.0, 0.1, 0.01, 0.001]
 
     for m in m_list:
-        x = np.random.uniform(-m, m, (N, 10)).astype(float)
+        x = np.random.uniform(-m, m, (N, 10)).astype(keras.backend.floatx())
         x_tensor = keras.ops.convert_to_tensor(x)
 
         quantizer_ref = ternary(alpha="auto")
@@ -147,7 +147,7 @@ def test_get_integer_bits():
             0,
             0,
             0,
-        ]
+        ], dtype=keras.backend.floatx()
     )
     max_value = np.array(
         [
@@ -172,7 +172,7 @@ def test_get_integer_bits():
             9,
             11,
             12,
-        ]
+        ], dtype=keras.backend.floatx()
     )
 
     # unsigned number (keep_negative=False) without clippling.

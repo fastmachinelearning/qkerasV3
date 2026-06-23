@@ -20,7 +20,7 @@ import os
 import tempfile
 
 import keras
-import keras.ops.numpy as knp
+from keras.layers import Cropping2D
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
@@ -31,7 +31,7 @@ from qkeras import QDepthwiseConv2DTranspose, quantized_bits
 keras.utils.set_random_seed(812)
 
 # Predicted output from float model.
-_FLOAT_PREDICTED_OUTPUT = knp.array(
+_FLOAT_PREDICTED_OUTPUT = np.array(
     [
         [
             [
@@ -144,13 +144,14 @@ def create_quantized_model(group_size=1):
         filters=2,
         kernel_size=(2, 2),
         strides=(1, 1),
-        padding="same",
+        padding="valid",
         name="conv2d_tran",
         depthwise_activation="quantized_bits(10, 6, 1)",
         depthwise_kernel_quantizer=quantized_bits(1, 0, 1, alpha=1.0),
         bias_quantizer=quantized_bits(2, 2, 1, alpha=1.0),
         group_size=group_size,
     )(x)
+    x = Cropping2D(cropping=((0, 1), (0, 1)))(x)
 
     model = keras.Model(inputs=img_input, outputs=x)
 
@@ -231,7 +232,7 @@ def test_quantization_in_separable_conv2d_transpose():
     assert_equal(str(qs[1]), "quantized_bits(2,2,1,alpha=1.0)")
     assert_equal(str(qs[2]), "quantized_bits(10,6,1)")
 
-    expected = knp.array(
+    expected = np.array(
         [
             [
                 [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
@@ -279,6 +280,7 @@ def test_qseparable_conv2d_transpose_with_groups():
     model.layers[1].set_weights([dw_kernel, bias])
 
     actual_output = model.predict(inputs).astype("float16")
+    actual_output = keras.ops.convert_to_numpy(actual_output)
 
     predicted = _FLOAT_PREDICTED_OUTPUT * 3.0  # kernel values replicated 3 times
 

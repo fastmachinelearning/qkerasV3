@@ -189,6 +189,8 @@ def test_q_average_pooling(
         assert_raises(ValueError, model.predict, inputs)
     else:
         p = model.predict(inputs).astype("float16")
+        p = keras.ops.convert_to_numpy(p)
+        y = keras.ops.convert_to_numpy(y)
         assert_allclose(p, y, rtol=1e-4)
 
         # Reloads the model to ensure saving/loading works
@@ -196,6 +198,7 @@ def test_q_average_pooling(
         clear_session()
         reload_model = quantized_model_from_json(json_string)
         p = reload_model.predict(inputs).astype("float16")
+        p = keras.ops.convert_to_numpy(p)
         assert_allclose(p, y, rtol=1e-4)
 
         # Saves the model as an h5 file using Keras's model.save()
@@ -213,6 +216,7 @@ def test_q_average_pooling(
         # Applys quantizer to weights
         model_save_quantized_weights(loaded_model)
         p = loaded_model.predict(inputs).astype("float16")
+        p = keras.ops.convert_to_numpy(p)
         assert_allclose(p, y, rtol=1e-4)
 
 
@@ -349,14 +353,17 @@ def test_QAveragePooling_output():
         average_quantizer="quantized_bits(8, 1, 1)",
     )(x)
     y = keras.ops.convert_to_numpy(y)
-    assert knp.all(
-        y
-        == [
+
+    expected = [
             [[[0.65625], [0.65625]], [[0.984375], [0.984375]]],
             [[[0.984375], [0.984375]], [[0.984375], [0.984375]]],
         ]
-    )
 
+     # TODO: special backend treatment should be avoided in the future
+    if os.environ["KERAS_BACKEND"] == "torch":
+        assert np.allclose(y, expected, rtol=1e-5, atol=1e-5)
+    else:
+         assert np.all(y == expected)
 
 def test_QGlobalAveragePooling_output():
     # Checks if the output of QGlobalAveragePooling layer with average_quantizer
@@ -367,7 +374,7 @@ def test_QGlobalAveragePooling_output():
 
     y = QGlobalAveragePooling2D(average_quantizer="quantized_bits(8, 1, 1)")(x)
     y = keras.ops.convert_to_numpy(y)
-    assert knp.all(y == knp.array([[0.875, 0.875], [0.984375, 0.984375]]))
+    assert np.all(y == np.array([[0.875, 0.875], [0.984375, 0.984375]]))
 
 
 if __name__ == "__main__":

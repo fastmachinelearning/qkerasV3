@@ -275,7 +275,7 @@ class QConv2DBatchnorm(QConv2D):
 
             if gamma is not None:
                 mv_inv *= gamma
-                batch_inv *= gamma
+                batch_inv = gamma * batch_inv
             folded_bias = keras.ops.where(
                 Kops.cast(bn_training, bool),
                 batch_inv * (bias - mean) + beta,

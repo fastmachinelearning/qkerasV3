@@ -71,6 +71,8 @@ def test_codebook_weights(bits, axis, quantizer, weights, expected_result):
     weights = weights.reshape(weights.shape + (1,))
     expected_result = expected_result.reshape(expected_result.shape + (1,))
     index_table, codebook_table = weight_compression(weights, bits, axis, quantizer)
+    index_table = keras.ops.convert_to_numpy(index_table)
+    codebook_table = keras.ops.convert_to_numpy(codebook_table)
     new_weights = np.zeros(weights.shape)
     for i in range(weights.shape[axis]):
         new_weights[:, :, :, i] = codebook_table[i][index_table[:, :, :, i]]

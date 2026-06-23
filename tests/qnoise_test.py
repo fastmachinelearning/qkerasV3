@@ -16,7 +16,6 @@
 """Test gradual quantization noise injection with quantizers of quantizers.py."""
 
 import keras
-import keras.ops.numpy as knp
 import numpy as np
 import pytest
 from numpy.testing import assert_equal
@@ -46,9 +45,9 @@ def test_qnoise_quantized_bits():
         use_variables=True,
     )
 
-    inputs = knp.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
-    x = knp.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
-    xq = knp.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype="float32")
+    inputs = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
+    x = np.array([0.0, 0.5, -0.5, 0.6, -0.6, 2.0, -2.0], dtype="float32")
+    xq = np.array([0.0, 0.5, -0.5, 0.5, -0.5, 1.75, -1.75], dtype="float32")
     x_xq = 0.5 * (x + xq)
 
     # no quantization
@@ -76,15 +75,15 @@ def test_qnoise_quantized_relu():
     use_stochastic_rounding = False
 
     # input to quantized relu
-    inputs = knp.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype="float32")
+    inputs = np.array([0.0, 0.5, -0.5, 0.6, 2.0, 3.0], dtype="float32")
     # float relu
-    x = knp.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype="float32")
+    x = np.array([0.0, 0.5, 0.0, 0.6, 2.0, 3.0], dtype="float32")
     # float relu with upper bound 1.5
-    x_ub = knp.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype="float32")
+    x_ub = np.array([0.0, 0.5, 0.0, 0.6, 1.5, 1.5], dtype="float32")
     # float relu with quantized clipping
-    x_clipped = knp.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype="float32")
+    x_clipped = np.array([0.0, 0.5, 0.0, 0.6, 1.875, 1.875], dtype="float32")
     # quantized relu
-    xq = knp.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype="float32")
+    xq = np.array([0.0, 0.5, 0.0, 0.625, 1.875, 1.875], dtype="float32")
 
     # mixing half and half
     x_xq = 0.5 * (x + xq)

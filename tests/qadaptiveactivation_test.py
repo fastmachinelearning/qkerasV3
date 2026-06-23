@@ -48,7 +48,8 @@ def run_qadaptiveactivation_test(input_val, kwargs):
 
     # Test input on untrained EMAs
     qout = keras.ops.convert_to_numpy(model(input_val, training=False))
-    assert_allclose(model.layers[0].quantizer(input_val), qout)
+    quantizer_out = keras.ops.convert_to_numpy(model.layers[0].quantizer(input_val))
+    assert_allclose(quantizer_out, qout)
     assert_allclose(model.layers[0].ema_min.numpy().flatten(), 0)
     assert_allclose(model.layers[0].ema_max.numpy().flatten(), 0)
 
@@ -56,7 +57,7 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     unquantized_out = keras.ops.convert_to_numpy(model(input_val, training=True))
     assert kwargs["current_step"].numpy() == 0, err
     if kwargs["activation"] == "quantized_relu":
-        assert_allclose(unquantized_out, knp.maximum(input_val, 0))
+        assert_allclose(unquantized_out, np.maximum(input_val, 0))
     elif kwargs["activation"] == "quantized_bits":
         assert_allclose(unquantized_out, input_val)
     else:
@@ -64,11 +65,11 @@ def run_qadaptiveactivation_test(input_val, kwargs):
 
     # Check EMAs
     if kwargs["per_channel"]:
-        assert_allclose(model.layers[0].ema_min.numpy(), knp.min(input_val, axis=(0, 1, 2)))
-        assert_allclose(model.layers[0].ema_max.numpy(), knp.max(input_val, axis=(0, 1, 2)))
+        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2)))
+        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2)))
     else:
-        assert_allclose(model.layers[0].ema_min.numpy(), knp.min(input_val, axis=(0, 1, 2, 3)))
-        assert_allclose(model.layers[0].ema_max.numpy(), knp.max(input_val, axis=(0, 1, 2, 3)))
+        assert_allclose(model.layers[0].ema_min.numpy(), np.min(input_val, axis=(0, 1, 2, 3)))
+        assert_allclose(model.layers[0].ema_max.numpy(), np.max(input_val, axis=(0, 1, 2, 3)))
 
     # Check quantizer
     quant = model.layers[0].quantizer
@@ -106,11 +107,13 @@ def run_qadaptiveactivation_test(input_val, kwargs):
     # Revert qnoise_factor to its original value.
     quant.update_qnoise_factor(qnoise_factor)
     qout = keras.ops.convert_to_numpy(model(input_val, training=True))
+    expected_qout = keras.ops.convert_to_numpy(expected_qout)
     assert_allclose(expected_qout, qout, atol=1e-4)
 
     # Check testing mode
     qout = keras.ops.convert_to_numpy(model(input_val, training=False))
-    assert_allclose(quant(input_val), qout, atol=1e-4)
+    qinput = keras.ops.convert_to_numpy(quant(input_val))
+    assert_allclose(qinput, qout, atol=1e-4)
 
 
 @pytest.mark.parametrize(
@@ -133,7 +136,7 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
     if estimate_step_count:
         step = None
     else:
-        step = keras.Variable(0, dtype="int64")
+        step = keras.Variable(0.0)
     q_act = QAdaptiveActivation(
         activation="quantized_bits",
         total_bits=8,
@@ -174,7 +177,10 @@ def test_qadaptiveact_ema(momentum, ema_freeze_delay, total_steps, estimate_step
         # Check results
         assert knp.abs(exp_ema_max - q_act.ema_max.numpy()[0]) < 0.0001
 
-        assert np.isclose(keras.ops.convert_to_tensor(exp_int_bits), q_act.quantizer.integer.numpy())
+        assert np.isclose(
+            keras.ops.convert_to_numpy(exp_int_bits),
+            keras.ops.convert_to_numpy(q_act.quantizer.integer.numpy())
+        )
         if not estimate_step_count:
             step.assign_add(1)
 
@@ -197,7 +203,7 @@ def test_qadaptiveactivation():
         args["ema_decay"] = 0  # This test not test the EMA delay
         for img_shape in [(1, 28, 28, 3), (1, 3, 4, 5)]:
             for input_scale in [255, 1]:
-                args["current_step"] = keras.Variable(0, dtype="int64")
+                args["current_step"] = keras.Variable(0.0)
                 img = np.random.random(img_shape) * input_scale
                 run_qadaptiveactivation_test(img, args)
 
