@@ -49,37 +49,29 @@ variable creating layers (Dense, Conv2D, etc) by their counterparts
 (QDense, QConv2D, etc), and any layers that perform math operations
 need to be quantized afterwards.
 
-## Publications
-
-- Claudionor N. Coelho Jr, Aki Kuusela, Shan Li, Hao Zhuang, Jennifer Ngadiuba, Thea Klaeboe Aarrestad, Vladimir Loncar, Maurizio Pierini, Adrian Alan Pol, Sioni Summers, "Automatic heterogeneous quantization of deep neural networks for low-latency inference on the edge for particle detectors", Nature Machine Intelligence (2021), https://www.nature.com/articles/s42256-021-00356-5
-
-- Claudionor N. Coelho Jr., Aki Kuusela, Hao Zhuang, Thea Aarrestad, Vladimir Loncar, Jennifer Ngadiuba, Maurizio Pierini, Sioni Summers, "Ultra Low-latency, Low-area Inference Accelerators using Heterogeneous Deep Quantization with QKeras and hls4ml", http://arxiv.org/abs/2006.10159v1
-
-- Erwei Wang, James J. Davis, Daniele Moro, Piotr Zielinski, Claudionor Coelho, Satrajit Chatterjee, Peter Y. K. Cheung, George A. Constantinides, "Enabling Binary Neural Network Training on the Edge", https://arxiv.org/abs/2102.04270
-
 ## Layers Implemented in QKerasV3
 
 The following matrix tracks multi-backend framework support for quantization-aware training (QAT) layers in `qkerasV3`.
 
 | Layer Name | TensorFlow | JAX | PyTorch | Implementation Notes & Constraints |
 | :--- | :---: | :---: | :---: | :--- |
-| `QDense` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QConv1D` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QDepthwiseConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QSeparableConv1D` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QSeparableConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QMobileNetSeparableConv2D` | ✅ Supported | ✅ Supported | ✅ Supported | MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test. |
-| `QConv2DTranspose` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QActivation` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QAdaptiveActivation` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QAveragePooling2D` | ✅ Supported | ✅ Supported | ⚠️ Partial | Combines `AveragePooling2D` with a `QActivation` layer. PyTorch lacks native asymmetric padding (`padding="same"`) for all shapes. |
-| `QBatchNormalization` / `QConv2DBatchnorm` | ⚠️ Experimental | ⚠️ Experimental | ⚠️ Experimental | **Experimental Stage:** Stochastic activation functions often offset its regularization needs. JAX/Torch rely on Keras 3 epoch variable updates. |
-| `QOctaveConv2D` | ✅ Supported | ⚠️ Partial | ⚠️ Partial | Multi-frequency feature extraction relies on complex tensor splitting and slicing across backends.  TODO: needs a test. |
-| `QSimpleRNN` / `QSimpleRNNCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QLSTM` / `QLSTMCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QGRU` / `QGRUCell` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `QBidirectional` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `QDense` | ✅ | ✅ | ✅ | |
+| `QConv1D` | ✅ | ✅ | ✅ | |
+| `QConv2D` | ✅ | ✅ | ✅ | |
+| `QDepthwiseConv2D` | ✅ | ✅ | ✅ | |
+| `QSeparableConv1D` | ✅ | ✅ | ✅ | |
+| `QSeparableConv2D` | ✅ | ✅ | ✅ | |
+| `QMobileNetSeparableConv2D` | ✅ | ✅ | ✅ | MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test. |
+| `QConv2DTranspose` | ✅ | ✅ | ✅ | |
+| `QActivation` | ✅ | ✅ | ✅ | |
+| `QAdaptiveActivation` | ✅ | ✅ | ✅ | |
+| `QAveragePooling2D` | ✅ | ✅ | ⚠️ | Combines `AveragePooling2D` with a `QActivation` layer. PyTorch lacks native asymmetric padding (`padding="same"`) for all shapes. |
+| `QBatchNormalization` / `QConv2DBatchnorm` | ⚠️ | ⚠️ | ⚠️ | **Experimental Stage:** Stochastic activation functions often offset its regularization needs. JAX/Torch rely on Keras 3 epoch variable updates. |
+| `QOctaveConv2D` | ✅ | ⚠️ | ⚠️ | Multi-frequency feature extraction relies on complex tensor splitting and slicing across backends.  TODO: needs a test. |
+| `QSimpleRNN` / `QSimpleRNNCell` | ✅ | ✅ | ✅ | |
+| `QLSTM` / `QLSTMCell` | ✅ | ✅ | ✅ | |
+| `QGRU` / `QGRUCell` | ✅ | ✅ | ✅ | |
+| `QBidirectional` | ✅ | ✅ | ✅ | |
 
 **Legend:**
 * ✅ **Supported**: Tested and functions smoothly natively across the backend via Keras 3.
@@ -104,23 +96,23 @@ The following matrix tracks multi-backend framework support for quantization act
 
 | Activation Function | TensorFlow | JAX | PyTorch | Implementation Notes & Constraints |
 | :--- | :---: | :---: | :---: | :--- |
-| `smooth_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `hard_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `binary_sigmoid(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `binary_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `smooth_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `hard_tanh(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_bits(bits=8, integer=0, symmetric=0, keep_negative=1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `bernoulli(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `stochastic_ternary(alpha=1.0, threshold=0.33)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `ternary(alpha=1.0, threshold=0.33)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `stochastic_binary(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `binary(alpha=1.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_relu(bits=8, integer=0, use_sigmoid=0, negative_slope=0.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_ulaw(bits=8, integer=0, symmetric=0, u=255.0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_tanh(bits=8, integer=0, symmetric=0)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_po2(bits=8, max_value=-1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
-| `quantized_relu_po2(bits=8, max_value=-1)(x)` | ✅ Supported | ✅ Supported | ✅ Supported | |
+| `smooth_sigmoid(x)` | ✅ | ✅ | ✅ | |
+| `hard_sigmoid(x)` | ✅ | ✅ | ✅ | |
+| `binary_sigmoid(x)` | ✅ | ✅ | ✅ | |
+| `binary_tanh(x)` | ✅ | ✅ | ✅ | |
+| `smooth_tanh(x)` | ✅ | ✅ | ✅ | |
+| `hard_tanh(x)` | ✅ | ✅ | ✅ | |
+| `quantized_bits(bits=8, integer=0, symmetric=0, keep_negative=1)(x)` | ✅ | ✅ | ✅ | |
+| `bernoulli(alpha=1.0)(x)` | ✅ | ✅ | ✅ | |
+| `stochastic_ternary(alpha=1.0, threshold=0.33)(x)` | ✅ | ✅ | ✅ | |
+| `ternary(alpha=1.0, threshold=0.33)(x)` | ✅ | ✅ | ✅ | |
+| `stochastic_binary(alpha=1.0)(x)` | ✅ | ✅ | ✅ | |
+| `binary(alpha=1.0)(x)` | ✅ | ✅ | ✅ | |
+| `quantized_relu(bits=8, integer=0, use_sigmoid=0, negative_slope=0.0)(x)` | ✅ | ✅ | ✅ | |
+| `quantized_ulaw(bits=8, integer=0, symmetric=0, u=255.0)(x)` | ✅ | ✅ | ✅ | |
+| `quantized_tanh(bits=8, integer=0, symmetric=0)(x)` | ✅ | ✅ | ✅ | |
+| `quantized_po2(bits=8, max_value=-1)(x)` | ✅ | ✅ | ✅ | |
+| `quantized_relu_po2(bits=8, max_value=-1)(x)` | ✅ | ✅ | ✅ | |
 
 **Legend:**
 * ✅ **Supported**: Tested and functions smoothly natively across the backend via Keras 3.
@@ -289,6 +281,14 @@ accumulators and conversion between non-quantized to quantized
 networks. Finally, our main goal is easy of use, so we attempt to make
 QKeras layers a true drop-in replacement for Keras, so that users can
 easily exchange non-quantized layers by quantized ones.
+
+## Publications
+
+- Claudionor N. Coelho Jr, Aki Kuusela, Shan Li, Hao Zhuang, Jennifer Ngadiuba, Thea Klaeboe Aarrestad, Vladimir Loncar, Maurizio Pierini, Adrian Alan Pol, Sioni Summers, "Automatic heterogeneous quantization of deep neural networks for low-latency inference on the edge for particle detectors", Nature Machine Intelligence (2021), https://www.nature.com/articles/s42256-021-00356-5
+
+- Claudionor N. Coelho Jr., Aki Kuusela, Hao Zhuang, Thea Aarrestad, Vladimir Loncar, Jennifer Ngadiuba, Maurizio Pierini, Sioni Summers, "Ultra Low-latency, Low-area Inference Accelerators using Heterogeneous Deep Quantization with QKeras and hls4ml", http://arxiv.org/abs/2006.10159v1
+
+- Erwei Wang, James J. Davis, Daniele Moro, Piotr Zielinski, Claudionor Coelho, Satrajit Chatterjee, Peter Y. K. Cheung, George A. Constantinides, "Enabling Binary Neural Network Training on the Edge", https://arxiv.org/abs/2102.04270
 
 ### Acknowledgements
 

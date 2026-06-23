@@ -30,89 +30,89 @@ The following matrix tracks multi-backend framework support for quantization-awa
      - PyTorch
      - Implementation Notes & Constraints
    * - ``QDense``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QConv1D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QConv2D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QDepthwiseConv2D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QSeparableConv1D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QSeparableConv2D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QMobileNetSeparableConv2D``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test.
    * - ``QConv2DTranspose``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QActivation``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QAdaptiveActivation``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QAveragePooling2D``
-     - ✅ Supported
-     - ✅ Supported
-     - ⚠️ Partial
+     - ✅ 
+     - ✅ 
+     - ⚠️
      - Combines ``AveragePooling2D`` with a ``QActivation`` layer. PyTorch lacks native asymmetric padding (``padding="same"``) for all shapes.
    * - ``QBatchNormalization`` / ``QConv2DBatchnorm``
-     - ⚠️ Experimental
-     - ⚠️ Experimental
-     - ⚠️ Experimental
+     - ⚠️
+     - ⚠️
+     - ⚠️
      - **Experimental Stage:** Stochastic activation functions often offset its regularization needs. JAX/Torch rely on Keras 3 epoch variable updates.
    * - ``QOctaveConv2D``
-     - ✅ Supported
-     - ⚠️ Partial
-     - ⚠️ Partial
+     - ✅ 
+     - ⚠️
+     - ⚠️
      - Multi-frequency feature extraction relies on complex tensor splitting and slicing across backends. TODO: needs a test.
    * - ``QSimpleRNN`` / ``QSimpleRNNCell``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QLSTM`` / ``QLSTMCell``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QGRU`` / ``QGRUCell``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``QBidirectional``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
 
 **Legend:**
@@ -135,89 +135,89 @@ The following matrix tracks multi-backend framework support for quantization act
      - PyTorch
      - Implementation Notes & Constraints
    * - ``smooth_sigmoid(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``hard_sigmoid(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``binary_sigmoid(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``binary_tanh(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``smooth_tanh(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``hard_tanh(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_bits(bits=8, integer=0, symmetric=0, keep_negative=1)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``bernoulli(alpha=1.0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``stochastic_ternary(alpha=1.0, threshold=0.33)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``ternary(alpha=1.0, threshold=0.33)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``stochastic_binary(alpha=1.0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``binary(alpha=1.0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_relu(bits=8, integer=0, use_sigmoid=0, negative_slope=0.0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_ulaw(bits=8, integer=0, symmetric=0, u=255.0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_tanh(bits=8, integer=0, symmetric=0)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_po2(bits=8, max_value=-1)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
    * - ``quantized_relu_po2(bits=8, max_value=-1)(x)``
-     - ✅ Supported
-     - ✅ Supported
-     - ✅ Supported
+     - ✅ 
+     - ✅ 
+     - ✅ 
      - 
 
 **Legend:**
