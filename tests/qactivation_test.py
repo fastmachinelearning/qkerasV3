@@ -29,6 +29,7 @@ from qkeras import (
     quantized_po2,
     quantized_relu,
     quantized_relu_po2,
+    quantized_selu,
     quantized_sigmoid,
     quantized_tanh,
     set_internal_sigmoid,
@@ -635,6 +636,89 @@ def test_quantized_relu(bits, integer, use_sigmoid, test_values, expected_values
     result = keras.ops.convert_to_numpy(q(x))
     assert_allclose(result, expected_values, rtol=1e-5)
 
+@pytest.mark.parametrize(
+    "bits, integer, test_values, expected_values",
+    [
+        (
+            6,
+            2,
+            np.array(
+                [[-10.0, -1.0, 0.0, 1.0, 2.0]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[-1.75, -1.125, 0.0, 1.0, 2.125]], 
+                dtype=K.floatx()
+            ),
+        ),
+        (
+            8,
+            1,
+            np.array(
+                [[-5.0, -0.5, 0.0, 0.5]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[-1.75, -0.6875, 0.0, 0.53125]], 
+                dtype=K.floatx()
+            ),
+        ),
+        (
+            10,
+            2,
+            np.array(
+                [[-3.0, -0.2, 0.1, 3.0]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[-1.671875, -0.320312, 0.1015625, 3.1484375]],
+                dtype=K.floatx()
+            ),
+        ),
+        (
+            4,
+            2,
+            np.array(
+                [[-2.0, -0.5, 0.5, 1.5]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[-1.5, -0.5, 0.5, 1.5]],
+                dtype=K.floatx()
+            ),
+        ),
+        (
+            6,
+            1,
+            np.array(
+                [[5.0, 10.0]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[1.9375, 1.9375]],
+                dtype=K.floatx()
+            ),
+        ),
+        (
+            4,
+            0,
+            np.array(
+                [[-10.0, -5.0]],
+                dtype=K.floatx(),
+            ),
+            np.array(
+                [[-1.0, -1.0]],
+                dtype=K.floatx()
+            ),
+        ),
+    ],
+)
+def test_quantized_selu(bits, integer, test_values, expected_values):
+    """Test quantized_selu function via expanded parametrized static arrays."""
+    x = keras.ops.array(test_values, dtype=K.floatx())
+    q = quantized_selu(bits=bits, integer=integer)
+    result = keras.ops.convert_to_numpy(q(x))
+    assert_allclose(result, expected_values, rtol=1e-5)
 
 @pytest.mark.parametrize(
     ("bits, integer, symmetric, keep_negative, test_values, expected_values," " rtol"),

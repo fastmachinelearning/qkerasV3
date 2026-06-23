@@ -2661,6 +2661,142 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
         }
         return config
 
+@register_keras_serializable(package="qkeras")
+@quantizer_registry.register_quantizer
+class quantized_selu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-name
+    """Computes a quantized SELU to a specified number of bits.
+
+    Maintains self-normalizing properties by mapping inputs to standard SELU
+    activation before applying Straight-Through Estimator (STE) quantization.
+    """
+
+    def __init__(
+        self,
+        bits=8,
+        integer=2,  # Set default integer bits higher (e.g. 2) to accommodate the ~1.758 bound
+        use_stochastic_rounding=False,
+        qnoise_factor=1.0,
+        var_name=None,
+        use_ste=True,
+        use_variables=False,
+    ):
+        super().__init__()
+        self.bits = bits
+        self.integer = integer
+        self.use_stochastic_rounding = use_stochastic_rounding
+        self.qnoise_factor = qnoise_factor
+        self.use_ste = use_ste
+        self.var_name = var_name
+        self.use_variables = use_variables
+
+        # SELU Constants
+        self.scale_selu = 1.0507009873554804
+        self.alpha_selu = 1.6732632423543772
+        self.lower_bound = -self.scale_selu * self.alpha_selu # ~ -1.758099
+
+    def __str__(self):
+        integer_bits = re.sub(
+            r"\[(\d)\]",
+            r"\g<1>",
+            str(
+                Kops.convert_to_numpy(self.integer)
+                if isinstance(self.integer, KerasTensor)
+                else self.integer
+            ),
+        )
+        flags = [str(self.bits), integer_bits]
+        if self.use_stochastic_rounding:
+            flags.append(str(int(self.use_stochastic_rounding)))
+        return "quantized_selu(" + ",".join(flags) + ")"
+
+    def __call__(self, x):
+        if not self.built:
+            self.build(var_name=self.var_name, use_variables=self.use_variables)
+
+        x = Kops.cast(x, dtype="float32")
+
+        x_u = Kops.selu(x)
+
+        non_sign_bits = self.bits - 1
+        m = Kops.cast(knp.power(2, non_sign_bits), dtype="float32")
+        m_i = Kops.cast(knp.power(2, self.integer), dtype="float32")
+        m_f = Kops.cast(
+            knp.power(
+                Kops.array(2.0, "float32"),
+                Kops.cast(self.integer, dtype="float32") - non_sign_bits,
+            ),
+            dtype="float32",
+        )
+
+        p = x_u * m / m_i
+
+        max_bound = m_i - m_f
+        min_bound = -m_i
+
+        xq = m_i * (
+            Kops.clip(
+                _round_through(p, self.use_stochastic_rounding) / m,
+                min_bound / m_i,
+                max_bound / m_i
+            )
+        )
+
+        if self.use_ste:
+            return x_u + Kops.stop_gradient(self.qnoise_factor * (-x_u + xq))
+        else:
+            return (1 - self.qnoise_factor) * x_u + Kops.stop_gradient(
+                self.qnoise_factor * xq
+            )
+
+    def max(self):
+        """Get the maximum value that quantized_selu can represent."""
+        non_sign_bits = self.bits - 1
+        if non_sign_bits > 0:
+            m_i = np.array(knp.power(2.0, Kops.cast(self.integer, dtype="float32")), dtype="float32")
+            m_f = np.array(knp.power(2.0, Kops.cast(self.integer, dtype="float32") - non_sign_bits), dtype="float32")
+            return max(1.0, float(m_i - m_f))
+        return 1.0
+
+    def min(self):
+        """Get the minimum value that quantized_selu can represent."""
+        non_sign_bits = self.bits - 1
+        if non_sign_bits > 0:
+            m_i = np.array(knp.power(2.0, Kops.cast(self.integer, dtype="float32")), dtype="float32")
+            # Ensure we clip it mathematically to the hardware limit if it drops below the SELU floor
+            return max(-float(m_i), self.lower_bound)
+        return self.lower_bound
+
+    def range(self):
+        """Returns a list of all signed values that quantized_selu can represent
+
+        ordered by their binary representation ascending.
+        """
+        x = np.asarray(range(2**self.bits))
+        unsigned_bits = self.bits - 1
+        x = np.where(x >= 2**unsigned_bits, x - 2**self.bits, x)
+        step_size = Kops.convert_to_numpy(
+            knp.power(2.0, -unsigned_bits + Kops.cast(self.integer, dtype="float32"))
+        )
+        return x * step_size
+
+    def get_config(self):
+        """Returns the config dictionary for serialization."""
+        config = {
+            "bits": self.bits,
+            "integer": self.integer,
+            "use_stochastic_rounding": self.use_stochastic_rounding,
+            "qnoise_factor": self.qnoise_factor,
+            "use_ste": self.use_ste,
+            "var_name": self.var_name,
+            "use_variables": self.use_variables,
+        }
+        base_config = super().get_config()
+        return {**base_config, **config}
+
+    @classmethod
+    def from_config(cls, config):
+        """Instantiates the quantizer from its config dictionary."""
+        return cls(**config)
 
 @register_keras_serializable(package="qkeras")
 @quantizer_registry.register_quantizer

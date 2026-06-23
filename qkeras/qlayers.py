@@ -201,13 +201,15 @@ class QAdaptiveActivation(layers.Layer):
 
     This layer calculates an exponential moving average of min and max of the
     activation values to automatically determine the scale (integer bits) of
-    the quantizer used in this layer.
+    the quantizer used in this layer. It also supports progressive bit-width
+    reduction during training.
     """
 
     def __init__(
         self,
         activation,
         total_bits,
+        min_bits=0,
         current_step=None,
         symmetric=True,
         quantization_delay=0,
@@ -225,6 +227,7 @@ class QAdaptiveActivation(layers.Layer):
           activation: Str. The activation quantizer type to use for this activation
             layer, such as 'quantized_relu'. Should be a string with no params.
           total_bits: Int. The total bits that can be used by the quantizer
+          min_bits: Int. If not >0 also the total bits are changed with a bound [min_bits, total_bits]
           current_step: Variable specifying the current step in training.
             You can find this by passing model.optimizer.iterations
             (see keras.optimizers.Optimizer.iterations). If set to None, the
@@ -258,6 +261,10 @@ class QAdaptiveActivation(layers.Layer):
         super().__init__(**kwargs)
 
         self.total_bits = total_bits
+        self.min_bits = min_bits
+        self.current_total_bits = total_bits
+        self.v_max = total_bits
+        self.cur_integer_bits = 0
         self.symmetric = symmetric
         self.is_estimating_step_count = False  # If the layer should estimate its
         # own step count by incrementing it
@@ -378,24 +385,23 @@ class QAdaptiveActivation(layers.Layer):
                 knp.zeros(num_channels), name="ema_max", trainable=False
             )
 
-        # Determine the parameters for the quantizer
-        self.quantizer.bits = self.total_bits
-
         # Set up the initial integer bits and quantizer params
         self.quantizer.integer = keras.Variable(
             knp.zeros(num_channels, dtype="int32"),
             name="quantizer_integer_bits",
             trainable=False,
         )
+        self.quantizer.bits = self.current_total_bits
         integer_bits = _get_integer_bits(
             min_value=self.ema_min,
             max_value=self.ema_max,
-            bits=self.total_bits,
+            bits=self.current_total_bits,
             symmetric=self.symmetric,
             keep_negative=self.keep_negative,
             is_clipping=self.po2_rounding,
         )
         self.quantizer.integer.assign(integer_bits)
+        self.cur_integer_bits = integer_bits
         self.quantizer.alpha = 1.0  # Setting alpha to 1.0 allows the integer bits
         # to serve as the scale
         self.quantizer.symmetric = self.symmetric
@@ -481,16 +487,28 @@ class QAdaptiveActivation(layers.Layer):
         self.ema_min.assign(ema_min_applied)
         self.ema_max.assign(ema_max_applied)
 
+        # estimate the total bits
+        if self.min_bits > 0 and training:
+            unsigned_bits = self.current_total_bits - int(self.keep_negative)
+            fractional_bits = unsigned_bits - self.cur_integer_bits
+            self.v_max = 2 ** self.cur_integer_bits - 2 ** (-fractional_bits)
+
+            # TODO: this can work if we rewrite the quantizer
+            # so bits are a variable
+            # self.current_total_bits = int(v_max)
+            # self.quantizer.bits = self.current_total_bits
+
         # Set the integer bits for the quantizer
         integer_bits = _get_integer_bits(
             min_value=self.ema_min,
             max_value=self.ema_max,
-            bits=self.total_bits,
+            bits=self.current_total_bits,
             symmetric=self.symmetric,
             keep_negative=self.keep_negative,
             is_clipping=self.po2_rounding,
         )
         self.quantizer.integer.assign(integer_bits)
+        self.cur_integer_bits = integer_bits
 
         return qx
 

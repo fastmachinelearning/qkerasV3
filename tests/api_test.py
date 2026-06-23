@@ -33,6 +33,7 @@ QUANTIZERS = [
     "stochastic_ternary",
     "binary",
     "stochastic_binary",
+    "quantized_selu",
     "quantized_relu",
     "quantized_ulaw",
     "quantized_tanh",
