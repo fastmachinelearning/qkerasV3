@@ -65,4 +65,6 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 # -- Options for HTML output ---------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+html_static_path = ["images"]
+
+html_logo = "images/logo.svg"

@@ -236,8 +236,7 @@ The following matrix tracks multi-backend framework support for quantization act
    :maxdepth: 2
    :caption: Guides
 
-   examples/index
-   notebooks
+   tutorials
 
 .. toctree::
    :maxdepth: 2

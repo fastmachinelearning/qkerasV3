@@ -49,6 +49,5 @@ model.fit(x, y, epochs=1, batch_size=32)
 
 ## Next steps
 
-- Browse the {doc}`examples/index` for runnable scripts.
-- Read the {doc}`notebooks` section for tutorial-style walkthroughs.
+- Read the {doc}`tutorials` section for tutorial-style walkthroughs.
 - See the {doc}`api/index` for the full API reference.
