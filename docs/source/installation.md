@@ -4,12 +4,12 @@ QKerasV3 is published on PyPI as **`qkeras-v3`** and imported as **`qkeras`**.
 
 ## Supported backends
 
-QKerasV3 currently supports **TensorFlow** via **Keras 3**.
+QKerasV3 currently supports **TensorFlow**, **JAX** and **PyTorch** via **Keras 3**.
 
-Before importing `qkeras`, ensure the Keras backend is set:
+Before importing `qkeras`, ensure the Keras backend is set (default is **TensorFlow**):
 
 ```bash
-export KERAS_BACKEND=tensorflow
+export KERAS_BACKEND=tensorflow/jax/torch
 ```
 
 You can also set it per-command:

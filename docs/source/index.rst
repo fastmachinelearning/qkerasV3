@@ -5,7 +5,7 @@ QKerasV3 is a Keras 3–compatible continuation of QKeras, focused on quantizati
 
 .. important::
 
-   QKerasV3 supports **TensorFlow**, **JAX** and **PyTorch** as backend.
+   QKerasV3 supports **TensorFlow**, **JAX** and **PyTorch** as backend (default is **TensorFlow**).
    Set the backend before importing:
 
    .. code-block:: bash

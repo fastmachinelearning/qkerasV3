@@ -15,6 +15,10 @@
 # ==============================================================================
 """Exports qkeras modules to quantizer package."""
 
+# set default backend
+import os
+os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+
 # We use wildcard import for convenience at this moment, which will be later
 # refactored and removed.
 
@@ -39,4 +43,4 @@ from .quantizers import *  # pylint: disable=wildcard-import
 from .registry import *  # pylint: disable=wildcard-import
 from .safe_eval import *  # pylint: disable=wildcard-import
 
-__version__ = "1.0.0"
+__version__ = "1.2.1"

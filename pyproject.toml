@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "qkeras-v3"
-version = "1.2.0"
+version = "1.2.1"
 description = "Quantization package for KerasV3"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
     { name = "Marius Snella Köppel ", email = "mkoepp@phys.ethz.ch" },
+    { name = "Niklas Firle", email = "nfirle@students.uni-mainz.de" },
     { name = "Mattia Cerrato", email = "mcerrato@uni-mainz.de" },
 ]
 maintainers = [
