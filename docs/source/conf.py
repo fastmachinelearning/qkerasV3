@@ -71,6 +71,7 @@ html_theme_options = {
     "sticky_navigation": True,
     "navigation_depth": -1,
     "includehidden": True,
+    'logo_only': True,
 }
 html_static_path = ["images"]
 
