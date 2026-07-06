@@ -67,15 +67,31 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 html_theme = "sphinx_rtd_theme"
 
 html_theme_options = {
-    "collapse_navigation": False,
+    "canonical_url": "",
+    "analytics_id": "",  # Provided by Google in your dashboard
+    "logo_only": True,
+    "prev_next_buttons_location": "bottom",
+    "style_external_links": False,
+    "style_nav_header_background": "#2980B9",
+    # Toc options
+    "collapse_navigation": True,
     "sticky_navigation": True,
-    "navigation_depth": -1,
+    "navigation_depth": 4,
     "includehidden": True,
-    'logo_only': True,
+    "titles_only": False,
 }
 html_static_path = ["images"]
 
 html_logo = "images/logo.svg"
+html_favicon = "images/logo.svg"
+
+html_context = {
+    'display_github': True,  # Integrate GitHub
+    'github_user': 'fastmachinelearning',  # Username
+    'github_repo': 'qkerasV3',  # Repo name
+    'github_version': 'main',  # Version
+    'conf_py_path': '/docs/source/',  # Path in the checkout to the docs root
+}
 
 # Allow Sphinx to follow symbolic links in the source directory
 suppress_warnings = []

@@ -1,7 +1,12 @@
-QKerasV3 Documentation
-=====================
+==================================
+Welcome to QKerasV3 documentation!
+==================================
 
-QKerasV3 is a Keras 3–compatible continuation of QKeras, focused on quantization-aware training and model compression.
+.. image:: images/logo.svg
+    :width: 60%
+    :align: center
+
+QKerasV3 is a `Keras 3 <https://keras.io/>`_ compatible continuation of `QKeras <https://github.com/google/qkeras>`_, focused on quantization-aware training and model compression.
 
 .. important::
 
