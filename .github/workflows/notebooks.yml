@@ -1,41 +1,44 @@
-name: Execute Notebooks on Commit
+name: Execute Notebooks
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
   run-notebooks:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install tensorflow keras qkeras-v3 numpy papermill ipykernel
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install tensorflow keras qkeras-v3 numpy papermill ipykernel
 
-    - name: Run Notebooks via Papermill
-      run: |
-        papermill tutorials/QKerasActivations.ipynb tutorials/QKerasActivations_executed.ipynb
-        papermill tutorials/QKerasAutoencoder.ipynb tutorials/QKerasAutoencoder_executed.ipynb
-        papermill tutorials/QKerasCNN.ipynb tutorials/QKerasCNN_executed.ipynb
-        papermill tutorials/QKerasCodebook.ipynb tutorials/QKerasCodebook_executed.ipynb
-        papermill tutorials/QKerasBinaryMI.ipynb tutorials/QKerasBinaryMI_executed.ipynb
+      - name: Execute tutorial notebooks
+        shell: bash
+        run: |
+          set -euo pipefail
 
-    - name: Upload executed notebooks
-      if: always()
-      uses: actions/artifacts@v4
-      with:
-        name: executed-notebooks
-        path: output_*_executed.ipynb
+          shopt -s nullglob
+
+          for notebook in tutorials/*.ipynb; do
+            # Skip previously executed notebooks if they exist
+            [[ "$notebook" == *_executed.ipynb ]] && continue
+
+            echo "::group::Executing ${notebook}"
+            papermill \
+              "$notebook" \
+              "${notebook%.ipynb}_executed.ipynb"
+            echo "::endgroup::"
+          done
