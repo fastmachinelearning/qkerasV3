@@ -190,7 +190,7 @@ x = Activation("softmax")(x)
 ```
 
 The last QActivation is advisable if you want to compare results later on. 
-Please find more cases under the directory examples.
+Please find more cases under the directory `tutorials`.
 
 
 ## QTools
@@ -238,9 +238,7 @@ performance. QTools energy consumption on a 45nm process is based on the
 data published in this work.
 
 - Examples:
-Example of how to generate data type map can be found in qkeras/qtools/
-examples/example_generate_json.py. Example of how to generate energy consumption
-estimation can be found in qkeras/qtools/examples/example_get_energy.py
+Example of how to generate energy consumption and a data type map can be found in [tutorials/QKerasProfiling.ipynb](tutorials/QKerasProfiling.ipynb).
 
 ## Unsupported Keras 3 Layers & Activations
 

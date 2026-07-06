@@ -65,4 +65,17 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 # -- Options for HTML output ---------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+
+html_theme_options = {
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": -1,
+    "includehidden": True,
+}
+html_static_path = ["images"]
+
+html_logo = "images/logo.svg"
+
+# Allow Sphinx to follow symbolic links in the source directory
+suppress_warnings = []
+# Ensure your build environment reads the linked files as part of the source
