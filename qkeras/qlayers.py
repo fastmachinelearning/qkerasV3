@@ -620,6 +620,7 @@ class QDense(layers.Dense):
         bias_quantizer=None,
         kernel_range=None,
         bias_range=None,
+        kernel_pruner=None,
         **kwargs,
     ):
         if kernel_range is not None:
@@ -627,6 +628,8 @@ class QDense(layers.Dense):
 
         if bias_range is not None:
             warnings.warn("bias_range is deprecated in QDense layer.")
+
+        self.kernel_pruner = kernel_pruner
 
         self.kernel_range = kernel_range
         self.bias_range = bias_range
@@ -668,12 +671,29 @@ class QDense(layers.Dense):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+
+        if self.kernel_pruner is not None:
+            self.kernel_pruner.build(self.kernel.shape)
+
+    def update_pruning(self, step):
+        if self.kernel_pruner is not None:
+            self.kernel_pruner.update(self.kernel, step)
+
     def call(self, inputs):
+        kernel = self.kernel
+
+        if self.kernel_pruner is not None:
+            kernel = self.kernel_pruner(
+                kernel,
+                training=True,
+            )
+
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
-        else:
-            quantized_kernel = self.kernel
-        output = keras.ops.dot(inputs, quantized_kernel)
+            kernel = self.kernel_quantizer_internal(kernel)
+
+        output = keras.ops.dot(inputs, kernel)
         if self.use_bias:
             if self.bias_quantizer:
                 quantized_bias = self.bias_quantizer_internal(self.bias)
@@ -709,6 +729,7 @@ class QDense(layers.Dense):
             "bias_constraint": constraints.serialize(self.bias_constraint),
             "kernel_range": self.kernel_range,
             "bias_range": self.bias_range,
+            "kernel_pruner": self.kernel_pruner,
         }
         base_config = super(QDense, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
