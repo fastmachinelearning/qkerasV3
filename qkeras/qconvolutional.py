@@ -420,6 +420,132 @@ class QConv2D(layers.Conv2D):
 
 
 @register_keras_serializable(package="qkeras")
+class QConv1DTranspose(layers.Conv1DTranspose):
+    """1D transposed convolution layer."""
+
+    # most of these parameters follow the implementation of Conv1DTranspose
+    # in Keras, with the exception of kernel_quantizer and bias_quantizer
+    # and kernel_initializer.
+    #
+    # kernel_quantizer: quantizer function/class for kernel
+    # bias_quantizer: quantizer function/class for bias
+    #
+    # we refer the reader to the documentation of Conv1DTranspose in Keras for
+    # the other parameters.
+    #
+
+    def __init__(
+        self,
+        filters,
+        kernel_size,
+        strides=1,
+        padding="valid",
+        output_padding=None,
+        data_format=None,
+        dilation_rate=1,
+        activation=None,
+        use_bias=True,
+        kernel_initializer="glorot_uniform",
+        bias_initializer="zeros",
+        kernel_regularizer=None,
+        bias_regularizer=None,
+        activity_regularizer=None,
+        kernel_constraint=None,
+        bias_constraint=None,
+        kernel_quantizer=None,
+        bias_quantizer=None,
+        **kwargs,
+    ):
+        self.kernel_quantizer = kernel_quantizer
+        self.bias_quantizer = bias_quantizer
+
+        self.kernel_quantizer_internal = get_quantizer(self.kernel_quantizer)
+        self.bias_quantizer_internal = get_quantizer(self.bias_quantizer)
+
+        # optimize parameter set to "auto" scaling mode if possible
+        if hasattr(self.kernel_quantizer_internal, "_set_trainable_parameter"):
+            self.kernel_quantizer_internal._set_trainable_parameter()
+
+        self.quantizers = [self.kernel_quantizer_internal, self.bias_quantizer_internal]
+
+        kernel_constraint, kernel_initializer = get_auto_range_constraint_initializer(
+            self.kernel_quantizer_internal, kernel_constraint, kernel_initializer
+        )
+
+        if use_bias:
+            bias_constraint, bias_initializer = get_auto_range_constraint_initializer(
+                self.bias_quantizer_internal, bias_constraint, bias_initializer
+            )
+
+        if activation is not None:
+            activation = get_quantizer(activation)
+
+        super().__init__(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            output_padding=output_padding,
+            data_format=data_format,
+            dilation_rate=dilation_rate,
+            activation=activation,
+            use_bias=use_bias,
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer,
+            bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer,
+            kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint,
+            **kwargs,
+        )
+
+    def call(self, inputs):
+        if self.kernel_quantizer:
+            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+        else:
+            quantized_kernel = self.kernel
+
+        outputs = keras.ops.conv_transpose(
+            inputs,
+            quantized_kernel,
+            strides=self.strides,
+            padding=self.padding,
+            output_padding=self.output_padding,
+            data_format=self.data_format,
+            dilation_rate=self.dilation_rate,
+        )
+
+        if self.use_bias:
+            if self.bias_quantizer:
+                quantized_bias = self.bias_quantizer_internal(self.bias)
+            else:
+                quantized_bias = self.bias
+
+            outputs = bias_add_portable(
+                outputs, quantized_bias, data_format=self.data_format
+            )
+
+        if self.activation is not None:
+            return self.activation(outputs)
+        return outputs
+
+    def get_config(self):
+        config = {
+            "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
+            "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
+        }
+        base_config = super().get_config()
+        return dict(list(base_config.items()) + list(config.items()))
+
+    def get_quantizers(self):
+        return self.quantizers
+
+    def get_prunable_weights(self):
+        return [self.kernel]
+
+
+@register_keras_serializable(package="qkeras")
 class QConv2DTranspose(layers.Conv2DTranspose):
     """2D convolution layer (e.g. spatial convolution over images)."""
 
@@ -485,7 +611,7 @@ class QConv2DTranspose(layers.Conv2DTranspose):
             kernel_size=kernel_size,
             strides=strides,
             padding=padding,
-            output_padding=None,
+            output_padding=output_padding,
             data_format=data_format,
             dilation_rate=dilation_rate,
             activation=activation,
@@ -513,6 +639,7 @@ class QConv2DTranspose(layers.Conv2DTranspose):
             quantized_kernel,
             strides=self.strides,
             padding=self.padding,
+            output_padding=self.output_padding,
             data_format=self.data_format,
             dilation_rate=self.dilation_rate,
         )

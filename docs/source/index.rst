@@ -69,6 +69,11 @@ The following matrix tracks multi-backend framework support for quantization-awa
      - ✅ 
      - ✅ 
      - MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test.
+   * - ``QConv1DTranspose``
+     - ✅ 
+     - ✅ 
+     - ✅ 
+     - 
    * - ``QConv2DTranspose``
      - ✅ 
      - ✅ 
