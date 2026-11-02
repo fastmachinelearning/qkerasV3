@@ -31,7 +31,6 @@ dependencies = [
     "ruff",
     "pyparsing",
     "tensorflow",
-    "tensorflow-model-optimization",
     #"torch",
     #"jax"
 ]

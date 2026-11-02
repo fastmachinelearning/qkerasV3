@@ -10,7 +10,6 @@ pyasn1
 requests
 pyparsing
 pytest
-tensorflow-model-optimization
 networkx
 scikit-learn
 tqdm
