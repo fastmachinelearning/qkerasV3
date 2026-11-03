@@ -42,6 +42,7 @@ from .qdepthwiseconv2d_batchnorm import QDepthwiseConv2DBatchnorm
 from .qlayers import Clip, QActivation, QAdaptiveActivation, QDense, QInitializer
 from .qmac import QScaleShift
 from .qnormalization import QBatchNormalization
+from .pruning import ConstantSparsity, MagnitudePruner, PolynomialDecay
 from .qpooling import QAveragePooling2D, QGlobalAveragePooling2D
 from .qrecurrent import (
     QGRU,
@@ -1094,6 +1095,9 @@ def _add_supported_quantized_objects(custom_objects):
         custom_objects[name] = quantizer
 
     custom_objects["QInitializer"] = QInitializer
+    custom_objects["MagnitudePruner"] = MagnitudePruner
+    custom_objects["ConstantSparsity"] = ConstantSparsity
+    custom_objects["PolynomialDecay"] = PolynomialDecay
     custom_objects["QDense"] = QDense
     custom_objects["QConv1D"] = QConv1D
     custom_objects["QConv2D"] = QConv2D
@@ -1220,7 +1224,11 @@ def print_model_sparsity(model):
     print(f"Model Sparsity Summary ({model.name})")
     print("--")
     for layer in model.layers:
-        prunable_weights = None
+        prunable_weights = (
+            layer.get_prunable_weights()
+            if hasattr(layer, "get_prunable_weights")
+            else None
+        )
         if prunable_weights:
             print(
                 "{}: {}".format(

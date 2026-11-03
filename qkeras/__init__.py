@@ -34,6 +34,14 @@ from .qmac import *  # pylint: disable=wildcard-import
 from .qnormalization import *  # pylint: disable=wildcard-import
 from .qoctave import *  # pylint: disable=wildcard-import
 from .qpooling import *  # pylint: disable=wildcard-import
+from .pruning import (  # noqa: F401
+    ConstantSparsity,
+    MagnitudePruner,
+    PolynomialDecay,
+    UpdatePruningStep,
+    prune_low_magnitude,
+    strip_pruning,
+)
 from .qrecurrent import *  # pylint: disable=wildcard-import
 from .qseparable_conv2d_transpose import QSeparableConv2DTranspose
 

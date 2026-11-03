@@ -46,6 +46,7 @@ from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
 
 from .ops_portable import bias_add_portable
+from .pruning import PrunableLayerMixin
 from .quantizers import *
 from .quantizers import _get_integer_bits, get_quantizer
 
@@ -587,8 +588,10 @@ class Clip(constraints.Constraint):
 
 
 @register_keras_serializable(package="qkeras")
-class QDense(layers.Dense):
+class QDense(PrunableLayerMixin, layers.Dense):
     """Implements a quantized Dense layer."""
+
+    _PRUNABLE_WEIGHTS = ('kernel',)
 
     # Most of these parameters follow the implementation of Dense in
     # Keras, with the exception of kernel_range, bias_range,
@@ -620,8 +623,10 @@ class QDense(layers.Dense):
         bias_quantizer=None,
         kernel_range=None,
         bias_range=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         if kernel_range is not None:
             warnings.warn("kernel_range is deprecated in QDense layer.")
 
@@ -668,11 +673,17 @@ class QDense(layers.Dense):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
         else:
-            quantized_kernel = self.kernel
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
         output = keras.ops.dot(inputs, quantized_kernel)
         if self.use_bias:
             if self.bias_quantizer:
@@ -695,6 +706,7 @@ class QDense(layers.Dense):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "units": self.units,
             "activation": activations.serialize(self.activation),
             "use_bias": self.use_bias,

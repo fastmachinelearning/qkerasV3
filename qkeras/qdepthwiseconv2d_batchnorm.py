@@ -186,7 +186,9 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
                 training, knp.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
-        depthwise_kernel = self.depthwise_kernel
+        depthwise_kernel = self._apply_pruning(
+            "depthwise_kernel", self.depthwise_kernel
+        )
 
         # Depthwise Convolution
         conv_outputs = keras.ops.depthwise_conv(
@@ -361,7 +363,9 @@ class QDepthwiseConv2DBatchnorm(QDepthwiseConv2D):
         bias_fold = gamma * (bias - moving_mean) / sqrt(variance + epsilon) + beta
         """
 
-        depthwise_kernel = self.depthwise_kernel
+        depthwise_kernel = self._apply_pruning(
+            "depthwise_kernel", self.depthwise_kernel
+        )
 
         if self.use_bias:
             bias = self.bias
