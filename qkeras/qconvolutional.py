@@ -23,6 +23,7 @@ from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
 
 from .ops_portable import bias_add_portable
+from .pruning import PrunableLayerMixin
 from .qlayers import QActivation, get_auto_range_constraint_initializer
 from .quantizers import get_quantizer
 
@@ -79,8 +80,10 @@ def deconv_output_length(
 
 
 @register_keras_serializable(package="qkeras")
-class QConv1D(layers.Conv1D):
+class QConv1D(PrunableLayerMixin, layers.Conv1D):
     """1D convolution layer (e.g. spatial convolution over images)."""
+
+    _PRUNABLE_WEIGHTS = ('kernel',)
 
     # most of these parameters follow the implementation of Conv1D in Keras,
     # with the exception of kernel_range, bias_range, kernel_quantizer
@@ -117,8 +120,10 @@ class QConv1D(layers.Conv1D):
         bias_quantizer=None,
         kernel_range=None,
         bias_range=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         if kernel_range is not None:
             warnings.warn("kernel_range is deprecated in QConv1D layer.")
 
@@ -169,11 +174,17 @@ class QConv1D(layers.Conv1D):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
         else:
-            quantized_kernel = self.kernel
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
 
         outputs = keras.ops.conv(
             inputs,
@@ -200,6 +211,7 @@ class QConv1D(layers.Conv1D):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
             "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
             "kernel_range": self.kernel_range,
@@ -224,8 +236,10 @@ class QConv1D(layers.Conv1D):
 
 
 @register_keras_serializable(package="qkeras")
-class QConv2D(layers.Conv2D):
+class QConv2D(PrunableLayerMixin, layers.Conv2D):
     """2D convolution layer (e.g. spatial convolution over images)."""
+
+    _PRUNABLE_WEIGHTS = ('kernel',)
 
     # most of these parameters follow the implementation of Conv2D in Keras,
     # with the exception of kernel_range, bias_range, kernel_quantizer
@@ -265,8 +279,10 @@ class QConv2D(layers.Conv2D):
         kernel_quantizer=None,
         bias_quantizer=None,
         mask=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         if kernel_range is not None:
             warnings.warn("kernel_range is deprecated in QConv2D layer.")
 
@@ -346,11 +362,17 @@ class QConv2D(layers.Conv2D):
     def _jit_compiled_convolution_op(self, inputs, kernel):
         return self.convolution_op(inputs, kernel)
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
         else:
-            quantized_kernel = self.kernel
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
 
         if self._mask is not None:
             # Apply mask to kernel weights if one is provided.
@@ -387,6 +409,7 @@ class QConv2D(layers.Conv2D):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
             "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
             "kernel_range": self.kernel_range,
@@ -420,8 +443,10 @@ class QConv2D(layers.Conv2D):
 
 
 @register_keras_serializable(package="qkeras")
-class QConv1DTranspose(layers.Conv1DTranspose):
+class QConv1DTranspose(PrunableLayerMixin, layers.Conv1DTranspose):
     """1D transposed convolution layer."""
+
+    _PRUNABLE_WEIGHTS = ("kernel",)
 
     # most of these parameters follow the implementation of Conv1DTranspose
     # in Keras, with the exception of kernel_quantizer and bias_quantizer
@@ -454,8 +479,10 @@ class QConv1DTranspose(layers.Conv1DTranspose):
         bias_constraint=None,
         kernel_quantizer=None,
         bias_quantizer=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         self.kernel_quantizer = kernel_quantizer
         self.bias_quantizer = bias_quantizer
 
@@ -500,11 +527,17 @@ class QConv1DTranspose(layers.Conv1DTranspose):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
         else:
-            quantized_kernel = self.kernel
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
 
         outputs = keras.ops.conv_transpose(
             inputs,
@@ -532,6 +565,7 @@ class QConv1DTranspose(layers.Conv1DTranspose):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "kernel_quantizer": serialize_keras_object(self.kernel_quantizer_internal),
             "bias_quantizer": serialize_keras_object(self.bias_quantizer_internal),
         }
@@ -546,8 +580,10 @@ class QConv1DTranspose(layers.Conv1DTranspose):
 
 
 @register_keras_serializable(package="qkeras")
-class QConv2DTranspose(layers.Conv2DTranspose):
+class QConv2DTranspose(PrunableLayerMixin, layers.Conv2DTranspose):
     """2D convolution layer (e.g. spatial convolution over images)."""
+
+    _PRUNABLE_WEIGHTS = ('kernel',)
 
     # most of these parameters follow the implementation of Conv2DTranspose
     # in Keras, with the exception of kernel_quantizer and bias_quantizer
@@ -580,8 +616,10 @@ class QConv2DTranspose(layers.Conv2DTranspose):
         bias_constraint=None,
         kernel_quantizer=None,
         bias_quantizer=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         self.kernel_quantizer = kernel_quantizer
         self.bias_quantizer = bias_quantizer
 
@@ -626,13 +664,19 @@ class QConv2DTranspose(layers.Conv2DTranspose):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         inputs_shape = keras.ops.shape(inputs)
 
         if self.kernel_quantizer:
-            quantized_kernel = self.kernel_quantizer_internal(self.kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
         else:
-            quantized_kernel = self.kernel
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
 
         outputs = keras.ops.conv_transpose(
             inputs,
@@ -660,6 +704,7 @@ class QConv2DTranspose(layers.Conv2DTranspose):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "kernel_quantizer": constraints.serialize(
                 self.kernel_quantizer_internal  # Google internal code, commented out by copybara
             ),
@@ -678,8 +723,10 @@ class QConv2DTranspose(layers.Conv2DTranspose):
 
 
 @register_keras_serializable(package="qkeras")
-class QSeparableConv1D(layers.SeparableConv1D):
+class QSeparableConv1D(PrunableLayerMixin, layers.SeparableConv1D):
     """Depthwise separable 1D convolution."""
+
+    _PRUNABLE_WEIGHTS = ('depthwise_kernel', 'pointwise_kernel')
 
     # most of these parameters follow the implementation of SeparableConv1D
     # in Keras, with the exception of depthwise_quantizer, pointwise_quantizer
@@ -717,8 +764,10 @@ class QSeparableConv1D(layers.SeparableConv1D):
         depthwise_quantizer=None,
         pointwise_quantizer=None,
         bias_quantizer=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         self.depthwise_quantizer = depthwise_quantizer
         self.pointwise_quantizer = pointwise_quantizer
         self.bias_quantizer = bias_quantizer
@@ -787,6 +836,10 @@ class QSeparableConv1D(layers.SeparableConv1D):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         if self.padding == "causal":
             inputs = keras.ops.pad(inputs, self._compute_causal_padding())
@@ -795,8 +848,12 @@ class QSeparableConv1D(layers.SeparableConv1D):
 
         # Explicitly broadcast inputs and kernels to 4D.
         inputs = keras.ops.expand_dims(inputs, spatial_start_dim)
-        depthwise_kernel = keras.ops.expand_dims(self.depthwise_kernel, 0)
-        pointwise_kernel = keras.ops.expand_dims(self.pointwise_kernel, 0)
+        depthwise_kernel = keras.ops.expand_dims(
+            self._apply_pruning("depthwise_kernel", self.depthwise_kernel), 0
+        )
+        pointwise_kernel = keras.ops.expand_dims(
+            self._apply_pruning("pointwise_kernel", self.pointwise_kernel), 0
+        )
         dilation_rate = (1,) + self.dilation_rate
 
         if self.padding == "causal":
@@ -846,6 +903,7 @@ class QSeparableConv1D(layers.SeparableConv1D):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "depthwise_quantizer": constraints.serialize(
                 self.depthwise_quantizer_internal  # Google internal code, commented out by copybara
             ),
@@ -867,8 +925,10 @@ class QSeparableConv1D(layers.SeparableConv1D):
 
 
 @register_keras_serializable(package="qkeras")
-class QSeparableConv2D(layers.SeparableConv2D):
+class QSeparableConv2D(PrunableLayerMixin, layers.SeparableConv2D):
     """Depthwise separable 2D convolution."""
+
+    _PRUNABLE_WEIGHTS = ('depthwise_kernel', 'pointwise_kernel')
 
     # most of these parameters follow the implementation of SeparableConv2D
     # in Keras, with the exception of depthwise_quantizer, pointwise_quantizer
@@ -906,8 +966,10 @@ class QSeparableConv2D(layers.SeparableConv2D):
         depthwise_quantizer=None,
         pointwise_quantizer=None,
         bias_quantizer=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         self.depthwise_quantizer = depthwise_quantizer
         self.pointwise_quantizer = pointwise_quantizer
         self.bias_quantizer = bias_quantizer
@@ -976,21 +1038,29 @@ class QSeparableConv2D(layers.SeparableConv2D):
             **kwargs,
         )
 
+    def build(self, input_shape):
+        super().build(input_shape)
+        self._build_pruning()
+
     def call(self, inputs):
         # Apply the actual ops.
         if self.depthwise_quantizer:
             quantized_depthwise_kernel = self.depthwise_quantizer_internal(
-                self.depthwise_kernel
+                self._apply_pruning("depthwise_kernel", self.depthwise_kernel)
             )
         else:
-            quantized_depthwise_kernel = self.depthwise_kernel
+            quantized_depthwise_kernel = self._apply_pruning(
+                "depthwise_kernel", self.depthwise_kernel
+            )
 
         if self.pointwise_quantizer:
             quantized_pointwise_kernel = self.pointwise_quantizer_internal(
-                self.pointwise_kernel
+                self._apply_pruning("pointwise_kernel", self.pointwise_kernel)
             )
         else:
-            quantized_pointwise_kernel = self.pointwise_kernel
+            quantized_pointwise_kernel = self._apply_pruning(
+                "pointwise_kernel", self.pointwise_kernel
+            )
 
         outputs = keras.ops.separable_conv(
             inputs,
@@ -1018,6 +1088,7 @@ class QSeparableConv2D(layers.SeparableConv2D):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "depthwise_quantizer": constraints.serialize(
                 self.depthwise_quantizer_internal  # Google internal code, commented out by copybara
             ),
@@ -1039,8 +1110,10 @@ class QSeparableConv2D(layers.SeparableConv2D):
 
 
 @register_keras_serializable(package="qkeras")
-class QDepthwiseConv2D(layers.DepthwiseConv2D):
+class QDepthwiseConv2D(PrunableLayerMixin, layers.DepthwiseConv2D):
     """Creates quantized depthwise conv2d. Copied from mobilenet."""
+
+    _PRUNABLE_WEIGHTS = ('depthwise_kernel',)
 
     # most of these parameters follow the implementation of DepthwiseConv2D
     # in Keras, # with the exception of depthwise_range, bias_range,
@@ -1078,8 +1151,10 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D):
         bias_quantizer=None,
         depthwise_range=None,
         bias_range=None,
+        kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         if depthwise_range is not None:
             warnings.warn("depthwise_range is deprecated in QDepthwiseConv2D layer.")
 
@@ -1183,15 +1258,18 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D):
             self.bias = None
         # Set input spec.
         self.input_spec = layers.InputSpec(ndim=4, axes={channel_axis: input_dim})
+        self._build_pruning()
         self.built = True
 
     def call(self, inputs):
         if self.depthwise_quantizer:
             quantized_depthwise_kernel = self.depthwise_quantizer_internal(
-                self.depthwise_kernel
+                self._apply_pruning("depthwise_kernel", self.depthwise_kernel)
             )
         else:
-            quantized_depthwise_kernel = self.depthwise_kernel
+            quantized_depthwise_kernel = self._apply_pruning(
+                "depthwise_kernel", self.depthwise_kernel
+            )
         outputs = keras.ops.depthwise_conv(
             inputs,
             quantized_depthwise_kernel,
@@ -1238,6 +1316,7 @@ class QDepthwiseConv2D(layers.DepthwiseConv2D):
 
         config["depthwise_range"] = self.depthwise_range
         config["bias_range"] = self.bias_range
+        config.update(self._pruning_config())
         return config
 
     def get_quantization_config(self):

@@ -46,6 +46,7 @@ from keras.saving import register_keras_serializable
 from keras.utils import serialize_keras_object
 
 from .ops_portable import bias_add_portable
+from .pruning import PrunableLayerMixin
 from .quantizers import *
 from .quantizers import _get_integer_bits, get_quantizer
 
@@ -587,8 +588,10 @@ class Clip(constraints.Constraint):
 
 
 @register_keras_serializable(package="qkeras")
-class QDense(layers.Dense):
+class QDense(PrunableLayerMixin, layers.Dense):
     """Implements a quantized Dense layer."""
+
+    _PRUNABLE_WEIGHTS = ('kernel',)
 
     # Most of these parameters follow the implementation of Dense in
     # Keras, with the exception of kernel_range, bias_range,
@@ -623,13 +626,12 @@ class QDense(layers.Dense):
         kernel_pruner=None,
         **kwargs,
     ):
+        self._init_pruning(kernel_pruner)
         if kernel_range is not None:
             warnings.warn("kernel_range is deprecated in QDense layer.")
 
         if bias_range is not None:
             warnings.warn("bias_range is deprecated in QDense layer.")
-
-        self.kernel_pruner = kernel_pruner
 
         self.kernel_range = kernel_range
         self.bias_range = bias_range
@@ -673,27 +675,16 @@ class QDense(layers.Dense):
 
     def build(self, input_shape):
         super().build(input_shape)
-
-        if self.kernel_pruner is not None:
-            self.kernel_pruner.build(self.kernel.shape)
-
-    def update_pruning(self, step):
-        if self.kernel_pruner is not None:
-            self.kernel_pruner.update(self.kernel, step)
+        self._build_pruning()
 
     def call(self, inputs):
-        kernel = self.kernel
-
-        if self.kernel_pruner is not None:
-            kernel = self.kernel_pruner(
-                kernel,
-                training=True,
-            )
-
         if self.kernel_quantizer:
-            kernel = self.kernel_quantizer_internal(kernel)
-
-        output = keras.ops.dot(inputs, kernel)
+            quantized_kernel = self.kernel_quantizer_internal(
+                self._apply_pruning("kernel", self.kernel)
+            )
+        else:
+            quantized_kernel = self._apply_pruning("kernel", self.kernel)
+        output = keras.ops.dot(inputs, quantized_kernel)
         if self.use_bias:
             if self.bias_quantizer:
                 quantized_bias = self.bias_quantizer_internal(self.bias)
@@ -715,6 +706,7 @@ class QDense(layers.Dense):
 
     def get_config(self):
         config = {
+            **self._pruning_config(),
             "units": self.units,
             "activation": activations.serialize(self.activation),
             "use_bias": self.use_bias,
@@ -729,7 +721,6 @@ class QDense(layers.Dense):
             "bias_constraint": constraints.serialize(self.bias_constraint),
             "kernel_range": self.kernel_range,
             "bias_range": self.bias_range,
-            "kernel_pruner": self.kernel_pruner,
         }
         base_config = super(QDense, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))

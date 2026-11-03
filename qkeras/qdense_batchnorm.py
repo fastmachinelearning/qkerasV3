@@ -156,7 +156,7 @@ class QDenseBatchnorm(QDense):
                 training, knp.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
-        kernel = self.kernel
+        kernel = self._apply_pruning("kernel", self.kernel)
 
         # execute qdense output
         qdense_outputs = keras.ops.dot(
@@ -343,7 +343,7 @@ class QDenseBatchnorm(QDense):
         bias_fold = gamma * (bias - moving_mean) / sqrt(variance + epsilon) + beta
         """
 
-        kernel = self.kernel
+        kernel = self._apply_pruning("kernel", self.kernel)
         if self.use_bias:
             bias = self.bias
         else:

@@ -178,7 +178,7 @@ class QConv2DBatchnorm(QConv2D):
                 training, Kops.less_equal(self._iteration, self.ema_freeze_delay)
             )
 
-        kernel = self.kernel
+        kernel = self._apply_pruning("kernel", self.kernel)
 
         # run conv to produce output for the following batchnorm
         conv_outputs = keras.ops.conv(
@@ -374,7 +374,7 @@ class QConv2DBatchnorm(QConv2D):
         bias_fold = gamma * (bias - moving_mean) / sqrt(variance + epsilon) + beta
         """
 
-        kernel = self.kernel
+        kernel = self._apply_pruning("kernel", self.kernel)
         if self.use_bias:
             bias = self.bias
         else:
