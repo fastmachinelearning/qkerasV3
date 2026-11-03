@@ -57,6 +57,7 @@ qkeras_LAYERS = [
     "QConv2D",
     "QDepthwiseConv2D",
     "QConv2D",
+    "QConv1DTranspose",
     "QConv2DTranspose",
 ]
 
@@ -65,6 +66,7 @@ KERAS_LAYERS = [
     "Conv1D",
     "Conv2D",
     "DepthwiseConv2D",
+    "Conv1DTranspose",
     "Conv2DTranspose",
 ]
 

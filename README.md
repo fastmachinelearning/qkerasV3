@@ -62,6 +62,7 @@ The following matrix tracks multi-backend framework support for quantization-awa
 | `QSeparableConv1D` | ✅ | ✅ | ✅ | |
 | `QSeparableConv2D` | ✅ | ✅ | ✅ | |
 | `QMobileNetSeparableConv2D` | ✅ | ✅ | ✅ | MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test. |
+| `QConv1DTranspose` | ✅ | ✅ | ✅ | |
 | `QConv2DTranspose` | ✅ | ✅ | ✅ | |
 | `QActivation` | ✅ | ✅ | ✅ | |
 | `QAdaptiveActivation` | ✅ | ✅ | ✅ | |

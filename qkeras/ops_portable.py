@@ -45,16 +45,16 @@ def bias_add_portable(x, bias, data_format="channels_last"):
     Portable replacement for bias_add_portable.
 
     Args:
-        x: input tensor, shape (N, H, W, C) if channels_last else (N, C, H, W)
+        x: input tensor, shape (N, ..., C) if channels_last else (N, C, ...)
         bias: 1D tensor of shape (C,)
         data_format: "channels_last" or "channels_first"
     """
     if data_format == "channels_last":
-        # shape (C,) will broadcast to (N,H,W,C)
+        # shape (C,) will broadcast to (N,...,C)
         return x + bias
     elif data_format == "channels_first":
-        # reshape bias to (1,C,1,1) to broadcast to (N,C,H,W)
-        bias_reshaped = keras.ops.reshape(bias, (1, -1, 1, 1))
+        # reshape bias to (1,C,1,...) to broadcast to (N,C,...)
+        bias_reshaped = keras.ops.reshape(bias, (1, -1) + (1,) * (len(x.shape) - 2))
         return x + bias_reshaped
     else:
         raise ValueError(f"Unsupported data_format: {data_format}")

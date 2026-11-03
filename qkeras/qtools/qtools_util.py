@@ -181,7 +181,12 @@ def get_operation_count(layer, input_shape):
             height_o * width_o * channels_o * kernel_h * kernel_w * channels_i
         )
 
-    elif layer.__class__.__name__ in ["QConv1D", "Conv1D"]:
+    elif layer.__class__.__name__ in [
+        "QConv1D",
+        "Conv1D",
+        "QConv1DTranspose",
+        "Conv1DTranspose",
+    ]:
         output_shape = layer.compute_output_shape(input_shape)
         _, _, channels_i = input_shape
 

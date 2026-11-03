@@ -30,6 +30,7 @@ from keras import ops as Kops
 from .qconv2d_batchnorm import QConv2DBatchnorm
 from .qconvolutional import (
     QConv1D,
+    QConv1DTranspose,
     QConv2D,
     QConv2DTranspose,
     QDepthwiseConv2D,
@@ -41,6 +42,7 @@ from .qdepthwiseconv2d_batchnorm import QDepthwiseConv2DBatchnorm
 from .qlayers import Clip, QActivation, QAdaptiveActivation, QDense, QInitializer
 from .qmac import QScaleShift
 from .qnormalization import QBatchNormalization
+from .pruning import ConstantSparsity, MagnitudePruner, PolynomialDecay
 from .qpooling import QAveragePooling2D, QGlobalAveragePooling2D
 from .qrecurrent import (
     QGRU,
@@ -66,6 +68,7 @@ REGISTERED_LAYERS = [
     "QSeparableConv1D",
     "QSeparableConv2D",
     "QDepthwiseConv2D",
+    "QConv1DTranspose",
     "QConv2DTranspose",
     "QSimpleRNN",
     "QLSTM",
@@ -751,6 +754,7 @@ def model_quantize(
             "Dense",
             "Conv1D",
             "Conv2D",
+            "Conv1DTranspose",
             "Conv2DTranspose",
             "SeparableConv1D",
             "SeparableConv2D",
@@ -1091,9 +1095,13 @@ def _add_supported_quantized_objects(custom_objects):
         custom_objects[name] = quantizer
 
     custom_objects["QInitializer"] = QInitializer
+    custom_objects["MagnitudePruner"] = MagnitudePruner
+    custom_objects["ConstantSparsity"] = ConstantSparsity
+    custom_objects["PolynomialDecay"] = PolynomialDecay
     custom_objects["QDense"] = QDense
     custom_objects["QConv1D"] = QConv1D
     custom_objects["QConv2D"] = QConv2D
+    custom_objects["QConv1DTranspose"] = QConv1DTranspose
     custom_objects["QConv2DTranspose"] = QConv2DTranspose
     custom_objects["QSimpleRNNCell"] = QSimpleRNNCell
     custom_objects["QSimpleRNN"] = QSimpleRNN
@@ -1216,7 +1224,11 @@ def print_model_sparsity(model):
     print(f"Model Sparsity Summary ({model.name})")
     print("--")
     for layer in model.layers:
-        prunable_weights = None
+        prunable_weights = (
+            layer.get_prunable_weights()
+            if hasattr(layer, "get_prunable_weights")
+            else None
+        )
         if prunable_weights:
             print(
                 "{}: {}".format(
@@ -1272,6 +1284,8 @@ def get_model_sparsity(model, per_layer=False, allow_list=None):
             "RNN",
             "QLSTM",
             "QGRU",
+            "QConv1DTranspose",
+            "Conv1DTranspose",
             "QConv2DTranspose",
             "Conv2DTranspose",
             "QConv2DBatchnorm",
@@ -1363,6 +1377,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
         if plot and layer.__class__.__name__ in [
             "QConv1D",
             "QConv2D",
+            "QConv1DTranspose",
             "QConv2DTranspose",
             "QDense",
             "QActivation",
@@ -1401,6 +1416,7 @@ def quantized_model_debug(model, X_test, plot=False, plt_instance=None):
                 if i == 0 and layer.__class__.__name__ in [
                     "QConv1D",
                     "QConv2D",
+                    "QConv1DTranspose",
                     "QConv2DTranspose",
                     "QDense",
                     "QSimpleRNN",

@@ -29,6 +29,7 @@ from numpy.testing import assert_allclose, assert_array_equal, assert_equal
 from qkeras import (
     QActivation,
     QConv1D,
+    QConv1DTranspose,
     QConv2D,
     QConv2DTranspose,
     QDense,
@@ -345,6 +346,59 @@ def test_qconv2dtranspose():
         .reshape((1, 6, 6, 1))
     )
     assert_allclose(actual_output, expected_output, rtol=1e-4)
+
+
+
+def test_qconv1dtranspose():
+    x = Input((4, 1))
+    y = QConv1DTranspose(
+        1,
+        kernel_size=3,
+        kernel_quantizer=binary(),
+        bias_quantizer=binary(),
+        name="conv1d_tran",
+    )(x)
+    model = Model(inputs=x, outputs=y)
+    data = np.ones(shape=(1, 4, 1))
+    kernel = np.ones(shape=(3, 1, 1))
+    bias = np.ones(shape=(1,))
+    model.get_layer("conv1d_tran").set_weights([kernel, bias])
+    actual_output = model.predict(data)
+    expected_output = np.array([2.0, 3.0, 4.0, 4.0, 3.0, 2.0], dtype="float16").reshape(
+        (1, 6, 1)
+    )
+    assert_allclose(actual_output, expected_output, rtol=1e-4)
+
+
+@pytest.mark.parametrize(
+    "qlayer,layer,input_shape,strides,padding,output_padding",
+    [
+        (QConv1DTranspose, keras.layers.Conv1DTranspose, (5, 2), 2, "same", 0),
+        (QConv1DTranspose, keras.layers.Conv1DTranspose, (5, 2), 3, "valid", 2),
+        (
+            QConv2DTranspose,
+            keras.layers.Conv2DTranspose,
+            (5, 4, 2),
+            (2, 3),
+            "same",
+            (0, 2),
+        ),
+    ],
+)
+def test_qconv_transpose_output_padding(
+    qlayer, layer, input_shape, strides, padding, output_padding
+):
+    x = Input(input_shape)
+    qconv = qlayer(
+        3, 3, strides=strides, padding=padding, output_padding=output_padding
+    )
+    conv = layer(3, 3, strides=strides, padding=padding, output_padding=output_padding)
+    qmodel = Model(inputs=x, outputs=qconv(x))
+    model = Model(inputs=x, outputs=conv(x))
+    conv.set_weights(qconv.get_weights())
+    data = np.random.rand(2, *input_shape)
+    assert_allclose(qmodel.predict(data), model.predict(data), rtol=1e-6)
+    assert qconv.get_config()["output_padding"] == conv.get_config()["output_padding"]
 
 
 def test_masked_qconv2d_creates_correct_parameters():

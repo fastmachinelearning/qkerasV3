@@ -17,8 +17,8 @@ QKerasV3 is a `Keras 3 <https://keras.io/>`_ compatible continuation of `QKeras 
 
       export KERAS_BACKEND=tensorflow/jax/torch
 
-   In the current version v1.2.x AutoQKeras and Pruning are not working.
-   There will be an update in the the future to support this feature again.
+   Pruning is supported natively (see :doc:`pruning`); ``tensorflow-model-optimization``
+   is no longer required. AutoQKeras is not working in the current version.
 
 QKerasV3 Layer Backend Support Matrix
 =====================================
@@ -69,6 +69,11 @@ The following matrix tracks multi-backend framework support for quantization-awa
      - ✅ 
      - ✅ 
      - MobileNet-specific; explicitly quantizes activation values immediately after the depthwise step. TODO: needs a test.
+   * - ``QConv1DTranspose``
+     - ✅ 
+     - ✅ 
+     - ✅ 
+     - 
    * - ``QConv2DTranspose``
      - ✅ 
      - ✅ 
@@ -242,6 +247,7 @@ The following matrix tracks multi-backend framework support for quantization act
    :caption: Guides
 
    tutorials
+   pruning
 
 .. toctree::
    :maxdepth: 2
