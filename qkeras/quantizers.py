@@ -2516,8 +2516,8 @@ class quantized_relu(base_quantizer.BaseQuantizer):  # pylint: disable=invalid-n
 
         non_sign_bits = self.bits - (self.negative_slope != 0.0)
         x = Kops.cast(x, dtype="float32")
-        m = Kops.cast(knp.power(2, non_sign_bits), dtype="float32")
-        m_i = Kops.cast(knp.power(2, self.integer), dtype="float32")
+        m = Kops.cast(knp.power(2.0, non_sign_bits), dtype="float32")
+        m_i = Kops.cast(knp.power(2.0, self.integer), dtype="float32")
 
         # is_quantized_clip has precedence over relu_upper_bound for backward
         # compatibility.
