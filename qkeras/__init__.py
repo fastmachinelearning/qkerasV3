@@ -36,6 +36,12 @@ from .qoctave import *  # pylint: disable=wildcard-import
 from .qpooling import *  # pylint: disable=wildcard-import
 from .qrecurrent import *  # pylint: disable=wildcard-import
 from .qseparable_conv2d_transpose import QSeparableConv2DTranspose
+from .range_analysis import (
+    RangeAnalysisCallback,
+    analyze_ranges,
+    optimize_bitwidths,
+    random_calibration_data,
+)
 
 # from .qtools.run_qtools import QTools
 # from .qtools.settings import cfg
