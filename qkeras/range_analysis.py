@@ -19,6 +19,12 @@ a model (weights, biases, pre-activation accumulators, activations) and sizes
 the integer part of each quantizer so that the observed range fits.  Two entry
 points are provided:
 
+* :func:`convert_to_lut` -- post-training conversion of the calibrated model
+  into a LUT network (teacher -> student, see :mod:`qkeras.logic.convert`).
+  It uses :func:`analyze_value_sets` (the finite set of values every
+  quantised activation takes = how many wires it needs) and
+  :func:`analyze_patterns` (the input bit-patterns every neuron actually sees
+  = its care set; everything else is a don't-care).
 * :func:`optimize_bitwidths` -- one-shot, post-training.  Calibrates on user
   data or on random inputs and rewrites the quantizers in place.
 * :class:`RangeAnalysisCallback` -- the same procedure inside ``model.fit``,
@@ -69,6 +75,12 @@ from .qlayers import Clip
 from .quantizers import quantized_bits, quantized_relu
 
 __all__ = [
+    "ValueSet",
+    "NeuronPatterns",
+    "analyze_value_sets",
+    "analyze_patterns",
+    "quantizer_value_grid",
+    "convert_to_lut",
     "RangeStats",
     "QuantizerRange",
     "RangeReport",
@@ -979,3 +991,299 @@ class RangeAnalysisCallback(keras.callbacks.Callback):
         report = self.run(epoch)
         if logs is not None:
             logs["range_analysis_bit_delta"] = float(report.bit_delta())
+
+
+# -----------------------------------------------------------------------------
+# Value sets and input patterns (used by the LUT conversion)
+# -----------------------------------------------------------------------------
+def quantizer_value_grid(q, max_values: int = 1 << 16) -> np.ndarray | None:
+    """All values a quantizer can output, sorted, or None if unknown/too many.
+
+    Fixed-point quantizers (``quantized_bits`` with alpha 1/None,
+    ``quantized_relu``) give their full grid; other quantizers are probed
+    (``binary``/``bernoulli``/``ternary`` style outputs)."""
+    if q is None:
+        return None
+    fmt = fixed_point_format(q) if isinstance(q, BaseQuantizer) else None
+    if fmt is not None:
+        n = int(round((fmt["max"] - fmt["min"]) / fmt["lsb"])) + 1
+        if n > max_values:
+            return None
+        return (fmt["min"] + fmt["lsb"] * np.arange(n)).astype(np.float64)
+    name = type(q).__name__
+    if name in ("binary", "stochastic_binary", "ternary", "stochastic_ternary"):
+        probe = np.linspace(-4.0, 4.0, 257, dtype=np.float32)
+        try:
+            v = np.unique(keras.ops.convert_to_numpy(q(probe)).astype(np.float64))
+        except Exception:  # pragma: no cover - exotic quantizer
+            return None
+        return v
+    return None
+
+
+@dataclasses.dataclass
+class ValueSet:
+    """Finite set of values a tensor takes; defines its Boolean encoding.
+
+    ``code(x)`` maps a value to its index in ``values`` (nearest value for
+    unseen inputs), which is encoded on ``bits`` wires, LSB first.
+    """
+
+    name: str
+    values: np.ndarray                 # sorted float64
+    observed: np.ndarray = None        # sorted observed values (subset)
+    source: str = "observed"           # "observed" | "quantizer"
+    overflow: bool = False             # more distinct values than max_values
+
+    @property
+    def size(self) -> int:
+        return int(len(self.values))
+
+    @property
+    def bits(self) -> int:
+        return 0 if self.size <= 1 else int(math.ceil(math.log2(self.size)))
+
+    def code(self, x) -> np.ndarray:
+        x = np.asarray(x, np.float64)
+        v = self.values
+        i = np.clip(np.searchsorted(v, x), 1, max(1, len(v) - 1))
+        if len(v) == 1:
+            return np.zeros(x.shape, np.int64)
+        lo, hi = v[i - 1], v[i]
+        return np.where(np.abs(x - lo) <= np.abs(hi - x), i - 1, i).astype(np.int64)
+
+    def decode(self, c) -> np.ndarray:
+        return self.values[np.asarray(c, np.int64)]
+
+    def is_uniform(self) -> bool:
+        if self.size < 3:
+            return True
+        d = np.diff(self.values)
+        return bool(np.allclose(d, d[0]))
+
+    def as_dict(self) -> dict:
+        return {"name": self.name, "size": self.size, "bits": self.bits,
+                "source": self.source, "min": float(self.values[0]),
+                "max": float(self.values[-1]), "overflow": self.overflow,
+                "n_observed": int(len(self.observed)) if self.observed is not None else None}
+
+
+def _activation_quantizer(layer):
+    act = getattr(layer, "activation", None)
+    if isinstance(act, BaseQuantizer):
+        return act
+    return None
+
+
+def _tensor_model(model, tensors):
+    inp = model.inputs[0] if len(model.inputs) == 1 else model.inputs
+    return keras.Model(inp, tensors)
+
+
+def analyze_value_sets(
+    model,
+    data,
+    *,
+    layer_names: Sequence[str] | None = None,
+    grid: str = "range",
+    max_values: int = 4096,
+    batch_size: int = 256,
+    max_batches: int | None = None,
+) -> dict[str, ValueSet]:
+    """Record the distinct values at the model input and at the output of every
+    layer with a quantised activation (``QActivation`` or ``activation=<quantizer>``).
+
+    Args:
+      grid: ``"range"`` (default) -- the quantizer grid restricted to the
+        observed ``[min, max]`` (uniform codes, unused MSBs cost no wires);
+        ``"observed"`` -- only the observed values (fewest wires, non-uniform
+        codes); ``"quantizer"`` -- the full output grid of the quantizer
+        (exact for any input, most wires).  Tensors without a known grid fall
+        back to the observed values.
+      max_values: tensors with more distinct values are flagged ``overflow``
+        (not convertible to Boolean wires exactly).
+
+    Returns: dict layer name -> :class:`ValueSet`; the model input is stored
+    under ``"__input__"``.
+    """
+    if grid not in ("range", "observed", "quantizer"):
+        raise ValueError("grid must be 'range', 'observed' or 'quantizer'")
+    cand = []
+    for layer in _iter_layers(model):
+        if layer_names is not None and layer.name not in layer_names:
+            continue
+        if _activation_quantizer(layer) is not None:
+            cand.append(layer)
+    tm = _tensor_model(model, [model.inputs[0]] + [l.output for l in cand])
+    seen = [set() for _ in range(len(cand) + 1)]
+    over = [False] * (len(cand) + 1)
+    for x in _as_batches(data, batch_size, max_batches):
+        outs = tm(x, training=False)
+        outs = outs if isinstance(outs, (list, tuple)) else [outs]
+        for i, t in enumerate(outs):
+            if over[i]:
+                continue
+            u = np.unique(keras.ops.convert_to_numpy(t).astype(np.float64))
+            seen[i].update(u.tolist())
+            if len(seen[i]) > max_values:
+                over[i] = True
+    res = {}
+    names = ["__input__"] + [l.name for l in cand]
+    quants = [None] + [_activation_quantizer(l) for l in cand]
+    for name, q, obs, ov in zip(names, quants, seen, over):
+        observed = np.array(sorted(obs), np.float64)
+        values, source = observed, "observed"
+        g = quantizer_value_grid(q) if (grid != "observed" and q is not None) else None
+        if g is not None and grid == "quantizer":
+            values, source = g, "quantizer"
+        elif g is not None and len(observed):
+            tol = 1e-9 * max(1.0, float(np.abs(g).max()))
+            sel = (g >= observed[0] - tol) & (g <= observed[-1] + tol)
+            values, source = g[sel], "range"
+        res[name] = ValueSet(name, values, observed, source, ov)
+    return res
+
+
+@dataclasses.dataclass
+class NeuronPatterns:
+    """Observed input patterns of the neurons (units / filters) of one layer.
+
+    ``taps[u]`` are the flat input indices with a non-zero quantised weight
+    (Dense: input feature; Conv2D: index into the flattened ``(kh, kw, cin)``
+    window); ``bits[u]`` the number of input wires (sum of the code widths);
+    ``patterns[u]`` the sorted observed pattern integers (code of tap ``i``
+    occupies bits ``[off_i, off_i + w_i)``), or None if ``bits[u] > max_bits``.
+    """
+
+    layer: str
+    kind: str                          # "dense" | "conv2d"
+    taps: list
+    bits: list
+    patterns: list
+    n_samples: int = 0
+
+    def coverage(self, u: int) -> float | None:
+        if self.patterns[u] is None:
+            return None
+        return len(self.patterns[u]) / float(1 << self.bits[u])
+
+
+def _quantized_kernel(layer) -> np.ndarray:
+    k = layer.kernel
+    q = getattr(layer, "kernel_quantizer_internal", None)
+    kq = q(k) if q else k
+    return keras.ops.convert_to_numpy(kq).astype(np.float64)
+
+
+def _pack_patterns(codes, widths):
+    """codes (M, F) int, widths (F,) -> pattern ints (M,)."""
+    off = np.concatenate([[0], np.cumsum(widths)[:-1]]).astype(np.int64)
+    return (codes.astype(np.int64) << off[None, :]).sum(1)
+
+
+def _conv_patches(x, kh, kw, sh, sw):
+    """x (N, H, W, C) -> (N, OH, OW, kh*kw*C) valid patches, (kh, kw, c) order."""
+    n, h, w, c = x.shape
+    oh, ow = (h - kh) // sh + 1, (w - kw) // sw + 1
+    sn, sh_, sw_, sc = x.strides
+    view = np.lib.stride_tricks.as_strided(
+        x, (n, oh, ow, kh, kw, c), (sn, sh_ * sh, sw_ * sw, sh_, sw_, sc), writeable=False)
+    return view.reshape(n, oh, ow, kh * kw * c)
+
+
+def analyze_patterns(
+    model,
+    data,
+    value_sets: dict[str, ValueSet],
+    *,
+    layer_names: Sequence[str] | None = None,
+    max_bits: int = 16,
+    batch_size: int = 256,
+    max_batches: int | None = None,
+) -> dict[str, NeuronPatterns]:
+    """Record, for every ``QDense``/``QConv2D`` layer whose input is encoded by
+    a :class:`ValueSet`, the input patterns each neuron sees on ``data``.
+
+    The input of a layer must be the model input or the output of a layer
+    present in ``value_sets`` (possibly through Flatten/Reshape/InputLayer).
+    """
+    from .qconvolutional import QConv2D
+    from .qlayers import QDense
+
+    def _source(layer):
+        t = layer.input
+        node = getattr(t, "_keras_history", None)
+        src = node[0] if node is not None else None
+        while src is not None and isinstance(src, (keras.layers.Flatten, keras.layers.Reshape)):
+            node = getattr(src.input, "_keras_history", None)
+            src = node[0] if node is not None else None
+        if src is None or isinstance(src, keras.layers.InputLayer):
+            return "__input__"
+        return src.name
+
+    targets = []
+    for layer in _iter_layers(model):
+        if not isinstance(layer, (QDense, QConv2D)):
+            continue
+        if layer_names is not None and layer.name not in layer_names:
+            continue
+        src = _source(layer)
+        if src not in value_sets:
+            continue
+        vs = value_sets[src]
+        kq = _quantized_kernel(layer)
+        if isinstance(layer, QConv2D):
+            if layer.padding != "valid" or tuple(layer.dilation_rate) != (1, 1) or layer.groups != 1:
+                continue
+            kind = "conv2d"
+            kflat = kq.reshape(-1, kq.shape[-1])
+        else:
+            kind = "dense"
+            kflat = kq
+        taps = [np.flatnonzero(kflat[:, u] != 0) for u in range(kflat.shape[1])]
+        bits = [int(len(t) * vs.bits) for t in taps]
+        targets.append((layer, src, vs, kind, taps, bits))
+
+    res = {l.name: NeuronPatterns(l.name, kind, taps, bits,
+                                  [set() if b <= max_bits else None for b in bits])
+           for l, _, _, kind, taps, bits in targets}
+    if not targets:
+        return res
+    tm = _tensor_model(model, [l.input for l, *_ in targets])
+    for x in _as_batches(data, batch_size, max_batches):
+        outs = tm(x, training=False)
+        outs = outs if isinstance(outs, (list, tuple)) else [outs]
+        for (layer, src, vs, kind, taps, bits), t in zip(targets, outs):
+            a = keras.ops.convert_to_numpy(t)
+            codes = vs.code(a)
+            rec = res[layer.name]
+            if kind == "conv2d":
+                kh, kw = layer.kernel_size
+                sh, sw = layer.strides
+                p = _conv_patches(np.ascontiguousarray(codes), kh, kw, sh, sw)
+                flat = p.reshape(-1, p.shape[-1])
+            else:
+                flat = codes.reshape(len(codes), -1)
+            rec.n_samples += len(flat)
+            w = np.full(flat.shape[1], vs.bits, np.int64)
+            for u, tp in enumerate(taps):
+                if rec.patterns[u] is None:
+                    continue
+                if len(tp) == 0:
+                    rec.patterns[u].add(0)
+                    continue
+                rec.patterns[u].update(np.unique(_pack_patterns(flat[:, tp], w[tp])).tolist())
+    for rec in res.values():
+        rec.patterns = [None if p is None else np.array(sorted(p), np.int64) for p in rec.patterns]
+    return res
+
+
+def convert_to_lut(model, data, **kwargs):
+    """Post-training range analysis -> LUT network (teacher -> student).
+
+    Thin wrapper around :func:`qkeras.logic.convert.convert_to_lut`; see there
+    for the arguments.  Returns a :class:`qkeras.logic.convert.Conversion`.
+    """
+    from .logic.convert import convert_to_lut as _convert
+
+    return _convert(model, data, **kwargs)
