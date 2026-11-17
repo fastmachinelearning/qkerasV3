@@ -30,7 +30,9 @@ Input encoders (``Netlist.input_encoder``) map raw features to input wires:
   ``clip(rint(x_f * scale_f) - zmin_f, 0, 2**bits_f - 1)`` (``rint`` rounds
   half to even, like ``keras.ops.round``).
 * ``{"type": "thermometer", "feature": [...], "threshold": [...]}``: wire i =
-  x[feature_i] > threshold_i.
+  x[feature_i] > threshold_i.  With ``"grid": {"bits": B, "integer": I}`` the
+  features are B-bit fixed-point words and :func:`materialize_inputs` turns the
+  encoder into a first layer of comparator LUTs (exact, encoder area counted).
 """
 
 import json
@@ -40,9 +42,10 @@ import numpy as np
 import keras
 
 from .layers import BinaryThreshold, GroupSum, LUTDense
+from .encoders import Thermometer
 
 __all__ = ["LUT", "Netlist", "extract_netlist", "simulate", "save_netlist", "load_netlist",
-           "encode_inputs", "FORMAT", "VERSION"]
+           "encode_inputs", "materialize_inputs", "FORMAT", "VERSION"]
 
 FORMAT, VERSION = "logicnet-netlist", 2
 MAX_LUT_INPUTS = 20
@@ -217,7 +220,7 @@ class Netlist:
 def extract_netlist(model, name=None):
     """Build a :class:`Netlist` from a Keras model made of
     ``[BinaryThreshold] [Flatten] LUTDense+ [GroupSum]``."""
-    layers, n_in, thr, ncls, tau = [], None, None, None, 1.0
+    layers, n_in, thr, ncls, tau, enc = [], None, None, None, 1.0, None
     passthrough = (keras.layers.InputLayer, keras.layers.Flatten,
                    keras.layers.Reshape)
     for lay in model.layers:
@@ -227,6 +230,10 @@ def extract_netlist(model, name=None):
             idx, tab = lay.get_luts()
             layers.append([LUT(tuple(int(p) for p in idx[u]), tab[u].copy())
                            for u in range(lay.units)])
+        elif isinstance(lay, Thermometer):
+            if layers or thr is not None:
+                raise ValueError("Thermometer must precede all LUTDense layers")
+            enc = lay.encoder_spec()
         elif isinstance(lay, BinaryThreshold):
             if layers:
                 raise ValueError("BinaryThreshold must precede all LUTDense layers")
@@ -239,7 +246,53 @@ def extract_netlist(model, name=None):
             raise ValueError(f"layer {lay.name} ({type(lay).__name__}) not supported")
     if not layers:
         raise ValueError("model has no LUTDense layers")
-    return Netlist(n_in, layers, ncls, thr, name or model.name, {"tau": float(tau)})
+    net = Netlist(n_in, layers, ncls, thr, name or model.name, {"tau": float(tau)})
+    if enc is not None:
+        net.input_encoder = enc
+    return net
+
+
+def materialize_inputs(net):
+    """Return an equivalent netlist whose primary inputs are fixed-point words.
+
+    A ``thermometer`` encoder with a ``grid`` becomes a first layer of comparator
+    LUTs (k = grid bits) over ``uniform``-encoded words (offset binary, LSB first;
+    the same codes as ``quantized_bits(bits, integer, 1, alpha=1)`` + 2**(bits-1)).
+    Only comparators read by the network are kept; duplicates are shared and
+    always-true/false thresholds become constants.  Simulation on raw features is
+    unchanged (bit-exact).  Other encoders are returned unchanged.
+    """
+    enc = net.input_encoder
+    if not enc or enc.get("type") != "thermometer" or "grid" not in enc:
+        return net
+    B, I = int(enc["grid"]["bits"]), int(enc["grid"]["integer"])
+    scale = 2.0 ** (B - 1 - I)
+    zmin = -(2 ** (B - 1))
+    feat = np.asarray(enc["feature"], np.int64)
+    thr = np.asarray(enc["threshold"], np.float64)
+    F = int(feat.max()) + 1
+    values = (np.arange(1 << B) + zmin) / scale                  # code -> value
+    used = sorted({p for l in net.layers[0] for p in l.pins})
+    comps, key2idx, remap = [], {}, {}
+    for w in used:
+        f, t = int(feat[w]), float(thr[w])
+        table = values > t
+        key = (f, table.tobytes())
+        if key not in key2idx:
+            key2idx[key] = len(comps)
+            if table.all() or not table.any():
+                comps.append(LUT((), np.array([bool(table[0])])))
+            else:
+                comps.append(LUT(tuple(range(f * B, f * B + B)), table))
+        remap[w] = key2idx[key]
+    first = [LUT(tuple(remap[p] for p in l.pins), l.table.copy(),
+                 None if l.care is None else l.care.copy()) for l in net.layers[0]]
+    new_enc = {"type": "uniform", "scale": [scale] * F, "zmin": [zmin] * F, "bits": [B] * F}
+    meta = dict(net.meta)
+    meta["materialized_from"] = "thermometer"
+    return Netlist(F * B, [comps, first] + [list(L) for L in net.layers[1:]], net.num_classes,
+                   None, net.name, meta, head_type=net.head_type, word_bits=net.word_bits,
+                   input_encoder=new_enc, linear=net.linear)
 
 
 def save_netlist(net, path):
@@ -265,7 +318,12 @@ def encode_inputs(net, x):
     if t == "threshold":
         return x > enc["threshold"]
     if t == "thermometer":
-        return x[:, np.asarray(enc["feature"])] > np.asarray(enc["threshold"], x.dtype)
+        x = x.astype(np.float32)
+        if "grid" in enc:   # features are fixed-point words in hardware
+            g = enc["grid"]
+            sc = 2.0 ** (g["bits"] - 1 - g["integer"])
+            x = np.clip(np.rint(x * sc), -(2 ** (g["bits"] - 1)), 2 ** (g["bits"] - 1) - 1) / sc
+        return x[:, np.asarray(enc["feature"])] > np.asarray(enc["threshold"], np.float64)
     if t == "uniform":
         scale = np.asarray(enc["scale"], np.float32)
         zmin = np.asarray(enc["zmin"], np.int64)
