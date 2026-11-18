@@ -15,7 +15,6 @@
 # ==============================================================================
 
 import re
-import os
 from typing import Any
 
 import keras
@@ -415,8 +414,7 @@ def _get_scale_mean(
 
         # Get the mean along the unroll axis/axes
         axes_of_mean = _get_scaling_axis(unrolled_scale_axis, len(unrolled_shape))
-        # TODO: special backend treatment should be avoided in the future
-        if os.environ["KERAS_BACKEND"] == "torch" and type(axes_of_mean) is not list:
+        if hasattr(axes_of_mean, "tolist"):
             axes_of_mean = axes_of_mean.tolist()
         qx = Kops.mean(x1 * q1, axis=axes_of_mean, keepdims=True)
         qq = Kops.mean(q1 * q1, axis=axes_of_mean, keepdims=True)
@@ -488,10 +486,8 @@ def _get_least_squares_scale(
       A scaling factor tensor or scalar for scaling tensor per channel.
     """
 
-    # TODO: needed since MPS devices dont support 32 bit for torch
-    # this could be fixed in the future
-    if hasattr(x, "astype") and os.environ["KERAS_BACKEND"] == "torch":
-        x = x.astype("float32")
+    if Kops.dtype(x) == "float64":
+        x = Kops.cast(x, "float32")
 
     if isinstance(alpha, six.string_types) and "auto" in alpha:
         assert alpha in ["auto", "auto_po2"]
