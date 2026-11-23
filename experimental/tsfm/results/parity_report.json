@@ -1,0 +1,21 @@
+{
+ "model": "Timestral-5M",
+ "reference": "timestral 1.0.0 (PyTorch, predict_block, float32)",
+ "keras": "3.15.1",
+ "torch": "2.15.0",
+ "note": "univariate, fully observed, synthetic sinusoid+trend+noise series, 4 rows each",
+ "results": {
+  "L16_h2": {
+   "max_abs_raw": 9.5367431640625e-06,
+   "max_rel_raw": 3.3971189168369165e-06,
+   "max_abs_norm": 3.933906555175781e-06,
+   "params": 5208960
+  },
+  "L64_h2": {
+   "max_abs_raw": 1.52587890625e-05,
+   "max_rel_raw": 0.001119339489378035,
+   "max_abs_norm": 1.8775463104248047e-06,
+   "params": 5208960
+  }
+ }
+}
