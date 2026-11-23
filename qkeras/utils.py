@@ -1123,6 +1123,10 @@ def _add_supported_quantized_objects(custom_objects):
     custom_objects["QGlobalAveragePooling2D"] = QGlobalAveragePooling2D
     custom_objects["QScaleShift"] = QScaleShift
 
+    from .qtransformer import QTRANSFORMER_OBJECTS
+
+    custom_objects.update(QTRANSFORMER_OBJECTS)
+
 
 def clone_model(model, custom_objects=None):
     """Clone a qkeras model safely."""
