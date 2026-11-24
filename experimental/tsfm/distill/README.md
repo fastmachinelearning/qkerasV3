@@ -24,7 +24,8 @@ student (float)  --distillation-->  student (QAT preset)  ->  metrics + GateMate
 | `student.py` | `StudentConfig`, float/QAT factories, presets `A8 A6 B4 B3`, weight transfer, analytic parameter/MAC/lookup counts |
 | `losses.py` | `alpha * pinball(student, truth) + (1 - alpha) * |student - teacher|` (normalised space) |
 | `train.py` | CLI: float distillation -> QAT fine-tuning -> test metrics + cost |
-| `fpga_cost.py` | first-order GateMate cost model (class A folded, class B streamed with reuse factor) |
+| `fpga_cost.py` | GateMate cost model (class A folded, class B streamed with reuse factor), dense part calibrated by P&R |
+| `rtl.py` | CLI: da4ml Verilog export of a trained student's dense layers, GateMate place & route, result table |
 | `sweep.py` | CLI: run many configs in parallel, write `student_sweep.csv` |
 | `configs/` | `smoke.json`, `sweep_v1.json` |
 
@@ -72,13 +73,65 @@ editable in `GATEMATE`:
   32 x 40 kbit BRAM, 80 % utilisation limit.
 * Class A (folded): BRAM = weight bits + function tables + double-buffered activations and K/V;
   CPEs = `n_mac` (16) multiply-accumulate units + 1.5k control; latency = MACs / n_mac / f.
-* Class B (streamed): constant-weight shift-add (non-zero CSD digits of the trained, quantised
-  weights x adder width) + one table per feature lane + activation x activation multipliers for
+* Class B (streamed): constant-weight shift-add blocks, one per dense layer. With da4ml installed:
+  1.59 CPE per da4ml adder-cost unit; without: 0.56 x CSD digits x (input bits + weight bits +
+  log2 fan-in). Both are calibrated on the place-and-route run below (max error 16 % / 23 %). Plus one table per feature lane + activation x activation multipliers for
   attention and RMSNorm. `min_reuse_to_fit` is the smallest reuse factor (time-multiplexing of all
   per-token units, 25 % mux overhead) that fits 80 % of the CPEs.
 
-Validate a chosen student with yosys/nextpnr through `export_da4ml.py`, `export_fpga_hls.py` or the
-Kolibri flow before trusting the numbers.
+The class-A numbers and the non-dense class-B terms (lane tables, attention/norm multipliers, reuse
+overhead) are still unvalidated first-order assumptions.
+
+## Place & route, stage 1: dense layers of `B_d16_L1_b3` (2026-11-24)
+
+```bash
+cd experimental/tsfm
+python -m distill.rtl export  --run runs/students/kdd/B_d16_L1_b3 --out runs/rtl/kdd_B_d16_L1_b3
+python -m distill.rtl pnr     --out runs/rtl/kdd_B_d16_L1_b3 --jobs 7 --kolibri-src ~/cms/logicnet-fpga/src
+python -m distill.rtl collect --out runs/rtl/kdd_B_d16_L1_b3
+```
+
+* Each `QDense` gets the exact QAT-quantised kernel and bias. The input format is the quantiser that feeds the layer:
+  RMSNorm/attention output `a` = (1,3,3); ReLU (0,3,4); attention output x gate (1,3,8) for `wO`; the linear half of
+  `w12` x ReLU for `w3`; scaled patch values (1,3,3) plus missing flags (0,1,0) for the embedding. Outputs keep
+  4 fractional bits.
+* da4ml 0.6 builds the shift-add block (CMVM solver, `latency_cutoff=5`, 2-3 pipeline stages). Each block is
+  bit-exact against numpy on 500 random on-grid inputs.
+* The flow is yosys 0.67 `synth_gatemate -luttree -nomx8`, then `yowasp-nextpnr-himbaechel-gatemate` 0.11
+  (CCGM1A1, router2, 100 MHz target), inside the Kolibri shift-register harness. CPE = yosys cell estimate
+  (L2T5/ADDF = 2 half-CPEs). The harness input/output registers are included.
+* `b0_w3` (585 input bits) did not route with seed 1: congestion stayed at 2 overused wires after 9.3k router
+  iterations. Seeds 2 and 3 routed in about 5 min; the best seed is listed.
+
+| layer | shape | non-zero weights | da4ml adder cost | CPE | Fmax (MHz) |
+|---|---|---|---|---|---|
+| `embed_hidden` (embedding hidden) | 32 x 16 | 417 | 1861 | 2,621 | 38.7 |
+| `embed_output` (embedding output) | 16 x 16 | 201 | 1254 | 1,856 | 41.6 |
+| `embed_residual` (embedding skip) | 32 x 16 | 423 | 1805 | 2,701 | 42.1 |
+| `b0_attn0_wQKV` (time attention QKV) | 16 x 48 | 617 | 3148 | 5,225 | 30.6 |
+| `b0_attn0_gate` (time attention gate) | 16 x 16 | 217 | 1393 | 2,358 | 35.3 |
+| `b0_attn0_wO` (time attention out) | 16 x 16 | 218 | 2042 | 3,486 | 23.0 |
+| `b0_attn1_wQKV` (variate attention QKV) | 16 x 48 | 603 | 3222 | 5,292 | 28.9 |
+| `b0_attn1_gate` (variate attention gate) | 16 x 16 | 216 | 1315 | 2,206 | 33.4 |
+| `b0_attn1_wO` (variate attention out) | 16 x 16 | 212 | 1971 | 3,408 | 32.4 |
+| `b0_w12` (MLP in) | 16 x 64 | 825 | 4098 | 6,468 | 24.6 |
+| `b0_w3` (MLP out) | 32 x 16 | 384 | 5376 | 8,666 | 20.6 |
+| `head_hidden` (head hidden) | 16 x 16 | 216 | 1275 | 2,142 | 30.3 |
+| `head_output` (head output) | 16 x 48 | 578 | 3063 | 4,214 | 35.5 |
+| `head_residual` (head skip) | 16 x 48 | 569 | 2932 | 4,672 | 30.9 |
+| **total** | | 5,696 | 34,756 | **55,316** | min 20.6 |
+
+* **The dense layers alone need about 55k CPEs, 2.7x the CCGM1A1's 20,480.** Sweep v1 estimated 12.6k for the
+  same layers. Its CSD count rounded the kernels to one fractional bit, and the per-channel `auto_po2` scales put
+  most 3-bit weights below 0.25, so it counted 899 instead of 5,696 non-zero weights. This is fixed in
+  `fpga_cost.py` (exact scaling) and recalibrated on the table above.
+* With the corrected model, the class-B students need a reuse factor of R = 8 (`B_d16_L1_b3`, `B_d16_L1_b4`) to
+  R = 16 (`B_d24_L1_b4`), not R = 2-8 as in the sweep-v1 table above. The reuse/mux model itself is not yet
+  validated.
+* Real levers: pruning (da4ml cost scales with the CSD digits), fewer output columns (QKV and head are the
+  largest), and time-multiplexed columns rather than full replication. Alternatively, class A (weights in BRAM)
+  avoids the constant-weight logic entirely.
+* Not in stage 1: attention scores/softmax, RMSNorm, gates, the quantile head and the token scheduler.
 
 ## Notes
 
@@ -91,7 +144,7 @@ Kolibri flow before trusting the numbers.
 
 ## First sweep (sweep_v1, single seed, 2026-11-24)
 
-Test MASE (median forecast, chronologically later windows; MASE scale = the student's 256-step context). Class-A students: 9 deciles; class-B students: P10/P50/P90. 'fits' uses the cost model above (class A: BRAM; class B: smallest reuse factor R that fits 80 % of the CPEs).
+Test MASE (median forecast, chronologically later windows; MASE scale = the student's 256-step context). Class-A students: 9 deciles; class-B students: P10/P50/P90. 'fits' uses the sweep-v1 cost model (class A: BRAM; class B: smallest reuse factor R that fits 80 % of the CPEs). **The class-B R values below are too optimistic, see the place-and-route section.**
 
 **kdd**: teacher (zero-shot Timestral-5M) MASE 0.847, seasonal naive 1.149
 

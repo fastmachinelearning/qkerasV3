@@ -1,0 +1,34 @@
+{
+ "defaults": {
+  "student": {"patch_size": 16, "ctx_steps": 256, "hor_steps": 64, "width_factor": 3.0},
+  "train": {"batch_size": 64, "float_epochs": 40, "qat_epochs": 15, "lr": 0.002, "qat_lr": 0.0003,
+            "alpha": 0.5, "patience": 6, "verbose": 2}
+ },
+ "runs": [
+  {"student": {"name": "A_d64_L2", "d_model": 64, "num_heads": 4, "mlp_hidden": 128, "n_blocks": 2, "variate_every": 1,
+               "preset": "A6", "deployment": "A"}},
+  {"student": {"name": "A_d48_L2", "d_model": 48, "num_heads": 4, "mlp_hidden": 96, "n_blocks": 2, "variate_every": 1,
+               "preset": "A6", "deployment": "A"}},
+  {"student": {"name": "A_d32_L2", "d_model": 32, "num_heads": 2, "mlp_hidden": 64, "n_blocks": 2, "variate_every": 1,
+               "preset": "A8", "deployment": "A"}},
+  {"student": {"name": "A_d48_L2_ci", "d_model": 48, "num_heads": 4, "mlp_hidden": 96, "n_blocks": 2, "variate_every": 0,
+               "preset": "A6", "deployment": "A"}},
+  {"student": {"name": "A_d48_L2_nokd", "d_model": 48, "num_heads": 4, "mlp_hidden": 96, "n_blocks": 2, "variate_every": 1,
+               "preset": "A6", "deployment": "A"}, "alpha": 1.0},
+  {"student": {"name": "B_d24_L1_b4", "d_model": 24, "num_heads": 2, "mlp_hidden": 48, "n_blocks": 1, "variate_every": 1,
+               "knots": [0.1, 0.5, 0.9], "embed_hidden": 24, "head_hidden": 24, "preset": "B4", "deployment": "B",
+               "act_fn": "relu", "gate_fn": "hard_sigmoid"}},
+  {"student": {"name": "B_d16_L1_b4", "d_model": 16, "num_heads": 2, "mlp_hidden": 32, "n_blocks": 1, "variate_every": 1,
+               "knots": [0.1, 0.5, 0.9], "embed_hidden": 16, "head_hidden": 16, "preset": "B4", "deployment": "B",
+               "act_fn": "relu", "gate_fn": "hard_sigmoid"}},
+  {"student": {"name": "B_d16_L1_b3", "d_model": 16, "num_heads": 2, "mlp_hidden": 32, "n_blocks": 1, "variate_every": 1,
+               "knots": [0.1, 0.5, 0.9], "embed_hidden": 16, "head_hidden": 16, "preset": "B3", "deployment": "B",
+               "act_fn": "relu", "gate_fn": "hard_sigmoid"}},
+  {"student": {"name": "B_d16_L1_b4_ci", "d_model": 16, "num_heads": 2, "mlp_hidden": 32, "n_blocks": 1, "variate_every": 0,
+               "knots": [0.1, 0.5, 0.9], "embed_hidden": 16, "head_hidden": 16, "preset": "B4", "deployment": "B",
+               "act_fn": "relu", "gate_fn": "hard_sigmoid"}},
+  {"student": {"name": "B_d16_L1_b4_nokd", "d_model": 16, "num_heads": 2, "mlp_hidden": 32, "n_blocks": 1, "variate_every": 1,
+               "knots": [0.1, 0.5, 0.9], "embed_hidden": 16, "head_hidden": 16, "preset": "B4", "deployment": "B",
+               "act_fn": "relu", "gate_fn": "hard_sigmoid"}, "alpha": 1.0}
+ ]
+}

@@ -157,14 +157,16 @@ class FloatFactory(kt.LayerFactory):
 class QuantFactory(FloatFactory):
     """QAT layer factory for a preset (qkeras + qkeras.qtransformer)."""
 
-    def __init__(self, preset: str, act_fn: str = "silu", gate_fn: str = "sigmoid"):
+    def __init__(self, preset: str, act_fn: str = "silu", gate_fn: str = "sigmoid", pruner=None):
         super().__init__(act_fn, gate_fn)
         self.p = PRESETS[preset]
+        self.pruner = pruner              # qkeras.pruning.Pruner for every QDense kernel, or None
 
     def dense(self, units, use_bias, name, activation=None):
+        extra = {"kernel_pruner": self.pruner} if self.pruner is not None else {}
         return QDense(units, use_bias=use_bias, activation=activation, kernel_quantizer=self.p["w"],
                       bias_quantizer=self.p["b"] if use_bias else None, kernel_initializer="glorot_uniform",
-                      name=name)
+                      name=name, **extra)
 
     def norm(self, eps, name):
         p = self.p
@@ -198,29 +200,54 @@ def _bits_int(spec: str) -> tuple[int, int]:
     return int(a[0]), int(a[1])
 
 
-def build_student(cfg: StudentConfig, num_variates: int, preset: str | None = None) -> keras.Model:
+def build_student(cfg: StudentConfig, num_variates: int, preset: str | None = None, pruner=None) -> keras.Model:
+    """Float or QAT student; ``pruner`` (QAT presets only) adds magnitude-pruning masks to every QDense."""
     preset = preset or "float"
     if PRESETS.get(preset) is None:
+        if pruner is not None:
+            raise ValueError("pruning is applied in the QAT phase; use a quantised preset")
         factory = FloatFactory(cfg.act_fn, cfg.gate_fn)
     else:
-        factory = QuantFactory(preset, cfg.act_fn, cfg.gate_fn)
+        factory = QuantFactory(preset, cfg.act_fn, cfg.gate_fn, pruner)
     return kt.build_timestral_multivariate(cfg.spec(), num_variates, cfg.ctx_patches, cfg.hor_patches,
                                            factory=factory, name=f"{cfg.name}_{preset}")
 
 
+def _own_vars(layer):
+    """Layer variables without qkeras.pruning masks (they live in a ``pruning_masks`` sublayer)."""
+    return [v for v in layer.weights if "_pruning_mask" not in (getattr(v, "path", None) or v.name)]
+
+
 def transfer_weights(src: keras.Model, dst: keras.Model) -> int:
-    """Copy weights layer by layer (matching names and shapes); returns the number of layers copied."""
+    """Copy weights layer by layer (matching names and shapes, pruning masks ignored on both sides).
+
+    A pruned source must have its masks baked in (``UpdatePruningStep`` does that at the end of
+    ``fit``) for the destination to be exactly sparse.  Returns the number of layers copied.
+    """
     n = 0
     for lyr in dst.layers:
         try:
             s = src.get_layer(lyr.name)
         except ValueError:
             continue
-        sw, dw = s.get_weights(), lyr.get_weights()
-        if sw and len(sw) == len(dw) and all(a.shape == b.shape for a, b in zip(sw, dw)):
-            lyr.set_weights(sw)
+        sv, dv = _own_vars(s), _own_vars(lyr)
+        if sv and len(sv) == len(dv) and all(tuple(a.shape) == tuple(b.shape) for a, b in zip(sv, dv)):
+            for a, b in zip(sv, dv):
+                b.assign(a)
             n += 1
     return n
+
+
+def dense_sparsity(qmodel) -> dict:
+    """Zero fraction of the *quantised* kernels (pruned + quantised-to-zero weights)."""
+    z = t = 0
+    for lyr in qmodel.layers:
+        q = getattr(lyr, "kernel_quantizer_internal", None)
+        if q is None or not hasattr(lyr, "kernel"):
+            continue
+        k = np.asarray(q(lyr.kernel))
+        z += int(np.sum(k == 0)); t += k.size
+    return {"zero_fraction": z / t if t else 0.0, "nonzero": t - z, "total": t}
 
 
 # ----------------------------------------------------------------------------- counting

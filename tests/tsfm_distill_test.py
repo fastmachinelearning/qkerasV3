@@ -84,3 +84,20 @@ def test_short_training_run(tmp_path):
     train.main(["--config", str(tmp_path / "cfg.json"), "--data", str(tmp_path / "toy.npz"), "--out", str(tmp_path / "run")])
     m = json.loads((tmp_path / "run" / "metrics.json").read_text())
     assert np.isfinite(m["qat"]["mase"]) and "B" in m["cost"]
+
+
+def test_csd_count_uses_exact_kernel_scaling():
+    """Regression: auto_po2 weights below 2**-1 must not be rounded away (sweep-v1 bug)."""
+    k = np.array([[0.0625, -0.1875], [0.375, 0.0]])
+    assert fc._exact_frac_bits(k) == 4
+    (_, ki), = [("x", np.round(k * 2 ** fc._exact_frac_bits(k)))]
+    assert np.count_nonzero(ki) == 3 and int(fc._csd_digits(ki).sum()) == 5   # 1 | -3 = -4+1 | 6 = 8-2
+
+
+def test_rtl_quantizer_formats():
+    from distill import rtl
+    assert rtl._parse_q("quantized_bits(7,3,alpha=1)") == (1, 3, 3)
+    assert rtl._parse_q("quantized_bits(5,0,keep_negative=0,alpha=1)") == (0, 0, 5)
+    assert rtl._parse_q("quantized_relu(7,3)") == (0, 3, 4)
+    fm = rtl.layer_input_formats(None, stu.PRESETS["B3"])
+    assert fm["A"] == (1, 3, 3) and fm["RELU"] == (0, 3, 4) and fm["WO"] == (1, 3, 8)

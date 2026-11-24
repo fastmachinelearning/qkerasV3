@@ -1,0 +1,446 @@
+{
+ "defaults": {
+  "student": {
+   "patch_size": 16,
+   "ctx_steps": 256,
+   "hor_steps": 64,
+   "width_factor": 3.0
+  },
+  "train": {
+   "batch_size": 64,
+   "float_epochs": 40,
+   "qat_epochs": 20,
+   "lr": 0.002,
+   "qat_lr": 0.0003,
+   "alpha": 0.5,
+   "patience": 6,
+   "verbose": 2
+  }
+ },
+ "runs": [
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p00_s0",
+    "preset": "B3"
+   },
+   "seed": 0
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p00_s1",
+    "preset": "B3"
+   },
+   "seed": 1
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p50_s0",
+    "preset": "B3"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.5,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p50_s1",
+    "preset": "B3"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.5,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p70_s0",
+    "preset": "B3"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.7,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p70_s1",
+    "preset": "B3"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.7,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p85_s0",
+    "preset": "B3"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.85,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b3_p85_s1",
+    "preset": "B3"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.85,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p00_s0",
+    "preset": "B4"
+   },
+   "seed": 0
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p00_s1",
+    "preset": "B4"
+   },
+   "seed": 1
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p50_s0",
+    "preset": "B4"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.5,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p50_s1",
+    "preset": "B4"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.5,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p70_s0",
+    "preset": "B4"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.7,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p70_s1",
+    "preset": "B4"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.7,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p85_s0",
+    "preset": "B4"
+   },
+   "seed": 0,
+   "train": {
+    "prune": {
+     "sparsity": 0.85,
+     "ramp_frac": 0.5
+    }
+   }
+  },
+  {
+   "student": {
+    "d_model": 16,
+    "num_heads": 2,
+    "mlp_hidden": 32,
+    "n_blocks": 1,
+    "variate_every": 1,
+    "knots": [
+     0.1,
+     0.5,
+     0.9
+    ],
+    "embed_hidden": 16,
+    "head_hidden": 16,
+    "deployment": "B",
+    "act_fn": "relu",
+    "gate_fn": "hard_sigmoid",
+    "name": "B_d16_L1_b4_p85_s1",
+    "preset": "B4"
+   },
+   "seed": 1,
+   "train": {
+    "prune": {
+     "sparsity": 0.85,
+     "ramp_frac": 0.5
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+{"student": {"name": "smoke", "d_model": 16, "num_heads": 2, "mlp_hidden": 32, "n_blocks": 1, "patch_size": 16,
+             "knots": [0.1, 0.5, 0.9], "embed_hidden": 16, "head_hidden": 16, "preset": "B4", "deployment": "B",
+             "act_fn": "relu", "gate_fn": "hard_sigmoid"},
+ "train": {"batch_size": 64, "float_epochs": 2, "qat_epochs": 1, "max_train": 500, "verbose": 0}}

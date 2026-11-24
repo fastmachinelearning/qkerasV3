@@ -42,7 +42,11 @@ def flatten(m: dict) -> dict:
     row.update(weight_bits=c["weight_bits"], A_bram_util=c["A"]["bram_util"], A_cpe=c["A"]["cpe"],
                A_latency_us=c["A"]["latency_us"], A_fits=c["A"]["fits"], B_cpe_r1=c["B"]["cpe"],
                B_min_reuse=c["B"]["min_reuse_to_fit"], B_latency_us=c["B"]["latency_us_at_min_reuse"],
-               B_csd_digits=c["B"]["csd_digits"], B_fits=c["B"]["fits_with_reuse"], fits=c["fits"])
+               B_csd_digits=c["B"]["csd_digits"], B_fits=c["B"]["fits_with_reuse"], fits=c["fits"],
+               B_dense_cpe=c["B"].get("dense_cpe"), B_nonzero=c["B"].get("nonzero_weights"))
+    row["seed"] = m.get("seed")
+    row["prune_target"] = (m.get("prune") or {}).get("target", 0.0)
+    row["zero_fraction"] = (m.get("sparsity") or {}).get("zero_fraction")
     return row
 
 
@@ -74,6 +78,8 @@ def main(argv=None):
         cmd = [sys.executable, "-m", "distill.train", "--config", str(cfgp), "--data", str(args.data), "--out", str(d)]
         if "alpha" in r:
             cmd += ["--alpha", str(r["alpha"])]
+        if "seed" in r:
+            cmd += ["--seed", str(r["seed"])]
         env = {**os.environ, "OMP_NUM_THREADS": str(args.threads), "TF_NUM_INTRAOP_THREADS": str(args.threads),
                "TF_NUM_INTEROP_THREADS": "1", "TF_CPP_MIN_LOG_LEVEL": "3"}
         with open(d / "train.log", "w") as log:

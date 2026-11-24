@@ -30,7 +30,7 @@ GATEMATE = {
     "cpe": 20480,                   # CCGM1A1 programmable elements
     "bram_bits": 32 * 40 * 1024,    # 32 x 40 kbit block RAM (datasheet; verify for your board)
     "lut4_to_cpe": 1.83,            # measured in the logicnet-fpga paper (4-LUT ~ 1.83 CPEs)
-    "cpe_per_adder_bit": 1.0,       # assumption: one CPE per full-adder bit (carry chain)
+    "cpe_per_adder_bit": 1.0,       # assumption for multipliers: one CPE per full-adder bit
     "f_clk_hz": 50e6,               # assumption for a pipelined design on the A1
     "util_limit": 0.8,              # keep 20 % for routing / control
 }
@@ -59,17 +59,65 @@ def _csd_digits(v: np.ndarray) -> np.ndarray:
     return n
 
 
-def _quantized_kernels(qmodel, frac_bits: int):
-    """Integer-scaled quantised kernels of all dense layers (for CSD counting)."""
+def _exact_frac_bits(k: np.ndarray, max_f: int = 24) -> int:
+    """Smallest f with k * 2**f integer (per-channel power-of-two scales make f > w - 2)."""
+    for f in range(max_f + 1):
+        if np.allclose(k * 2.0 ** f, np.round(k * 2.0 ** f)):
+            return f
+    return max_f
+
+
+def _quantized_kernels(qmodel, frac_bits: int | None = None):
+    """Integer-scaled quantised kernels of all dense layers (for CSD counting).
+
+    ``frac_bits=None`` (default) scales every kernel exactly.  A fixed ``frac_bits`` rounds
+    and silently drops weights below 2**-frac_bits (the sweep-v1 bug: ``auto_po2`` scales
+    put most 3-4 bit weights below 0.25, so 5.7k non-zero weights were counted as 0.9k).
+    """
     out = []
     for lyr in qmodel.layers:
         q = getattr(lyr, "kernel_quantizer_internal", None)
         if q is None or not hasattr(lyr, "kernel"):
             continue
-        k = np.asarray(q(lyr.kernel))
-        scale = 2.0 ** frac_bits
-        out.append((lyr.name, np.round(k * scale)))
+        k = np.asarray(q(lyr.kernel), dtype=np.float64)
+        f = _exact_frac_bits(k) if frac_bits is None else frac_bits
+        out.append((lyr.name, np.round(k * 2.0 ** f)))
     return out
+
+
+# Calibration against yosys synth_gatemate + nextpnr-himbaechel (CCGM1A1) of the 14 dense
+# layers of B_d16_L1_b3 (KDD), da4ml 0.6 pipelined Verilog inside a shift-register harness
+# (experimental/tsfm/distill/rtl, 2026-11-24): CPE = 1.59 x da4ml adder cost (max err 16 %),
+# or 0.56 x CSD digits x (input bits + weight bits + log2 fan-in) without da4ml (max err 23 %).
+CPE_PER_DA4ML_COST = 1.59
+CPE_PER_DIGIT_BIT = 0.56
+
+
+def estimate_dense_cpe(qmodel, in_bits: int, w_bits: int, use_da4ml: bool = True) -> dict:
+    """Measured-calibrated CPE of all constant-weight dense layers (one instance each)."""
+    kernels = _quantized_kernels(qmodel)
+    digits = sum(int(_csd_digits(k).sum()) for _, k in kernels)
+    nz = sum(int(np.count_nonzero(k)) for _, k in kernels)
+    fallback = sum(int(_csd_digits(k).sum()) * (in_bits + w_bits + math.ceil(math.log2(max(k.shape[0], 2))))
+                   for _, k in kernels) * CPE_PER_DIGIT_BIT
+    res = {"csd_digits": digits, "nonzero_weights": nz, "dense_cpe": float(fallback), "method": "csd"}
+    if use_da4ml:
+        try:
+            import da4ml.trace as tr
+        except ImportError:
+            return res
+        cost = 0.0
+        f_in = in_bits - 1 - 3                              # presets use quantized_bits(a, 3)
+        for lyr in qmodel.layers:
+            q = getattr(lyr, "kernel_quantizer_internal", None)
+            if q is None or not hasattr(lyr, "kernel"):
+                continue
+            k = np.asarray(q(lyr.kernel), dtype=np.float64)
+            n = k.shape[0]
+            x = tr.FixedVariableArray.from_kif(np.ones(n, bool), np.full(n, 3), np.full(n, max(f_in, 0)))
+            cost += float(tr.comb_trace(x, x @ k).cost)
+        res.update(dense_cpe=cost * CPE_PER_DA4ML_COST, da4ml_cost=cost, method="da4ml")
+    return res
 
 
 def estimate(cfg: "stu.StudentConfig", V: int, qmodel=None, n_mac: int = 16, reuse: int = 1, g=GATEMATE) -> dict:
@@ -95,14 +143,15 @@ def estimate(cfg: "stu.StudentConfig", V: int, qmodel=None, n_mac: int = 16, reu
 
     # ---------------- class B: token-streamed constant weights
     if qmodel is not None and stu.PRESETS.get(cfg.preset) is not None:
-        frac = w - 1 - 1                                   # presets use 1 integer bit (+ sign)
-        digits = sum(int(_csd_digits(k).sum()) for _, k in _quantized_kernels(qmodel, frac))
-        nz = sum(int(np.count_nonzero(k)) for _, k in _quantized_kernels(qmodel, frac))
-    else:
-        digits = int(ops["params"] * w / 2)
+        dc = estimate_dense_cpe(qmodel, a, w)
+        digits, nz, dense_cpe_v = dc["csd_digits"], dc["nonzero_weights"], dc["dense_cpe"]
+        dense_method = dc["method"]
+    else:                                                  # no model: assume dense 3/4-bit weights
+        digits = int(ops["params"] * 1.0)
         nz = ops["params"]
-    adder_w = a + w + 4
-    dense_cpe = digits * adder_w * g["cpe_per_adder_bit"]
+        dense_cpe_v = digits * (a + w + 5) * CPE_PER_DIGIT_BIT
+        dense_method = "params"
+    dense_cpe = dense_cpe_v
     # element-wise lanes: one table per feature lane of each function site
     act_lanes = cfg.eh + cfg.n_blocks * M + cfg.hh
     lanes = {"exp": n_attn * cfg.num_heads, "rsqrt": n_attn + cfg.n_blocks + 1,
@@ -141,6 +190,7 @@ def estimate(cfg: "stu.StudentConfig", V: int, qmodel=None, n_mac: int = 16, reu
             break
     res["B"] = {"cpe": int(cpe_b), "cpe_util": cpe_b / g["cpe"], "dense_cpe": int(dense_cpe),
                 "lut_cpe": int(lut_cpe), "mult_cpe": int(mult_cpe), "csd_digits": digits, "nonzero_weights": nz,
+                "dense_method": dense_method,
                 "bram_bits": int(kv_bits), "latency_us": cycles_b / g["f_clk_hz"] * 1e6, "reuse": reuse,
                 "min_reuse_to_fit": min_reuse,
                 "latency_us_at_min_reuse": (_b(min_reuse)[1] / g["f_clk_hz"] * 1e6) if min_reuse else None,
