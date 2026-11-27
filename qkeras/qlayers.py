@@ -359,15 +359,9 @@ class QAdaptiveActivation(layers.Layer):
                 if isinstance(input_shape, tuple)
                 else input_shape
             )
-            num_channels = knp.array(
-                input_shape_list[channel_index], dtype=np.int64
-            )
+            num_channels = int(input_shape_list[channel_index])
         else:
-            num_channels = knp.array(1, dtype=np.int64)
-
-        # TODO: special backend treatment should be avoided in the future
-        if os.environ["KERAS_BACKEND"] == "torch" and type(num_channels) is not list:
-            num_channels = num_channels.tolist()
+            num_channels = 1
 
         # Initialize the moving mins and max
         if self.ema_min is None or self.ema_max is None:
