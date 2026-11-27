@@ -212,10 +212,20 @@ def serial_plan(W, b, kif, d: int, out_frac: int | None = 4):
     return dict(Bj=Bj, R=R, Wp=Wp, C=C, k=k, f=f, d=d, out_frac=out_frac)
 
 
-def serial_verilog(name: str, plan: dict, core_kifs, core_widths, core_latency: int, core_has_clk: bool) -> str:
-    """Verilog of ``<name>_serial`` (start/valid streaming) and ``<name>_pr`` (back-to-back tokens)."""
+def serial_verilog(name: str, plan: dict, core_kifs, core_widths, core_latency: int, core_has_clk: bool,
+                   keep=None) -> str:
+    """Verilog of ``<name>_serial`` (start/valid streaming) and ``<name>_pr`` (back-to-back tokens).
+
+    ``keep`` are the original input indices that survive into the da4ml core (rows of ``W`` that are
+    not entirely zero).  da4ml drops all-zero input variables from its ports and repacks the rest, so
+    the digit bus fed to the core must contain *only* the kept inputs, in ascending original order.
+    The external ``model_inp`` still exposes all ``n`` inputs (unchanged interface); dead inputs are
+    simply never sampled.
+    """
     Bj, R, d, C, k = plan["Bj"], plan["R"], plan["d"], plan["C"], plan["k"]
     n, n_out = len(Bj), len(C)
+    keep = np.arange(n) if keep is None else np.asarray(keep).astype(int)
+    nk = len(keep)
     OF = plan["out_frac"] if plan["out_frac"] is not None else 0
     ko, io_, fo = (np.asarray(v).astype(int) for v in core_kifs)
     F = int(max([OF, _frac_bits(C)] + [int(x) for x, w in zip(fo, core_widths) if w > 0]))
@@ -233,30 +243,32 @@ def serial_verilog(name: str, plan: dict, core_kifs, core_widths, core_latency: 
     CW = int(np.sum(core_widths))
     L = []
     a = L.append
-    a(f"// digit-serial constant-weight layer {name}: {n} inputs, {n_out} outputs, {d}-bit digits, R={R} cycles/token")
+    a(f"// digit-serial constant-weight layer {name}: {nk}/{n} inputs ({n - nk} pruned), {n_out} outputs, "
+      f"{d}-bit digits, R={R} cycles/token")
     a(f"module {name}_serial (input clk, input start, input [{IN_W - 1}:0] model_inp,")
     a(f"    output reg [{n_out * OW - 1}:0] model_out, output reg valid);")
-    a(f"    reg [{n * RD - 1}:0] sr;")
+    a(f"    reg [{nk * RD - 1}:0] sr;")
     a(f"    reg [{max(1, int(np.ceil(np.log2(R + 1)))) - 1}:0] cnt;")
     a("    reg busy;")
-    a(f"    wire [{n * d - 1}:0] digits;")
-    for j in range(n):
-        a(f"    assign digits[{j * d + d - 1}:{j * d}] = sr[{j * RD + RD - 1}:{j * RD + RD - d}];")
+    a(f"    wire [{nk * d - 1}:0] digits;")
+    for kk, jj in enumerate(keep):
+        a(f"    assign digits[{kk * d + d - 1}:{kk * d}] = sr[{kk * RD + RD - 1}:{kk * RD + RD - d}];")
     a("    always @(posedge clk) begin")
     a("        if (start) begin")
-    for j in range(n):
-        src = f"model_inp[{offs[j] + Bj[j] - 1}:{offs[j]}]"
-        if k[j]:
-            msb = offs[j] + Bj[j] - 1
-            src = (f"{{~model_inp[{msb}], model_inp[{msb - 1}:{offs[j]}]}}" if Bj[j] > 1 else f"~model_inp[{msb}]")
-        pad = RD - int(Bj[j])
+    for kk, jj in enumerate(keep):
+        jj = int(jj)
+        src = f"model_inp[{offs[jj] + Bj[jj] - 1}:{offs[jj]}]"
+        if k[jj]:
+            msb = offs[jj] + Bj[jj] - 1
+            src = (f"{{~model_inp[{msb}], model_inp[{msb - 1}:{offs[jj]}]}}" if Bj[jj] > 1 else f"~model_inp[{msb}]")
+        pad = RD - int(Bj[jj])
         val = f"{{{pad}'d0, {src}}}" if pad > 0 else src
-        a(f"            sr[{j * RD + RD - 1}:{j * RD}] <= {val};")
+        a(f"            sr[{kk * RD + RD - 1}:{kk * RD}] <= {val};")
     a("            busy <= 1'b1; cnt <= 0;")
     a("        end else if (busy) begin")
-    for j in range(n):
-        a(f"            sr[{j * RD + RD - 1}:{j * RD}] <= {{sr[{j * RD + RD - d - 1}:{j * RD}], {d}'d0}};" if RD > d
-          else f"            sr[{j * RD + RD - 1}:{j * RD}] <= {d}'d0;")
+    for kk in range(nk):
+        a(f"            sr[{kk * RD + RD - 1}:{kk * RD}] <= {{sr[{kk * RD + RD - d - 1}:{kk * RD}], {d}'d0}};" if RD > d
+          else f"            sr[{kk * RD + RD - 1}:{kk * RD}] <= {d}'d0;")
     a(f"            cnt <= cnt + 1'b1; if (cnt == {R - 1}) busy <= 1'b0;")
     a("        end")
     a("    end")
@@ -329,8 +341,12 @@ def export_serial(run: str, out: str, digit_bits: int = 2, latency_cutoff: float
     for name, W, b, kif in specs:
         plan = serial_plan(W, b, kif, digit_bits, out_frac)
         n = W.shape[0]
-        x = tr.FixedVariableArray.from_kif(np.zeros(n, bool), np.full(n, digit_bits), np.zeros(n, int))
-        comb = tr.comb_trace(x, x @ plan["Wp"], keep_dead_inputs=True)
+        # da4ml drops all-zero input rows from its ports; build the core over only the kept inputs so
+        # the core's packed input order matches the digit bus (else every input after a pruned row shifts).
+        keep = np.where(np.any(plan["Wp"] != 0, axis=1))[0]
+        Wpk = plan["Wp"][keep]
+        x = tr.FixedVariableArray.from_kif(np.zeros(len(keep), bool), np.full(len(keep), digit_bits), np.zeros(len(keep), int))
+        comb = tr.comb_trace(x, x @ Wpk, keep_dead_inputs=True)
         ck = np.array(comb.out_kifs)
         widths = ck.sum(0).astype(int)
         d = os.path.join(out, name)
@@ -344,14 +360,15 @@ def export_serial(run: str, out: str, digit_bits: int = 2, latency_cutoff: float
         core_v = open(os.path.join(d, "src", f"{name}_core.v")).read()
         has_clk = "input clk" in core_v.split(");")[0]
         lat = int(meta["latency"]) + 1 if has_clk else 0
-        v, info = serial_verilog(name, plan, ck, widths, lat, has_clk)
+        v, info = serial_verilog(name, plan, ck, widths, lat, has_clk, keep=keep)
         open(os.path.join(d, "src", f"{name}_serial.v"), "w").write(v)
         row = dict(layer=name, top=f"{name}_pr", mode="serial", digit_bits=digit_bits, cycles_per_token=plan["R"],
                    latency=plan["R"] + lat + 2, shape=list(W.shape), nonzero=int(np.count_nonzero(W)),
+                   pruned_inputs=int(n - len(keep)),
                    bias=b is not None, in_bits=info["IN_W"], out_bits=info["OUT_W"], acc_bits=info["ACC"],
                    da4ml_cost=float(comb.cost), core_latency=lat, reg_bits=int(meta.get("reg_bits", 0)))
         if verify:
-            row["verilator_errors"] = verilate_check(d, name, plan, kif, W, b, info, out_frac, n_vec)
+            row["verilator_errors"] = verilate_check(d, name, plan, kif, W, b, info, out_frac, n_vec, keep=keep)
             if row["verilator_errors"] != 0:
                 raise AssertionError(f"{name}: digit-serial RTL mismatches numpy ({row['verilator_errors']} vectors)")
         rows.append(row)
@@ -372,8 +389,12 @@ def _to_hex(fields, widths) -> str:
 
 
 def verilate_check(d: str, name: str, plan, kif, W, b, info, out_frac, n_vec: int = 200,
-                   verilator: str | None = None) -> int:
-    """Stream random on-grid vectors through ``<name>_serial`` in Verilator; returns mismatches."""
+                   verilator: str | None = None, keep=None) -> int:
+    """Stream random on-grid vectors through ``<name>_serial`` in Verilator; returns mismatches.
+
+    ``model_inp`` still carries all inputs (``keep`` is handled inside the generated RTL), so the
+    stimulus is packed over every input ``j`` using its full ``Bj`` width.
+    """
     verilator = verilator or os.environ.get("VERILATOR", "verilator")
     k, i, f = (np.asarray(v).astype(int) for v in kif)
     xv = _random_inputs(kif, n_vec, seed=1)
@@ -497,6 +518,50 @@ def collect(out: str) -> "pd.DataFrame":
     return df
 
 
+def deploy(out: str) -> dict:
+    """Deployment summary from ``pnr_layers.csv`` (no toolchain needed).
+
+    Layers run *sequentially* in a forward pass, but da4ml bakes the constant weights into
+    the wiring, so a single bitstream must hold every layer at once:
+
+    * ``sum_cpe``   - all layers resident in one image (the true single-bitstream area)
+    * ``peak_cpe``  - largest layer; area needed if the chip is reconfigured per layer
+                      (one bitstream per layer + external config sequencing)
+    * ``throughput``- slowest layer's Mtok/s (chained pipeline)
+    """
+    import csv
+
+    with open(os.path.join(out, "pnr_layers.csv")) as fh:
+        rows = [r for r in csv.DictReader(fh) if r.get("routed") == "True"]
+    if not rows:
+        raise ValueError(f"{out}/pnr_layers.csv has no routed layers")
+    chip = 20480
+    sum_cpe = sum(float(r["cpe"]) for r in rows)
+    peak = max(rows, key=lambda r: float(r["cpe"]))
+    tput = min(rows, key=lambda r: float(r["mtokens_per_s"]))
+    fmax = [float(r["fmax_mhz"]) for r in rows]
+    summ = dict(
+        layers=len(rows),
+        sum_cpe=sum_cpe,
+        sum_frac=sum_cpe / chip,
+        peak_layer=peak["layer"],
+        peak_cpe=float(peak["cpe"]),
+        peak_frac=float(peak["cpe"]) / chip,
+        fmax_min_mhz=min(fmax),
+        fmax_max_mhz=max(fmax),
+        throughput_mtok_s=float(tput["mtokens_per_s"]),
+        throughput_layer=tput["layer"],
+    )
+    print(f"single bitstream (all layers resident): {sum_cpe:8.0f} CPE = {summ['sum_frac']:.2f}x chip "
+          f"{'FITS' if sum_cpe <= chip else 'DOES NOT FIT'}")
+    print(f"reconfigure per layer (peak only):      {summ['peak_cpe']:8.0f} CPE = {summ['peak_frac']:.2f}x chip "
+          f"({'FITS' if summ['peak_cpe'] <= chip else 'DOES NOT FIT'}) [{summ['peak_layer']}]")
+    print(f"throughput (chained, slowest layer):    {summ['throughput_mtok_s']:.2f} Mtok/s [{summ['throughput_layer']}]")
+    print(f"fmax range:                             {summ['fmax_min_mhz']:.1f} - {summ['fmax_max_mhz']:.1f} MHz")
+    json.dump(summ, open(os.path.join(out, "deploy.json"), "w"), indent=1)
+    return summ
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -509,6 +574,7 @@ def main(argv=None):
     p.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3]); p.add_argument("--timeout", type=int, default=1800)
     p.add_argument("--kolibri-src", default=os.environ.get("KOLIBRI_FPGA_SRC")); p.add_argument("--layers", nargs="*")
     c = sub.add_parser("collect"); c.add_argument("--out", required=True)
+    d = sub.add_parser("deploy"); d.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "export":
         if a.digit_bits:
@@ -520,6 +586,8 @@ def main(argv=None):
                   "verilator errors", r.get("verilator_errors", "-"))
     elif a.cmd == "pnr":
         pnr(a.out, a.jobs, tuple(a.seeds), a.timeout, a.kolibri_src, a.layers)
+    elif a.cmd == "deploy":
+        deploy(a.out)
     else:
         print(collect(a.out).to_string(index=False))
 
