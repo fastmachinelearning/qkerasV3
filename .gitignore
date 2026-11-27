@@ -38,3 +38,4 @@ docs/source/api/generated/*
 examples/timestral/runs/
 examples/timestral/**/_build*/
 examples/timestral/**/*.weights.h5
+examples/timestral/*.egg-info/

@@ -2,7 +2,7 @@
 
 Example::
 
-    python -m timestral_kd.sweep --sweep configs/sweep_v1.json --data runs/data/kdd.npz \
+    python -m timestral_kd.sweep --sweep configs/sweeps/sweep_v1.json --data runs/data/kdd.npz \
         --out runs/students/kdd --jobs 4
 
 The sweep file is ``{"defaults": {...}, "runs": [{"student": {...}, "train": {...}, "alpha": ...}, ...]}``.
@@ -19,6 +19,8 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+
+from .paths import EXAMPLE
 
 
 def _merge(a, b):
@@ -81,7 +83,8 @@ def main(argv=None):
         if "seed" in r:
             cmd += ["--seed", str(r["seed"])]
         env = {**os.environ, "OMP_NUM_THREADS": str(args.threads), "TF_NUM_INTRAOP_THREADS": str(args.threads),
-               "TF_NUM_INTEROP_THREADS": "1", "TF_CPP_MIN_LOG_LEVEL": "3"}
+               "TF_NUM_INTEROP_THREADS": "1", "TF_CPP_MIN_LOG_LEVEL": "3",
+               "PYTHONPATH": os.pathsep.join(filter(None, [str(EXAMPLE), os.environ.get("PYTHONPATH")]))}
         with open(d / "train.log", "w") as log:
             rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, env=env).returncode
         return name, f"rc={rc}"

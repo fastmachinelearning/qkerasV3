@@ -7,7 +7,7 @@ integer datapaths are transcribed one-to-one from the P0 references in ``fixedpo
 them round with ``floor(x+0.5)`` on integer operands (or clip a pre-rounded QOUT value),
 the Verilator check must show **zero** mismatches (not "<= 1 LSB").
 
-    python -m timestral_kd.hw.blocks   # build + Verilator-check rmsnorm, softmax, rope, quantile_head
+    python -m timestral_kd.hw.fullmodel.blocks   # build + Verilator-check rmsnorm, softmax, rope, quantile_head
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ import subprocess
 
 import numpy as np
 
+from ... import paths
 from . import fixedpoint as fp
 
 W = dict(a=7, g=5, score=7, prob=6, exp=7, inv=7)
@@ -397,7 +398,7 @@ endmodule
 
 
 def check_all(workdir: str = None, n_vec: int = 300) -> dict:
-    workdir = workdir or os.path.join(os.environ.get("TIMESTRAL_KD_BUILD", os.path.join("runs", "hw")), "blocks")
+    workdir = workdir or str(paths.RUNS / "hw" / "blocks")
     res = dict(rmsnorm=check_rmsnorm(os.path.join(workdir, "rmsnorm"), n_vec),
                softmax=check_softmax(os.path.join(workdir, "softmax"), n_vec),
                rope=check_rope(os.path.join(workdir, "rope"), n_vec),

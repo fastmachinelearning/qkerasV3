@@ -13,6 +13,10 @@ layers of the Timestral student ``B_d16_L1_b3`` (da4ml 0.6, max error 16 % / 23 
 from __future__ import annotations
 
 import math
+import os
+import subprocess
+import sys
+import tempfile
 
 import numpy as np
 
@@ -89,14 +93,44 @@ def estimate_dense_cpe(qmodel, in_bits: int, w_bits: int, use_da4ml: bool = True
     res = {"csd_digits": digits, "nonzero_weights": nz, "dense_cpe": float(fallback), "method": "csd"}
     if use_da4ml:
         try:
-            import da4ml.trace as tr
+            import da4ml.trace  # noqa: F401
         except ImportError:
             return res
-        cost = 0.0
-        f_in = in_bits - 1 - in_int_bits
-        for _, k in quantized_kernels(qmodel):
-            n = k.shape[0]
-            x = tr.FixedVariableArray.from_kif(np.ones(n, bool), np.full(n, in_int_bits), np.full(n, max(f_in, 0)))
-            cost += float(tr.comb_trace(x, x @ k).cost)
+        cost = da4ml_cost([k for _, k in quantized_kernels(qmodel)], in_int_bits, max(in_bits - 1 - in_int_bits, 0))
         res.update(dense_cpe=cost * CPE_PER_DA4ML_COST, da4ml_cost=cost, method="da4ml")
     return res
+
+
+_DA4ML_CHILD = """
+import sys, numpy as np, da4ml.trace as tr
+z = np.load(sys.argv[1]); i, f = int(z["i"]), int(z["f"]); cost = 0.0
+for n in sorted(k for k in z.files if k.startswith("k")):
+    k = z[n]; m = k.shape[0]
+    x = tr.FixedVariableArray.from_kif(np.ones(m, bool), np.full(m, i), np.full(m, f))
+    cost += float(tr.comb_trace(x, x @ k).cost)
+print(repr(cost))
+"""
+
+
+def da4ml_cost(kernels, in_int_bits: int, in_frac_bits: int) -> float:
+    """Summed da4ml adder cost of constant-weight ``x @ k`` for each (float) kernel ``k``.
+
+    da4ml ships its own libomp, which crashes on macOS once TensorFlow has run ops in the same
+    process unless ``OMP_NUM_THREADS=1`` was set at process start; in that case the trace runs in
+    a child process with that environment (same result).
+    """
+    if sys.platform == "darwin" and os.environ.get("OMP_NUM_THREADS") != "1":
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "k.npz")
+            np.savez(path, i=in_int_bits, f=in_frac_bits, **{f"k{j:04d}": k for j, k in enumerate(kernels)})
+            r = subprocess.run([sys.executable, "-c", _DA4ML_CHILD, path], capture_output=True, text=True,
+                               env={**os.environ, "OMP_NUM_THREADS": "1"}, check=True)
+        return float(r.stdout.strip().splitlines()[-1])
+    import da4ml.trace as tr
+
+    cost = 0.0
+    for k in kernels:
+        n = k.shape[0]
+        x = tr.FixedVariableArray.from_kif(np.ones(n, bool), np.full(n, in_int_bits), np.full(n, in_frac_bits))
+        cost += float(tr.comb_trace(x, x @ k).cost)
+    return cost

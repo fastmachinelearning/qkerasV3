@@ -1,3 +1,5 @@
-"""Timestral hardware flow: per-layer RTL + P&R (rtl), bit-exact references (fixedpoint),
-non-dense Verilog blocks (blocks), glue + shared-MAC sequencer (sequencer), full-model
-integer golden (model_top).  See ../docs/FULLMODEL.md for the roadmap."""
+"""Hardware flow of the Timestral students.
+
+dense      per-layer flow: da4ml Verilog of every constant-weight dense, GateMate P&R, summary
+fullmodel  single-bitstream design in progress (P0-P3a)
+"""

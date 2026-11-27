@@ -3,7 +3,8 @@
 These are planning estimates to rank student configurations, not synthesis results.
 Device constants and the calibrated dense-layer estimate live in ``qkeras.distill.hw.gatemate``;
 this module adds the Timestral-specific accounting (attention, norms, tables, reuse).
-Validate a chosen design with yosys + nextpnr (``timestral_kd.hw.rtl``).  Every constant below is an explicit, editable assumption.
+Validate a chosen design with ``python -m timestral_kd export/pnr/report``.
+Every constant below is an explicit, editable assumption.
 
 Two deployment classes
 ----------------------

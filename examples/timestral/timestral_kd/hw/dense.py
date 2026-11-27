@@ -9,14 +9,16 @@ harness (``kolibri_fpga.targets.harness`` from logicnet-fpga).
 
 Attention scores/softmax, RMSNorm and the quantile head are not part of stage 1.
 
-    cd experimental/tsfm
-    python -m timestral_kd.hw.rtl export  --run runs/students/kdd/B_d16_L1_b3 --out runs/rtl/kdd_B_d16_L1_b3
-    python -m timestral_kd.hw.rtl pnr     --out runs/rtl/kdd_B_d16_L1_b3 --jobs 7 \
-                                  --kolibri-src ~/cms/logicnet-fpga/src
-    python -m timestral_kd.hw.rtl collect --out runs/rtl/kdd_B_d16_L1_b3
+Run through the pipeline CLI (paths are derived from ``<dataset>/<student>``)::
 
-Needs ``da4ml`` (0.6), yosys >= 0.40 with synth_gatemate (``$YOSYS``) and
-``yowasp-nextpnr-himbaechel-gatemate`` (``$NEXTPNR``).
+    python -m timestral_kd export kdd/B_d12_L1_b3_p70_ci
+    python -m timestral_kd pnr    kdd/B_d12_L1_b3_p70_ci --jobs 7
+    python -m timestral_kd report kdd/B_d12_L1_b3_p70_ci
+
+or directly: ``python -m timestral_kd.hw.dense {export,pnr,collect,deploy} --run/--out ...``.
+
+Needs ``da4ml`` (0.6), yosys >= 0.40 with synth_gatemate (``$YOSYS``), ``yowasp-nextpnr-himbaechel-gatemate``
+on ``PATH`` and the Kolibri harness (``--kolibri-src`` or ``$KOLIBRI_FPGA_SRC``).
 """
 
 from __future__ import annotations
@@ -36,6 +38,22 @@ if TYPE_CHECKING:
     import pandas as pd
 
 import numpy as np
+
+
+# da4ml ships its own libomp; on macOS it crashes (segfault in cmvm) once TensorFlow has run ops in
+# the same process.  With OMP_NUM_THREADS=1 set *before* the process starts it is stable, so on
+# macOS the export re-runs itself in a child process with that environment.
+def _needs_isolation() -> bool:
+    return sys.platform == "darwin" and os.environ.get("OMP_NUM_THREADS") != "1"
+
+
+def _isolated_export(argv: list[str], out: str) -> list[dict]:
+    example = str(Path(__file__).resolve().parents[2])
+    env = {**os.environ, "OMP_NUM_THREADS": "1",
+           "PYTHONPATH": os.pathsep.join(filter(None, [example, os.environ.get("PYTHONPATH")]))}
+    subprocess.run([sys.executable, "-m", "timestral_kd.hw.dense", "export", *argv], env=env, check=True)
+    return json.load(open(os.path.join(out, "export.json")))["layers"]
+
 
 
 # ----------------------------------------------------------------------------- formats
@@ -145,6 +163,9 @@ def _random_inputs(kif, n_vec, seed=0):
 
 def export(run: str, out: str, latency_cutoff: float = 5.0, out_frac: int | None = 4) -> list[dict]:
     """Write one fully parallel, pipelined Verilog block per dense layer; returns the export records."""
+    if _needs_isolation():
+        return _isolated_export(["--run", run, "--out", out, "--latency-cutoff", str(latency_cutoff)]
+                                + (["--out-frac", str(out_frac)] if out_frac is not None else []), out)
     import da4ml.codegen as cg
     import da4ml.trace as tr
 
@@ -337,6 +358,11 @@ def serial_verilog(name: str, plan: dict, core_kifs, core_widths, core_latency: 
 def export_serial(run: str, out: str, digit_bits: int = 2, latency_cutoff: float = 5.0, out_frac: int | None = 4,
                   verify: bool = True, n_vec: int = 200) -> list[dict]:
     """Digit-serial (time-multiplexed) variant of every dense layer, Verilator-verified."""
+    if _needs_isolation():
+        return _isolated_export(["--run", run, "--out", out, "--digit-bits", str(digit_bits),
+                                 "--latency-cutoff", str(latency_cutoff)]
+                                + (["--out-frac", str(out_frac)] if out_frac is not None else [])
+                                + ([] if verify else ["--no-verify"]), out)
     import da4ml.codegen as cg
     import da4ml.trace as tr
 
@@ -536,9 +562,11 @@ def deploy(out: str) -> dict:
     import csv
 
     with open(os.path.join(out, "pnr_layers.csv")) as fh:
-        rows = [r for r in csv.DictReader(fh) if r.get("routed") == "True"]
+        all_rows = list(csv.DictReader(fh))
+    rows = [r for r in all_rows if r.get("routed") == "True"]
     if not rows:
         raise ValueError(f"{out}/pnr_layers.csv has no routed layers")
+    missing = [r["layer"] for r in all_rows if r.get("routed") != "True"]
     chip = 20480
     sum_cpe = sum(float(r["cpe"]) for r in rows)
     peak = max(rows, key=lambda r: float(r["cpe"]))
@@ -555,9 +583,14 @@ def deploy(out: str) -> dict:
         fmax_max_mhz=max(fmax),
         throughput_mtok_s=float(tput["mtokens_per_s"]),
         throughput_layer=tput["layer"],
+        layers_total=len(all_rows),
+        not_routed=missing,
     )
+    if missing:
+        print(f"WARNING: {len(missing)} of {len(all_rows)} layers not routed ({', '.join(missing)}); "
+              "the numbers below cover the routed layers only")
     print(f"single bitstream (all layers resident): {sum_cpe:8.0f} CPE = {summ['sum_frac']:.2f}x chip "
-          f"{'FITS' if sum_cpe <= chip else 'DOES NOT FIT'}")
+          f"{('FITS' if sum_cpe <= chip else 'DOES NOT FIT') if not missing else 'INCOMPLETE'}")
     print(f"reconfigure per layer (peak only):      {summ['peak_cpe']:8.0f} CPE = {summ['peak_frac']:.2f}x chip "
           f"({'FITS' if summ['peak_cpe'] <= chip else 'DOES NOT FIT'}) [{summ['peak_layer']}]")
     print(f"throughput (chained, slowest layer):    {summ['throughput_mtok_s']:.2f} Mtok/s [{summ['throughput_layer']}]")
@@ -585,9 +618,10 @@ def main(argv=None):
             rows = export_serial(a.run, a.out, a.digit_bits, a.latency_cutoff, a.out_frac, verify=not a.no_verify)
         else:
             rows = export(a.run, a.out, a.latency_cutoff, a.out_frac)
-        for r in rows:
-            print(r["layer"], r["shape"], r["mode"], "R", r["cycles_per_token"], "cost", r["da4ml_cost"],
-                  "verilator errors", r.get("verilator_errors", "-"))
+        if not _needs_isolation():          # otherwise the child process already printed the table
+            for r in rows:
+                print(r["layer"], r["shape"], r["mode"], "R", r["cycles_per_token"], "cost", r["da4ml_cost"],
+                      "verilator errors", r.get("verilator_errors", "-"))
     elif a.cmd == "pnr":
         pnr(a.out, a.jobs, tuple(a.seeds), a.timeout, a.kolibri_src, a.layers)
     elif a.cmd == "deploy":

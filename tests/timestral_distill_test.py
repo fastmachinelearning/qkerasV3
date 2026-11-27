@@ -95,7 +95,7 @@ def test_csd_count_uses_exact_kernel_scaling():
 
 
 def test_rtl_quantizer_formats():
-    from timestral_kd.hw import rtl
+    from timestral_kd.hw import dense as rtl
     assert rtl._parse_q("quantized_bits(7,3,alpha=1)") == (1, 3, 3)
     assert rtl._parse_q("quantized_bits(5,0,keep_negative=0,alpha=1)") == (0, 0, 5)
     assert rtl._parse_q("quantized_relu(7,3)") == (0, 3, 4)
@@ -104,11 +104,64 @@ def test_rtl_quantizer_formats():
 
 
 def test_fixedpoint_b3_is_the_training_preset():
-    from timestral_kd.hw import fixedpoint as fp
+    from timestral_kd.hw.fullmodel import fixedpoint as fp
     assert fp.B3 is stu.PRESETS["B3"]
 
 
 def test_fixedpoint_references_match_qkeras_layers():
-    from timestral_kd.hw import fixedpoint as fp
+    from timestral_kd.hw.fullmodel import fixedpoint as fp
     worst = fp._validate()
     assert set(worst) == {"rmsnorm", "softmax", "quantiles", "rope", "quantiles_hw"}
+
+
+# ----------------------------------------------------------------------------- pipeline CLI
+def _toy_bundle(path, name="toy"):
+    rng = np.random.default_rng(0)
+    s = dd.synthetic_process(4, 4000, seed=2)
+    parts = dd.chronological_split(s, (0.6, 0.2, 0.2))
+    bundle = {}
+    for split, p in zip(("train", "val", "test"), parts):
+        w = dd.make_windows(p, 512, 64, 32)
+        tq = np.repeat(w.y[..., None], 9, -1) + rng.normal(0, 0.1, (*w.y.shape, 9))
+        bundle.update({f"{split}_x": w.x, f"{split}_y": w.y, f"{split}_tq": np.sort(tq, -1).astype(np.float16)})
+    path.mkdir(parents=True, exist_ok=True)
+    np.savez(path / f"{name}.npz", **bundle)
+    (path / f"{name}_info.json").write_text(json.dumps({"dataset": name, "season": 1, "variates": None}))
+
+
+def test_cli_paths_and_configs(tmp_path, monkeypatch):
+    from timestral_kd import __main__ as cli
+    from timestral_kd import paths
+    monkeypatch.setattr(paths, "RUNS", tmp_path)
+    assert cli.find_config("smoke", "students").name == "smoke.json"
+    assert cli.find_config("prune_v1", "sweeps").parent.name == "sweeps"
+    with pytest.raises(SystemExit):
+        cli.find_config("nope", "students")
+    assert paths.student_dir("kdd/x") == tmp_path / "students" / "kdd" / "x"
+    assert paths.rtl_dir("kdd/x", 2) == tmp_path / "rtl" / "kdd" / "x_d2"
+    ns = cli.parser().parse_args(["data", "process"])
+    assert cli.data_argv(ns, ["--csv", "f.csv"]) == ["--dataset", "csv", "--name", "process", "--csv", "f.csv"]
+    with pytest.raises(SystemExit):                       # bundle missing -> clear message
+        cli.train_argv(cli.parser().parse_args(["train", "smoke", "--dataset", "kdd"]), [])
+
+
+def test_cli_train_then_export(tmp_path, monkeypatch):
+    from timestral_kd import __main__ as cli
+    from timestral_kd import paths
+    monkeypatch.setattr(paths, "RUNS", tmp_path)
+    _toy_bundle(tmp_path / "data")
+    cfg = {"student": {"name": "tiny", "d_model": 8, "num_heads": 2, "mlp_hidden": 8, "n_blocks": 1,
+                       "variate_every": 0, "embed_hidden": 8, "head_hidden": 8, "ctx_steps": 64, "hor_steps": 32,
+                       "preset": "B3", "deployment": "B", "act_fn": "relu", "gate_fn": "hard_sigmoid",
+                       "knots": [0.1, 0.5, 0.9]},
+           "train": {"float_epochs": 1, "qat_epochs": 2, "batch_size": 32, "verbose": 0,
+                     "prune": {"sparsity": 0.5}}}
+    (tmp_path / "tiny.json").write_text(json.dumps(cfg))
+    cli.main(["train", str(tmp_path / "tiny.json"), "--dataset", "toy"])
+    run = tmp_path / "students" / "toy" / "tiny"
+    m = json.loads((run / "metrics.json").read_text())
+    assert np.isfinite(m["qat"]["mase"]) and m["prune"]["target"] == 0.5
+    pytest.importorskip("da4ml")
+    cli.main(["export", "toy/tiny"])
+    exp = json.loads((tmp_path / "rtl" / "toy" / "tiny" / "export.json").read_text())
+    assert len(exp["layers"]) > 0

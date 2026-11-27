@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timestral-kd"
+version = "0.1.0"
+description = "Timestral-5M -> GateMate students: worked example of qkeras.distill"
+requires-python = ">=3.10"
+dependencies = ["qkeras-v3", "numpy", "pandas", "pyarrow", "safetensors", "matplotlib"]
+
+[project.optional-dependencies]
+hw = ["da4ml>=0.6,<0.7", "yowasp-nextpnr-himbaechel-gatemate"]
+
+[tool.setuptools.packages.find]
+include = ["timestral_kd*"]

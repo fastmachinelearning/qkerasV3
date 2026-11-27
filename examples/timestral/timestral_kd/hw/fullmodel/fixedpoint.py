@@ -27,7 +27,7 @@ Integer datapaths (D = d_model):
             P  = clip(round(E * INV * 2^-(fe+fi-fp)))                # prob, f=fp
   quantiles: q = median +/- cumsum(width * softplus(raw))            # softplus via LUT
 
-Run:  python -m timestral_kd.hw.fixedpoint            (validates against qkeras layers)
+Run:  python -m timestral_kd.hw.fullmodel.fixedpoint            (validates against qkeras layers)
 """
 
 from __future__ import annotations
@@ -194,7 +194,7 @@ def _validate():
     # --- rope vs float Rotary (partial rotate-half), tables quantised to ROPE_CS
     from qkeras.distill.layers import Rotary
 
-    from ..model import TimestralSpec, rope_tables
+    from ...model import TimestralSpec, rope_tables
     spec = TimestralSpec(d_model=16, num_heads=2)   # head_dim = 8, rope_fraction = 0.5
     cos_f, sin_f = rope_tables(spec, 20)
     fc = fmt(ROPE_CS)

@@ -23,7 +23,7 @@ Because the golden reproduces the RTL's TRN dense and the hardware-chosen QOUT f
 Run (needs the qkeras env for the model + weights):
 
     cd experimental/tsfm
-    python -m timestral_kd.hw.model_top check --run runs/students/kdd/B_d16_L1_b3_ci_p70 --n 16
+    python -m timestral_kd.hw.fullmodel.model_top check --run runs/students/kdd/B_d16_L1_b3_ci_p70 --n 16
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ def _rope_val(x_hs, cos_c, sin_c):
 # ----------------------------------------------------------------------------- load
 def load_model(run: str):
     """cfg, metrics, model, preset, and per-layer dense specs {name: (W, b, kif)}."""
-    from . import rtl
+    from .. import dense as rtl
     cfg, met, model, preset = rtl._student(run)
     _, _, specs = rtl.layer_specs(run)
     W = {n: (w, b, kif) for n, w, b, kif in specs}
@@ -199,7 +199,7 @@ def scaled_inputs(n: int, seed: int = 0) -> np.ndarray:
 
 def check(run: str, n: int = 16, seed: int = 0) -> dict:
     """Compare the integer golden against the trained model's float forward (QOUT LSBs)."""
-    from ..model import forecast_mask
+    from ...model import forecast_mask
     cfg, met, model, preset, W = load_model(run)
     luts = fp.build_luts(D=G["D"])
     knots = tuple(float(k) for k in cfg.knots)

@@ -2,7 +2,7 @@
 
 Example::
 
-    python -m timestral_kd.train --config configs/smoke.json --data runs/data/kdd.npz \
+    python -m timestral_kd.train --config configs/students/smoke.json --data runs/data/kdd.npz \
         --out runs/students/kdd/smoke
 
 Outputs in ``--out``: config.json, float.weights.h5, qat.weights.h5, metrics.json (test

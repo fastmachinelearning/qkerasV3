@@ -14,7 +14,7 @@ Every integer datapath is transcribed from a numpy reference in this file, and t
 Verilator testbenches compare against those references, so "matches the model" is proven on
 the arithmetic.  Rounding is ``floor(x+0.5)`` / arithmetic shift, matching qkeras.
 
-    python -m timestral_kd.hw.sequencer        # build + Verilator-check glue + mac_seq
+    python -m timestral_kd.hw.fullmodel.sequencer        # build + Verilator-check glue + mac_seq
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ import subprocess
 
 import numpy as np
 
+from ... import paths
 from . import fixedpoint as fp
 
 A = fp.fmt(fp.B3["a"])          # signed 7b, f=3, [-64, 63]
@@ -297,7 +298,7 @@ endmodule
 
 
 def check_all(workdir: str | None = None) -> dict:
-    workdir = workdir or os.path.join(os.environ.get("TIMESTRAL_KD_BUILD", os.path.join("runs", "hw")), "seq")
+    workdir = workdir or str(paths.RUNS / "hw" / "seq")
     res = dict(check_glue(workdir))
     res["mac_seq"] = check_mac(workdir)
     print("P2 Verilator bit-exact check:", res)

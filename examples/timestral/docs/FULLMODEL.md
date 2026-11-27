@@ -5,7 +5,7 @@ GateMate CCGM1A1** — embed → (RoPE attention + softmax + gated value mix) �
 SwiGLU-MLP → RMSNorm → decoder-token select → monotone quantile head — with *no host-side
 splitting*. Streaming in a context window, streaming out raw-space quantiles.
 
-This replaces stage 1 (`rtl.py`), which only emitted per-layer dense harnesses for timing.
+This replaces stage 1 (`timestral_kd/hw/dense.py`), which only emitted per-layer dense harnesses for timing.
 
 ## Target graph (student `B_d16_L1_b3_ci_p70`, dataset kdd)
 
@@ -54,7 +54,7 @@ Everything else is constant-weight dense (da4ml) plus the monotone-quantile cumu
 | inv | `(7,1,keep_negative=0)` | 0,1,6 | 7 |
 | prob | `(6,1,keep_negative=0)` | 0,1,5 | 6 |
 
-These are *derived*, not assumed — `fixedpoint.py` reads them back from the qkeras
+These are *derived*, not assumed — `hw/fullmodel/fixedpoint.py` reads them back from the qkeras
 quantizer objects and is the single source of truth the RTL must match.
 
 ## Non-dense RTL blocks to build
@@ -106,7 +106,7 @@ store) generated from the export metadata, so the Verilog stays data-driven.
 ## Verification strategy (bit-exact, not "close enough")
 
 Every block is checked in **Verilator against a numpy golden model built from the exact
-qkeras quantizers** (`fixedpoint.py`), the same discipline `rtl.py` uses for dense layers.
+qkeras quantizers** (`hw/fullmodel/fixedpoint.py`), the same discipline `hw/dense.py` uses for dense layers.
 Then a **full-model co-simulation**: drive the RTL top with a KDD context window, capture
 quantiles, compare to `keras_timestral.forecast_mv` on the same window. Gate: bit-exact
 integer match at the RTL interface; < 1e-2 normalised MAE after de-normalisation as a
@@ -114,7 +114,7 @@ secondary sanity bound.
 
 ## Roadmap (phased, each phase independently verified)
 
-- **P0 — foundation (this commit).** `fixedpoint.py`: exact quantizer emulation + format
+- **P0 — foundation (done).** `hw/fullmodel/fixedpoint.py`: exact quantizer emulation + format
   derivation + golden references for rmsnorm / softmax / rope / quantiles. Unit-tested
   against the loaded model's own layers.
 - **P1 — non-dense RTL.** Verilog generators for `rmsnorm`, `softmax`, `rope`,
@@ -130,5 +130,6 @@ secondary sanity bound.
 
 ## Honest status
 
-P0 is implemented now. P1–P5 are substantial (multi-session). This document is the
+Code for P0–P3a exists in `timestral_kd/hw/fullmodel/` (`fixedpoint`, `blocks`, `sequencer`,
+`model_top`; run `python -m timestral_kd verify --rtl`). P3b–P5 are open. This document is the
 contract; each phase lands with its own Verilator proof before moving on.
