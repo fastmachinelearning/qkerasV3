@@ -34,3 +34,7 @@ Thumbs.db
 
 # docs
 docs/source/api/generated/*
+# distillation example outputs
+examples/timestral/runs/
+examples/timestral/**/_build*/
+examples/timestral/**/*.weights.h5

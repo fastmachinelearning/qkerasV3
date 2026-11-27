@@ -20,7 +20,10 @@ pytestmark = pytest.mark.skipif(not os.path.isfile(os.path.join(CKPT, "model.saf
 @pytest.fixture(scope="module")
 def setup():
     from timestral.loading import load_model
-    from experimental.tsfm import keras_timestral as kt
+    import sys
+
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "examples", "timestral"))
+    from timestral_kd import model as kt
 
     ref = load_model(CKPT).eval()
     spec = kt.TimestralSpec.from_json(os.path.join(CKPT, "config.json"))
