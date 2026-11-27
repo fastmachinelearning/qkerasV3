@@ -486,7 +486,8 @@ def _get_least_squares_scale(
       A scaling factor tensor or scalar for scaling tensor per channel.
     """
 
-    if Kops.dtype(x) == "float64":
+    # Cast float64 to float32 because PyTorch MPS devices do not support float64.
+        if Kops.dtype(x) == "float64":
         x = Kops.cast(x, "float32")
 
     if isinstance(alpha, six.string_types) and "auto" in alpha:
