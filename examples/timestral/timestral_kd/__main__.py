@@ -11,6 +11,10 @@
     python -m timestral_kd plots  kdd                                  # Pareto / ablation figures
     python -m timestral_kd verify [--rtl]                              # bit-exact fixed-point (+ Verilator) checks
 
+    python -m timestral_kd deploy kdd/B_d16_L1_b3_ci_p70 [--verify 6]  # whole student -> GateMate engine,
+                                                                       # Kolibri Studio LiteX project
+    python -m timestral_kd board  kdd/B_d16_L1_b3_ci_p70 --port /dev/ttyACM0   # forecasts on the board
+
 Configs are looked up by name in ``configs/students`` / ``configs/sweeps`` (or given as a path).
 Runs are named ``<dataset>/<student>``; all outputs go under ``runs/`` (see ``timestral_kd.paths``).
 Options not listed here are passed on to the underlying module (``python -m timestral_kd.train -h`` ...).
@@ -142,6 +146,16 @@ def cmd_verify(a, extra):
         sequencer.check_all()
 
 
+def cmd_deploy(a, extra):
+    from . import deploy
+    deploy.main([a.run] + extra)
+
+
+def cmd_board(a, extra):
+    from . import board
+    board.main([a.run] + extra)
+
+
 def cmd_all(a, extra):
     if not paths.bundle(a.dataset).exists():
         cmd_data(argparse.Namespace(dataset=a.dataset), [])
@@ -183,7 +197,8 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--digit-bits", type=int, default=None, help="digit-serial export (default fully parallel)")
         if name == "pnr":
             p.add_argument("--jobs", type=int, default=4)
-            p.add_argument("--kolibri-src", default=None, help="logicnet-fpga/src (default $KOLIBRI_FPGA_SRC or sibling)")
+            p.add_argument("--kolibri-src", default=None,
+                           help="logicnet-fpga/src (default $KOLIBRI_FPGA_SRC or sibling)")
         p.set_defaults(fn=fn)
 
     p = sub.add_parser("all", help="data (if missing) -> train -> export -> pnr -> report")
@@ -197,6 +212,14 @@ def parser() -> argparse.ArgumentParser:
     p = sub.add_parser("plots", help="figures of the sweeps in runs/students/<dataset> -> runs/figures")
     p.add_argument("datasets", nargs="+")
     p.set_defaults(fn=cmd_plots)
+
+    p = sub.add_parser("deploy", help="whole student as one GateMate engine -> Kolibri Studio LiteX project")
+    p.add_argument("run", help="<dataset>/<student>")
+    p.set_defaults(fn=cmd_deploy)
+
+    p = sub.add_parser("board", help="forecasts on the board (or --offline through the engine simulator)")
+    p.add_argument("run", help="<dataset>/<student>")
+    p.set_defaults(fn=cmd_board)
 
     p = sub.add_parser("verify", help="bit-exact fixed-point references vs qkeras (--rtl: + Verilator checks)")
     p.add_argument("--rtl", action="store_true")

@@ -1,0 +1,187 @@
+"""Deploy a trained student to the GateMate as a Kolibri Studio LiteX project.
+
+    python -m timestral_kd deploy kdd/B_d16_L1_b3_ci_p70                 # -> runs/deploy/kdd/B_d16_L1_b3_ci_p70
+    python -m timestral_kd deploy kdd/B_d16_L1_b3_ci_p70 --verify 6      # + Verilator check of the self-test vectors
+    python -m timestral_kd deploy kdd/B_d16_L1_b3_ci_p70 --studio-url http://localhost:8000
+
+The whole student runs in hardware: ``hw/fullmodel`` lowers it to an integer program, compiles
+it for the sequential tensor engine and writes the engine's Verilog.  The project directory is
+what the Kolibri Studio LiteX IDE expects:
+
+    nn.json               the engine ("interface": "memory"; one run per variate)
+    rtl/engine.v          generated engine; rtl/{irom,wrom,crom,lrom}.mem its memories
+    firmware/selftest.h   reference vectors (input codes and expected engine outputs)
+    codec.npz             what the host needs to encode windows and decode forecasts (board.py)
+    README.md             build / program / run steps
+
+With the Kolibri Studio template available (``kolibri_litex`` installed, ``--template`` or a sibling
+``kolibri-studio`` checkout) the full IDE project (``soc.py``, firmware) is written too;
+``--studio-url`` creates a project in a running Studio and uploads the files instead.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+
+from . import paths
+
+README = """# Timestral student `{name}` on the GateMate (Kolibri Studio LiteX project)
+
+The whole student (embedding, attention, MLP, quantile head) runs in `rtl/engine.v`, a sequential
+tensor engine ({n_instr} instructions, {cycles} cycles per variate, about {ms:.0f} ms per forecast of
+{V} variates at 16 MHz).  The VexRiscv firmware streams one variate at a time through it.
+
+* Kolibri Studio: open this project in the LiteX IDE, **Build gateware**, **Build firmware**,
+  **Program FPGA**, **Upload firmware**, then type `selftest` in the terminal (expects `selftest ok`).
+* Before the board: `python -m kolibri_litex.sim .` simulates the whole SoC (Verilator) and runs the
+  same `selftest` (expects `selftest ok` after a ~20 min Verilator build, ~30 s run).
+* Command line (LiteX 2026.08, OSS CAD Suite, RISC-V gcc): `python soc.py --build`,
+  `make -C firmware`, `openFPGALoader -c dirtyJtag build/gateware/*.bit`,
+  `litex_term --kernel firmware/firmware.bin /dev/ttyACM0`.
+* Forecasts from the host: `python -m timestral_kd board {run} --port /dev/ttyACM0`
+  (encodes windows with `codec.npz`, sends `run <hex>`, decodes the quantiles).
+
+Firmware commands: `info`, `run <hex>` ({V} x {in_len} words, 3 hex digits each), `bench <n>`,
+`selftest`, `echo 0|1`, `reboot`.
+"""
+
+
+def _template(given=None) -> Path | None:
+    """Kolibri Studio LiteX project template: kolibri_litex package, ``given``, or a sibling checkout."""
+    try:
+        from importlib import resources
+
+        t = Path(str(resources.files("kolibri_litex") / "templates" / "project"))
+        if t.is_dir():
+            return t
+    except ImportError:
+        pass
+    for t in ([Path(given)] if given else []) + [
+            paths.REPO.parent / "kolibri-studio" / "packages" / "kolibri-litex" / "src" / "kolibri_litex"
+            / "templates" / "project"]:
+        if (t / "soc.py").exists():
+            return t
+    return None
+
+
+def build(run: str, out: Path, n_selftest: int = 2, verify: int = 0, hw=None, template=None) -> dict:
+    """Write the project; returns a summary dict."""
+    from . import student as stu
+    from . import train
+    from .hw.fullmodel import engine_rtl, isa
+    from .hw.fullmodel import program as pg
+
+    run_dir = paths.student_dir(run)
+    prog, model = pg.extract(str(run_dir), hw)
+    img = isa.compile_program(prog)
+    cfg = stu.StudentConfig.from_dict(prog.cfg)
+    out = Path(out)
+    (out / "rtl").mkdir(parents=True, exist_ok=True)
+    (out / "firmware").mkdir(parents=True, exist_ok=True)
+    p = engine_rtl.write(img, str(out / "rtl"))
+    (out / "rtl" / "engine.json").unlink(missing_ok=True)
+
+    # self-test vectors from the test split (falls back to random scaled windows)
+    meta = json.loads((run_dir / "config.json").read_text())
+    data = Path(meta.get("data", ""))
+    if not data.exists():
+        data = paths.bundle(Path(run).parts[0]) if len(Path(run).parts) > 1 else data
+    if data.exists():
+        b, _ = train.load_bundle(data)
+        xs = train.prepare_split(b, "test", cfg)["xs"][:n_selftest]
+    else:
+        xs = np.arcsinh(np.random.default_rng(0).normal(size=(n_selftest, 1, cfg.ctx_steps)))
+    codes = pg.quantize_input(xs, prog.hw)                         # (N, V, ctx)
+    N, V, T = codes.shape
+    ref = isa.simulate(img, codes.reshape(N * V, T)).reshape(N, V * img.out_len)
+    with open(out / "firmware" / "selftest.h", "w") as f:
+        f.write(f"/* Generated by timestral_kd.deploy: {N} test windows of {run}. */\n#include <stdint.h>\n")
+        f.write(f"#define SELFTEST_N {N}\n")
+        f.write(f"static const int16_t selftest_in[{N}][{V * T}] = {{\n")
+        for row in codes.reshape(N, -1):
+            f.write("  {" + ",".join(str(int(v)) for v in row) + "},\n")
+        f.write("};\n")
+        f.write(f"static const int16_t selftest_out[{N}][{V * img.out_len}] = {{\n")
+        for row in ref:
+            f.write("  {" + ",".join(str(int(v)) for v in row) + "},\n")
+        f.write("};\n")
+
+    from .hw.fullmodel.program import HWFormats
+    in_bits = HWFormats(**prog.hw).in_bits
+    out_bits = int(prog.F("a")["bits"])
+    nn = dict(top="timestral_engine", sources=["rtl/engine.v"],
+              memfiles=[f"rtl/{m}.mem" for m in ("irom", "wrom", "crom", "lrom")],
+              in_port="host_wdata", in_bits=V * img.in_len * in_bits, out_port="host_rdata",
+              out_bits=V * img.out_len * out_bits, clk_port="clk", cycles=0, family="rtl", classes=[],
+              interface="memory",
+              # the engine needs ~25 of the 64 block-RAM halves: cache-less CPU so the SoC fits next to it
+              soc=dict(cpu_variant="minimal"),
+              mem=dict(rst_port="rst", start_port="start", busy_port="busy", done_port="done", we_port="host_we",
+                       addr_port="host_addr", wdata_port="host_wdata", rdata_port="host_rdata",
+                       addr_bits=p["RAM_AW"], in_base=img.xin, in_len=img.in_len, in_word_bits=in_bits,
+                       out_base=img.out, out_len=img.out_len, out_word_bits=out_bits, runs=V))
+    (out / "nn.json").write_text(json.dumps(nn, indent=1) + "\n")
+    prog.save(str(out / "codec.npz"))
+
+    summary = dict(run=run, out=str(out), instructions=len(img.instrs), ram_words=img.ram_words,
+                   variates=V, in_len=img.in_len, out_len=img.out_len, selftest=N)
+    if verify:
+        from .hw.fullmodel import engine_verify
+        r = engine_verify.verify(img, codes.reshape(N * V, T)[:verify], str(out / "verify"), keep=False)
+        summary.update(verify_runs=r["n_runs"], verify_mismatches=r["mismatches"], cycles=r["cycles_max"])
+    cyc = summary.get("cycles", 404_000)
+    (out / "README.md").write_text(README.format(name=cfg.name, n_instr=len(img.instrs), cycles=cyc,
+                                                 ms=V * cyc / 16e3, V=V, run=run, in_len=img.in_len))
+    tmpl = _template(template)
+    summary["litex_project"] = tmpl is not None
+    if tmpl is not None:                   # full IDE project: soc.py + firmware template (ours win)
+        for f in tmpl.rglob("*"):
+            dst = out / f.relative_to(tmpl)
+            if f.is_file() and "__pycache__" not in f.parts and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(f.read_bytes())
+        summary["template"] = str(tmpl)
+    return summary
+
+
+def upload(out: Path, url: str, name: str) -> dict:
+    """Create a Kolibri Studio IDE project and upload the deploy files (text) through its API."""
+    import requests
+
+    out = Path(out)
+    meta = requests.post(f"{url}/api/projects", json={"name": name}, timeout=60)
+    meta.raise_for_status()
+    pid = meta.json()["id"]
+    files = [out / "nn.json", out / "firmware" / "selftest.h", out / "README.md"] + sorted((out / "rtl").glob("*"))
+    for f in files:
+        rel = f.relative_to(out).as_posix()
+        r = requests.put(f"{url}/api/projects/{pid}/files/{rel}", json={"text": f.read_text()}, timeout=60)
+        r.raise_for_status()
+    return dict(project=pid, files=len(files), url=f"{url}/ide.html?project={pid}")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("run", help="<dataset>/<student>")
+    ap.add_argument("--out", type=Path, default=None, help="default runs/deploy/<run>")
+    ap.add_argument("--selftest", type=int, default=2, help="test windows baked into the firmware")
+    ap.add_argument("--verify", type=int, default=0, help="Verilator-check this many engine runs")
+    ap.add_argument("--studio-url", default=None, help="also create the project in a running Kolibri Studio")
+    ap.add_argument("--template", default=None, help="Kolibri Studio LiteX project template directory")
+    a = ap.parse_args(argv)
+    os.environ.setdefault("KERAS_BACKEND", "tensorflow")
+    out = a.out or paths.RUNS / "deploy" / a.run
+    s = build(a.run, out, a.selftest, a.verify, template=a.template)
+    if a.studio_url:
+        s["studio"] = upload(out, a.studio_url.rstrip("/"), f"timestral {a.run}")
+    print(json.dumps(s, indent=1))
+    return s
+
+
+if __name__ == "__main__":
+    main()

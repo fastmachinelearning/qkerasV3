@@ -7,6 +7,39 @@ splitting*. Streaming in a context window, streaming out raw-space quantiles.
 
 This replaces stage 1 (`timestral_kd/hw/dense.py`), which only emitted per-layer dense harnesses for timing.
 
+## Status: implemented as a sequential tensor engine (`python -m timestral_kd deploy`)
+
+The shared-MAC route below was taken to its end as one microcoded engine; the phases P3b-P4 of the
+roadmap are done in this form, and `blocks.py` / `sequencer.py` / `model_top.py` (P1-P3a) are kept
+only as references.  Notably the P3a `model_top` golden model (SiLU, `floor(x+0.5)`) is superseded:
+qkeras rounds ties half-to-even, Keras `hard_sigmoid` is `clip(x/6 + 0.5)`.
+
+| stage | file | check |
+|---|---|---|
+| exact integer program (formats, Keras-generated LUTs for rsqrt / exp / 1/x) | `hw/fullmodel/program.py` | per stage vs Keras: exact except tie flips (embed_post 209, sdpa 214 of 831,360 codes, <= 2 LSB); 866 KDD test windows: MASE 0.8973 / WQL 0.3723 / cov 0.777 vs Keras QAT 0.8975 / 0.3724 / 0.777 |
+| engine ISA + compiler + simulator | `hw/fullmodel/isa.py` | 69 instructions per variate, 102,112 MAC steps, liveness-packed RAM 4,864 x 32 bit; simulator == program: 0 / 115,200 codes |
+| Verilog | `hw/fullmodel/engine_rtl.py` | Verilator vs simulator: 0 mismatches over 600 runs (200 windows x 3 variates); 403,978 cycles per variate |
+| Studio project + firmware | `deploy.py`, `board.py` | full-SoC Verilator (`python -m kolibri_litex.sim`): firmware `selftest ok`, 1,211,934 cycles per 3-variate forecast (76 ms at 16 MHz); host codec over 866 windows reproduces the integer-program metrics |
+
+Engine: one variate per start (channel-independent student), host writes 256 12-bit input codes,
+reads 192 7-bit `head_post` codes; monotone quantiles and de-normalisation run on the host
+(`board.py`).  Datapath 32 x 25 bit MAC, 48-bit accumulator, round-half-even / half-up shifter,
+sequential divider, ReLU / clip / LUT unit.
+
+GateMate CCGM1A1 (yosys 0.67, nextpnr-himbaechel via yowasp):
+
+| design | CPE_LT | CPE_FF | RAM halves | Fmax (post-route) |
+|---|---|---|---|---|
+| engine alone (Kolibri harness) | 6,785 / 40,960 | 1,126 | 25 / 64 | 21.0 MHz |
+| LiteX SoC, VexRiscv `standard` | 15,866 | 3,144 | 64 / 64 | placement fails (block RAM full) |
+| LiteX SoC, VexRiscv `minimal` (`nn.json` `"soc"`) | 12,498 (30 %) | 2,512 | 57 / 64 | seed 1: 15.72 MHz (fails 16), seed 2: 20.66 MHz |
+
+Block RAM, not logic, is the limit; the cache-less CPU is what makes the SoC fit.  The yowasp
+(WebAssembly) nextpnr routes the SoC but then crashes with a wasm out-of-bounds trap before writing
+its output, so the bitstream has to come from a native nextpnr (OSS CAD Suite / the Studio build).
+Ways to more headroom: IROM (1,680 x 32 bit, ~4 halves) as LUT ROM, a 24 KiB main RAM, a smaller
+engine RAM word.
+
 ## Target graph (student `B_d16_L1_b3_ci_p70`, dataset kdd)
 
 | symbol | value | note |

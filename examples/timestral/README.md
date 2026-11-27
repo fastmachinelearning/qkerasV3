@@ -51,6 +51,8 @@ python -m timestral_kd report kdd/B_d12_L1_b3_p70_ci             # 5. per-layer 
 | `plots kdd` | accuracy vs on-chip memory and ablation figures of the sweep |
 | `export RUN --digit-bits 2` / `pnr RUN --digit-bits 2` | digit-serial (time-multiplexed) dense blocks instead of fully parallel |
 | `verify [--rtl]` | full-model fixed-point references vs qkeras (+ Verilator checks of the RTL blocks) |
+| `deploy RUN [--verify 6] [--studio-url URL]` | **whole student** as one sequential engine + Kolibri Studio LiteX project (`runs/deploy/RUN`) |
+| `board RUN --port /dev/ttyACM0` / `board RUN --offline` | forecasts on the GateMate (or through the engine simulator) and their MASE / WQL |
 
 Unknown options are passed to the underlying module, e.g. `train ... --sparsity 0.85 --seed 1`
 (`python -m timestral_kd.train -h`).
@@ -61,6 +63,7 @@ Unknown options are passed to the underlying module, e.g. `train ... --sparsity 
 runs/data/<dataset>.npz, <dataset>_info.json   bundle + teacher / seasonal-naive scores
 runs/students/<dataset>/<name>/                config.json, float/qat.weights.h5, metrics.json, history.json
 runs/rtl/<dataset>/<name>/                     export.json, <layer>/src/*.v, <layer>/pr_s<seed>/, pnr_layers.csv, deploy.json
+runs/deploy/<dataset>/<name>/                  nn.json, rtl/engine.v + *.mem, firmware/ (selftest.h), soc.py, codec.npz
 ```
 
 `metrics.json` has test MASE / WQL / P10-P90 coverage of the float, post-training-quantised and QAT
@@ -119,7 +122,9 @@ timestral_kd/
   model.py           Keras port of Timestral         data.py           datasets, windows, metrics
   teacher.py         cached teacher labels           student.py        StudentConfig, build_student, op counts
   cost.py            GateMate estimate               prepare/train/sweep/plots.py   the pipeline steps
-  hw/dense.py        per-layer Verilog + P&R         hw/fullmodel/     P0-P3a of the single-bitstream design
+  hw/dense.py        per-layer Verilog + P&R         deploy.py / board.py   Kolibri Studio project / host client
+  hw/fullmodel/      program.py (exact integer program), isa.py (engine compiler + simulator),
+                     engine_rtl.py (Verilog), engine_verify.py (Verilator); blocks/sequencer/model_top = older P1-P3a
 ```
 
 Everything model-agnostic (factories, presets, losses, trainer, GateMate primitives, fixed-point
@@ -127,10 +132,12 @@ references) is in `qkeras/distill`; this folder only adds what is specific to Ti
 
 ## Status
 
-Only the dense layers go through P&R, each in its own harness; attention scores, softmax, RMSNorm and
-the quantile head do not yet. With fully parallel dense layers the first class-B student needed about
-2.7x the chip (`docs/RESULTS.md`); pruning, digit-serial export and the shared-MAC design of
-`docs/FULLMODEL.md` are the ways down.
+The whole student runs on the GateMate as one sequential tensor engine (`docs/FULLMODEL.md`):
+`deploy` lowers the trained student to an exact integer program, compiles it to 69 engine
+instructions and writes the Verilog plus a Kolibri Studio LiteX project (VexRiscv firmware streams one
+variate per engine run). Integer program == instruction simulator == engine RTL (Verilator, bit-exact);
+on the 866 KDD test windows the integer program scores MASE 0.8973 / WQL 0.3723 vs 0.8975 / 0.3724 for
+the Keras QAT model. The per-layer flow above (`export` / `pnr`) stays for fully parallel dense layers.
 
 ## Notes
 
