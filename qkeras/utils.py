@@ -199,8 +199,8 @@ def add_bn_fusing_weights(prev_layer, bn_layer, saved_weights):
     else:
         prev_bias = 0
 
-    prev_bias = keras.ops.convert_to_tensor(prev_bias)
-    beta = keras.ops.convert_to_tensor(beta)
+    prev_bias = keras.ops.convert_to_tensor(prev_bias, dtype="float32")
+    beta = keras.ops.convert_to_tensor(beta, dtype="float32")
     b_prime = inv * prev_bias + beta - inv * mean
 
     saved_weights[prev_layer.name]["enable_bn_fusing"] = True
