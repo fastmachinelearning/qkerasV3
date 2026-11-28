@@ -52,7 +52,7 @@ python -m timestral_kd report kdd/B_d12_L1_b3_p70_ci             # 5. per-layer 
 | `export RUN --digit-bits 2` / `pnr RUN --digit-bits 2` | digit-serial (time-multiplexed) dense blocks instead of fully parallel |
 | `verify [--rtl]` | full-model fixed-point references vs qkeras (+ Verilator checks of the RTL blocks) |
 | `deploy RUN [--verify 6] [--studio-url URL]` | **whole student** as one sequential engine + Kolibri Studio LiteX project (`runs/deploy/RUN`) |
-| `board RUN --port /dev/ttyACM0` / `board RUN --offline` | forecasts on the GateMate (or through the engine simulator) and their MASE / WQL |
+| `board RUN --port /dev/ttyACM0 --windows 30 --stride 24 --plot f.png` | test windows through the GateMate (`--offline`: engine simulator): MASE / WQL, board-vs-simulator code mismatches, forecast plot |
 
 Unknown options are passed to the underlying module, e.g. `train ... --sparsity 0.85 --seed 1`
 (`python -m timestral_kd.train -h`).

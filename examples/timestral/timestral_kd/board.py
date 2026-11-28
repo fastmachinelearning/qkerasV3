@@ -47,15 +47,19 @@ class Codec:
         hx = "".join(f"{int(v) & mask:0{digits}x}" for v in codes.reshape(-1))
         return hx, loc[0], sc[0]
 
+    def codes(self, out_hex: str) -> np.ndarray:
+        """``out`` hex of the board -> signed engine output codes ``(V, h*P, Q)``."""
+        digits = (self.out_bits + 3) // 4
+        vals = [int(out_hex[i:i + digits], 16) & ((1 << self.out_bits) - 1) for i in range(0, len(out_hex), digits)]
+        vals = np.array([v - (1 << self.out_bits) if v >> (self.out_bits - 1) else v for v in vals], np.int64)
+        return vals.reshape(-1, self.h * self.P, self.Q)
+
     def decode(self, out_hex: str, loc, scale) -> np.ndarray:
         """``out`` hex of the board -> raw-space quantiles ``(V, h*P, Q)``."""
         from . import teacher as tch
         from .hw.fullmodel import program as pg
 
-        digits = (self.out_bits + 3) // 4
-        vals = [int(out_hex[i:i + digits], 16) & ((1 << self.out_bits) - 1) for i in range(0, len(out_hex), digits)]
-        vals = np.array([v - (1 << self.out_bits) if v >> (self.out_bits - 1) else v for v in vals], np.int64)
-        raw = vals.reshape(-1, self.h * self.P, self.Q)
+        raw = self.codes(out_hex)
         z = pg.quantiles_from_raw(raw, self.prog)
         return tch.from_student_space(z[None], np.asarray(loc)[None], np.asarray(scale)[None])[0]
 
@@ -98,12 +102,97 @@ class Board:
         return parts[1], int(parts[3])
 
 
+def run_windows(codec: Codec, contexts: np.ndarray, board: Board | None = None, check: bool = True) -> dict:
+    """Run raw contexts ``(N, V, ctx)`` through the board (``board=None``: the simulator).
+
+    Returns ``pred`` (N, V, h*P, Q) raw-space quantiles, ``cycles`` (N,) engine cycles reported by the
+    firmware, and with ``check`` ``mismatches`` (N,): output codes in which the board differs from the
+    instruction-level simulator (0 everywhere = bit-exact hardware).
+    """
+    preds, cycles, bad = [], [], []
+    for x in contexts:
+        hx, loc, sc = codec.encode(x)
+        ref = codec.offline(hx) if (board is None or check) else None
+        out_hex, cyc = (ref, 0) if board is None else board.run(hx)
+        preds.append(codec.decode(out_hex, loc, sc))
+        cycles.append(cyc)
+        if ref is not None:
+            bad.append(int(np.sum(codec.codes(out_hex) != codec.codes(ref))))
+    res = dict(pred=np.stack(preds), cycles=np.array(cycles))
+    if bad:
+        res["mismatches"] = np.array(bad)
+    return res
+
+
+def plot_forecasts(x, y, pred, knots, names=None, tail: int = 128, labels=None, title: str | None = None,
+                   xlabel: str = "steps from forecast start", path=None):
+    """Grid of forecasts: rows = windows, columns = variates.
+
+    ``x`` (N, V, ctx) raw context, ``y`` (N, V, H) true future, ``pred`` (N, V, H, Q) quantiles at
+    ``knots``.  Draws the last ``tail`` context steps, the truth, the median and the band between
+    the outermost knots (e.g. P10-P90).  Saves to ``path`` if given; returns the figure.
+    """
+    import matplotlib
+
+    if path is not None and matplotlib.get_backend().lower() not in ("agg", "pdf", "svg"):
+        matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    knots = np.asarray(knots, float)
+    lo, hi, md = 0, len(knots) - 1, int(np.argmin(np.abs(knots - 0.5)))
+    N, V, H = pred.shape[:3]
+    tail = min(tail, x.shape[-1])
+    names = list(names) if names is not None else [f"variate {v}" for v in range(V)]
+    labels = list(labels) if labels is not None else [f"window {i}" for i in range(N)]
+    ctx_t, fut_t = np.arange(-tail, 0), np.arange(H)
+    c_obs, c_fc = "0.15", "#1f6fb4"
+    plt.rcParams.update({"font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "legend.fontsize": 7,
+                         "xtick.labelsize": 7, "ytick.labelsize": 7, "axes.spines.top": False,
+                         "axes.spines.right": False, "xtick.direction": "out", "ytick.direction": "out"})
+    fig, axes = plt.subplots(N, V, figsize=(2.4 * V + 0.6, 1.45 * N + 0.7), squeeze=False, sharex=True)
+    for i in range(N):
+        for v in range(V):
+            ax = axes[i, v]
+            ax.plot(ctx_t, x[i, v, -tail:], color=c_obs, lw=0.8)
+            ax.plot(fut_t, y[i, v], color=c_obs, lw=0.8, ls="--")
+            ax.fill_between(fut_t, pred[i, v, :, lo], pred[i, v, :, hi], color=c_fc, alpha=0.25, lw=0)
+            ax.plot(fut_t, pred[i, v, :, md], color=c_fc, lw=1.1)
+            ax.axvline(0, color="0.6", lw=0.6, ls=":")
+            ax.margins(x=0.01, y=0.06)
+            if i == 0:
+                ax.set_title(names[v], loc="left")
+            if v == 0:
+                ax.set_ylabel(labels[i])
+            if i == N - 1:
+                ax.set_xlabel(xlabel)
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
+    handles = [Line2D([], [], color=c_obs, lw=0.8, label="observed context"),
+               Line2D([], [], color=c_obs, lw=0.8, ls="--", label="observed future"),
+               Line2D([], [], color=c_fc, lw=1.1, label=f"forecast median (P{100 * knots[md]:.0f})"),
+               Patch(color=c_fc, alpha=0.25, lw=0, label=f"P{100 * knots[lo]:.0f}-P{100 * knots[hi]:.0f} band")]
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False, bbox_to_anchor=(0.5, 0.0))
+    if title:
+        fig.suptitle(title, x=0.01, ha="left", fontsize=8)
+    fig.tight_layout(rect=(0, 0.06 if N > 2 else 0.1, 1, 0.97 if title else 1))
+    if path is not None:
+        fig.savefig(path, dpi=200)
+    return fig
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("run", help="<dataset>/<student> or a student directory (its deploy directory holds codec.npz)")
     ap.add_argument("--port", default=None)
     ap.add_argument("--offline", action="store_true", help="instruction-level simulator instead of a board")
-    ap.add_argument("--windows", type=int, default=10)
+    ap.add_argument("--windows", type=int, default=10, help="number of test windows")
+    ap.add_argument("--start", type=int, default=0, help="first test window")
+    ap.add_argument("--stride", type=int, default=1, help="step between windows (e.g. 24 = one per day)")
+    ap.add_argument("--no-check", action="store_true", help="skip the board-vs-simulator comparison")
+    ap.add_argument("--plot", type=Path, default=None, help="save a forecast grid (PNG/PDF) of these windows")
+    ap.add_argument("--plot-max", type=int, default=6, help="windows drawn in the plot")
+    ap.add_argument("--tail", type=int, default=128, help="context steps drawn before the forecast")
     ap.add_argument("--deploy", type=Path, default=None, help="default runs/deploy/<run>")
     a = ap.parse_args(argv)
     os.environ.setdefault("KERAS_BACKEND", "tensorflow")
@@ -119,22 +208,29 @@ def main(argv=None):
     data = Path(json.loads((run_dir / "config.json").read_text())["data"])
     b, info = train.load_bundle(data)
     te = train.prepare_split(b, "test", cfg)
-    n = min(a.windows, len(te["x"]))
+    idx = np.arange(a.start, len(te["x"]), max(1, a.stride))[:a.windows]
+    if len(idx) == 0:
+        raise SystemExit(f"no test windows from --start {a.start} (test split has {len(te['x'])})")
     board = None if a.offline else Board(a.port)
-    preds, cycles, t0 = [], [], time.time()
-    for i in range(n):
-        hx, loc, sc = codec.encode(te["x"][i])
-        if board is None:
-            out_hex, cyc = codec.offline(hx), 0
-        else:
-            out_hex, cyc = board.run(hx)
-        preds.append(codec.decode(out_hex, loc, sc))
-        cycles.append(cyc)
-    pred = np.stack(preds)
-    m = dd.summarize(pred, te["y"][:n], te["x"][:n], cfg.knots, info["season"], info.get("variates"))
-    res = dict(windows=n, source="simulator" if board is None else a.port, mase=m["mase"], wql=m["wql"],
-               coverage_80=m["coverage_80"], engine_cycles=int(np.mean(cycles)) if board else None,
-               seconds=round(time.time() - t0, 1))
+    t0 = time.time()
+    r = run_windows(codec, te["x"][idx], board, check=not a.no_check)
+    pred, y, x = r["pred"], te["y"][idx], te["x"][idx]
+    m = dd.summarize(pred, y, x, cfg.knots, info["season"], info.get("variates"))
+    res = dict(windows=len(idx), first=int(idx[0]), stride=a.stride, source="simulator" if board is None else a.port,
+               mase=m["mase"], wql=m["wql"], coverage_80=m["coverage_80"],
+               engine_cycles=int(np.mean(r["cycles"])) if board else None, seconds=round(time.time() - t0, 1))
+    if board is not None and "mismatches" in r:
+        res["mismatched_codes"] = int(r["mismatches"].sum())
+        res["bit_exact_windows"] = f"{int((r['mismatches'] == 0).sum())}/{len(idx)}"
+    if a.plot is not None:
+        k = min(a.plot_max, len(idx))
+        src = "simulator" if board is None else "GateMate"
+        unit = "hours" if info.get("dataset") == "kdd" else "steps"
+        plot_forecasts(x[:k], y[:k], pred[:k], cfg.knots, names=info.get("variates"), tail=a.tail,
+                       labels=[f"window {i}" for i in idx[:k]], path=a.plot, xlabel=f"{unit} from forecast start",
+                       title=f"{run_name(a.run)} on the {src}: MASE {m['mase']:.3f}, "
+                             f"80% coverage {m['coverage_80']:.2f} over {len(idx)} test windows")
+        res["plot"] = str(a.plot)
     print(json.dumps(res, indent=1))
     return res
 

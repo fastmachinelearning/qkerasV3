@@ -81,3 +81,30 @@ def test_run_name_and_studio_url(tmp_path, monkeypatch):
     assert deploy.run_name(str(outside)) == "kdd/s2"
     assert deploy.studio_url("studio.example.org/") == "https://studio.example.org"
     assert deploy.studio_url("http://localhost:8000") == "http://localhost:8000"
+
+
+def test_run_windows_mismatch_count_and_plot(tiny, tmp_path):
+    from timestral_kd import board, train
+    from timestral_kd import student as stu
+    codec = board.Codec(tiny / "deploy" / "toy" / "tiny" / "codec.npz")
+    cfg = stu.StudentConfig.from_dict(codec.prog.cfg)
+    b, _ = train.load_bundle(tiny / "data" / "toy.npz")
+    te = train.prepare_split(b, "test", cfg)
+
+    class Exact:                                     # behaves like a correct board
+        def run(self, hx):
+            return codec.offline(hx), 1234
+
+    class OneBad(Exact):                             # flips one output code
+        def run(self, hx):
+            out, cyc = super().run(hx)
+            return ("7f" if out[:2] != "7f" else "00") + out[2:], cyc
+
+    ref = board.run_windows(codec, te["x"][:3])
+    good = board.run_windows(codec, te["x"][:3], Exact())
+    bad = board.run_windows(codec, te["x"][:3], OneBad())
+    np.testing.assert_array_equal(good["pred"], ref["pred"])
+    assert good["mismatches"].tolist() == [0, 0, 0] and good["cycles"].tolist() == [1234] * 3
+    assert bad["mismatches"].tolist() == [1, 1, 1]
+    fig = board.plot_forecasts(te["x"][:2], te["y"][:2], good["pred"][:2], cfg.knots, path=tmp_path / "f.png")
+    assert (tmp_path / "f.png").stat().st_size > 0 and len(fig.axes) == 2 * good["pred"].shape[1]
