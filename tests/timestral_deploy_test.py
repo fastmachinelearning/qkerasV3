@@ -67,3 +67,17 @@ def test_board_codec_roundtrip_matches_integer_program(tiny):
         ref = tch.from_student_space(z[None], loc[None], sc[None])[0]
         np.testing.assert_allclose(q, ref, rtol=0, atol=1e-6)
         assert np.all(np.diff(q, axis=-1) >= 0)                            # monotone quantiles
+
+
+def test_run_name_and_studio_url(tmp_path, monkeypatch):
+    from timestral_kd import deploy, paths
+    monkeypatch.setattr(paths, "RUNS", tmp_path / "runs")
+    inside = tmp_path / "runs" / "students" / "kdd" / "s1"
+    outside = tmp_path / "old" / "runs" / "students" / "kdd" / "s2"
+    inside.mkdir(parents=True)
+    outside.mkdir(parents=True)
+    assert deploy.run_name("kdd/s0") == "kdd/s0"
+    assert deploy.run_name(str(inside)) == "kdd/s1"
+    assert deploy.run_name(str(outside)) == "kdd/s2"
+    assert deploy.studio_url("studio.example.org/") == "https://studio.example.org"
+    assert deploy.studio_url("http://localhost:8000") == "http://localhost:8000"

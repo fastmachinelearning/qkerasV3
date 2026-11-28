@@ -100,7 +100,7 @@ class Board:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("run", help="<dataset>/<student> (its deploy directory holds codec.npz)")
+    ap.add_argument("run", help="<dataset>/<student> or a student directory (its deploy directory holds codec.npz)")
     ap.add_argument("--port", default=None)
     ap.add_argument("--offline", action="store_true", help="instruction-level simulator instead of a board")
     ap.add_argument("--windows", type=int, default=10)
@@ -110,8 +110,9 @@ def main(argv=None):
     from . import data as dd
     from . import student as stu
     from . import train
+    from .deploy import run_name
 
-    dep = a.deploy or paths.RUNS / "deploy" / a.run
+    dep = a.deploy or paths.RUNS / "deploy" / run_name(a.run)
     codec = Codec(dep / "codec.npz")
     cfg = stu.StudentConfig.from_dict(codec.prog.cfg)
     run_dir = paths.student_dir(a.run)
